@@ -7,7 +7,7 @@
   "scripts": {
     "start": "npm-run-all --parallel start:*",
     "start:frontend": "cd frontend && npm run dev",
-    "start:backend": "./backend/mvnw -f backend/pom.xml spring-boot:run",
+    "start:backend": "cd backend && mvnw spring-boot:run",
     "build": "npm-run-all build:*",
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "./backend/mvnw clean install"
