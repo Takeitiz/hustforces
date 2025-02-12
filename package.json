@@ -1,0 +1,18 @@
+{
+  "name": "hustforces",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "start": "npm-run-all --parallel start:*",
+    "start:frontend": "cd frontend && npm run dev",
+    "start:backend": "./backend/mvnw -f backend/pom.xml spring-boot:run",
+    "build": "npm-run-all build:*",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "./backend/mvnw clean install"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
+  }
+}

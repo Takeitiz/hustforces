@@ -1,10 +1,62 @@
+### Project Specific ###
 HELP.md
+.env
+.env.*
+!.env.example
+
+### Backend (Spring Boot) ###
 target/
-!.mvn/wrapper/maven-wrapper.jar
+!backend/.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### STS ###
+### Frontend (Vite + React) ###
+# dependencies
+node_modules
+**/node_modules
+.pnp
+.pnp.js
+
+# testing
+coverage
+**/coverage
+
+# Vite specific
+dist
+dist-ssr
+*.local
+
+# Frontend logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+### IDEs and Editors ###
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Eclipse/STS
 .apt_generated
 .classpath
 .factorypath
@@ -13,13 +65,7 @@ target/
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
+# NetBeans
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -29,5 +75,28 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### VS Code ###
-.vscode/
+### OS Generated Files ###
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+### Package Managers ###
+# Uncomment if you want to commit lock files
+# !yarn.lock
+# !package-lock.json
+# !pnpm-lock.yaml
+
+### Environment Files ###
+*.local
+.env
+.env.*
+!.env.example
+
+### Logs and Databases ###
+*.log
+*.sqlite
+*.db
