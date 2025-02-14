@@ -2,10 +2,7 @@
 #include <vector>
 #include <string>
 
-int sum(int num1, int num2) {
-    // Implementation goes here
-    return result;
-}
+##USER_CODE_HERE##
 
 int main() {
     int num1;

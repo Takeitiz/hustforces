@@ -3,9 +3,9 @@ import java.util.Scanner;
 public class Solution {
 
     public static int maxElement(int[] arr) {
-    // Implementation goes here
-    return result;
-}
+        // Implementation goes here
+        return result;
+    }
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);

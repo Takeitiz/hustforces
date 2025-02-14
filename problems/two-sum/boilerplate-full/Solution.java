@@ -2,10 +2,7 @@ import java.util.Scanner;
 
 public class Solution {
 
-    public static int sum(int num1, int num2) {
-    // Implementation goes here
-    return result;
-}
+    ##USER_CODE_HERE##
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);

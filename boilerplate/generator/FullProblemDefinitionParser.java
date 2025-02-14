@@ -10,7 +10,7 @@ public class FullProblemDefinitionParser extends ProblemDefinitionParser {
         code.append("import java.util.Scanner;\n\n");
         code.append("public class Solution {\n\n");
 
-        code.append("    ").append(super.generateJava()).append("\n\n");
+        code.append("    ").append("##USER_CODE_HERE##").append("\n\n");
 
         code.append("    public static void main(String[] args) {\n");
         code.append("        Scanner scanner = new Scanner(System.in);\n\n");
@@ -59,7 +59,7 @@ public class FullProblemDefinitionParser extends ProblemDefinitionParser {
         code.append("#include <vector>\n");
         code.append("#include <string>\n\n");
 
-        code.append(super.generateCpp()).append("\n\n");
+        code.append("##USER_CODE_HERE##").append("\n\n");
 
         code.append("int main() {\n");
 
@@ -102,7 +102,7 @@ public class FullProblemDefinitionParser extends ProblemDefinitionParser {
         StringBuilder code = new StringBuilder();
 
         // Add function declaration
-        code.append(super.generateJs()).append("\n\n");
+        code.append("##USER_CODE_HERE##").append("\n\n");
 
         // Add input handling
         code.append("const input = require('fs').readFileSync('/dev/stdin', 'utf8').trim().split('\\n').join(' ').split(' ');\n");
