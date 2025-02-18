@@ -1,42 +1,39 @@
-package com.hust.hustforces.model;
+package com.hust.hustforces.model.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.GenericGenerator;
-import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
-@Table(name = "users")
+@Table(name = "languages")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class Language {
     @Id
-    @GeneratedValue
-    @UuidGenerator(style = UuidGenerator.Style.TIME)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private String id;
 
-    @Column(unique = true, nullable = false)
-    private String email;
-
+    @Column(nullable = false)
     private String name;
 
-    private String token;
-
-    @Column(nullable = false)
-    private String password;
+    @Column(unique = true, nullable = false)
+    private int judge0Id;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "language", cascade = CascadeType.ALL)
+    private List<DefaultCode> defaultCodes;
 
     @PrePersist
     protected void onCreate() {

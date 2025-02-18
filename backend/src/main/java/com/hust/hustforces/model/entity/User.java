@@ -1,6 +1,5 @@
-package com.hust.hustforces.model;
+package com.hust.hustforces.model.entity;
 
-import com.hust.hustforces.enums.Difficulty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,36 +10,26 @@ import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "problems")
+@Table(name = "users")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Problem {
-
+public class User {
     @Id
     @GeneratedValue
     @UuidGenerator(style = UuidGenerator.Style.TIME)
     private String id;
 
-    @Column(nullable = false)
-    private String title;
-
-    @Column(columnDefinition = "TEXT")
-    private String description;
-
-    @Column(nullable = false)
-    private boolean hidden = true;
-
     @Column(unique = true, nullable = false)
-    private String slug;
+    private String email;
+
+    private String name;
+
+    private String token;
 
     @Column(nullable = false)
-    private int solved = 0;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Difficulty difficulty = Difficulty.MEDIUM;
+    private String password;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -1,4 +1,4 @@
-package com.hust.hustforces.model;
+package com.hust.hustforces.model.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -7,24 +7,20 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Entity
-@Table(name = "languages")
+@Table(name = "contest_problems")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Language {
+@IdClass(ContestProblemId.class)
+public class ContestProblem {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private String id;
+    private String contestId;
 
-    @Column(nullable = false)
-    private String name;
-
-    @Column(unique = true, nullable = false)
-    private int judge0Id;
+    @Id
+    private String problemId;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -32,8 +28,19 @@ public class Language {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "language", cascade = CascadeType.ALL)
-    private List<DefaultCode> defaultCodes;
+    @Column(nullable = false)
+    private int index;
+
+    @Column(nullable = false)
+    private int solved = 0;
+
+    @ManyToOne
+    @JoinColumn(name = "contest_id", insertable = false, updatable = false)
+    private Contest contest;
+
+    @ManyToOne
+    @JoinColumn(name = "problem_id", insertable = false, updatable = false)
+    private Problem problem;
 
     @PrePersist
     protected void onCreate() {

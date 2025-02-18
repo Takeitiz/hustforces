@@ -1,4 +1,4 @@
-package com.hust.hustforces.model;
+package com.hust.hustforces.model.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

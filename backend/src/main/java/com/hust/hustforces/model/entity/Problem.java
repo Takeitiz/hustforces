@@ -1,5 +1,6 @@
-package com.hust.hustforces.model;
+package com.hust.hustforces.model.entity;
 
+import com.hust.hustforces.enums.Difficulty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,41 +11,42 @@ import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "default_codes", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"problem_id", "language_id"})
-})
+@Table(name = "problems")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class DefaultCode {
+public class Problem {
+
     @Id
     @GeneratedValue
     @UuidGenerator(style = UuidGenerator.Style.TIME)
     private String id;
 
     @Column(nullable = false)
-    private int languageId;
+    private String title;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
 
     @Column(nullable = false)
-    private String problemId;
+    private boolean hidden = true;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
-    private String code;
+    @Column(unique = true, nullable = false)
+    private String slug;
+
+    @Column(nullable = false)
+    private int solved = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Difficulty difficulty = Difficulty.MEDIUM;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "problem_id", referencedColumnName = "id", insertable = false, updatable = false)
-    private Problem problem;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "language_id", referencedColumnName = "id", insertable = false, updatable = false)
-    private Language language;
 
     @PrePersist
     protected void onCreate() {
