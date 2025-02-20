@@ -27,10 +27,10 @@ public class ContestPoints {
     @UuidGenerator(style = UuidGenerator.Style.TIME)
     private String id;
 
-    @Column(nullable = false)
+    @Column(name = "contest_id", nullable = false)
     private String contestId;
 
-    @Column(nullable = false)
+    @Column(name = "user_id", nullable = false)
     private String userId;
 
     @Column(nullable = false)

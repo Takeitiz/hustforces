@@ -17,9 +17,11 @@ import java.time.LocalDateTime;
 @IdClass(ContestProblemId.class)
 public class ContestProblem {
     @Id
+    @Column(name = "contest_id")
     private String contestId;
 
     @Id
+    @Column(name = "problem_id")
     private String problemId;
 
     @Column(nullable = false, updatable = false)

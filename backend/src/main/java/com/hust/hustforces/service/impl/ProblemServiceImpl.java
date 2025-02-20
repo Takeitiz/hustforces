@@ -34,7 +34,7 @@ public class ProblemServiceImpl implements ProblemService {
 
     @Override
     public String getProblemFullBoilerplateCode(String problemId, LanguageId languageId) throws IOException {
-        Path path = Paths.get(mountPath, problemId, "boilerplate-full", "function." + languageId);
+        Path path = Paths.get(mountPath, problemId, "boilerplate-full", "solution." + languageId);
         return Files.readString(path);
     }
 

@@ -2,10 +2,7 @@
 #include <vector>
 #include <string>
 
-int maxElement(std::vector<int> arr) {
-    // Implementation goes here
-    return result;
-}
+##USER_CODE_HERE##
 
 int main() {
     int size_arr;

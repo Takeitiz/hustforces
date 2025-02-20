@@ -23,15 +23,16 @@ public class Submission {
     @UuidGenerator(style = UuidGenerator.Style.TIME)
     private String id;
 
-    @Column(nullable = false)
+    @Column(name = "problem_id", nullable = false)
     private String problemId;
 
-    @Column(nullable = false)
+    @Column(name = "user_id", nullable = false)
     private String userId;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String code;
 
+    @Column(name = "active_contest_id", nullable = false)
     private String activeContestId;
 
     @Column(nullable = false, updatable = false)

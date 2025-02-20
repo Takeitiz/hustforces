@@ -23,10 +23,10 @@ public class DefaultCode {
     @UuidGenerator(style = UuidGenerator.Style.TIME)
     private String id;
 
-    @Column(nullable = false)
+    @Column(name = "language_id", nullable = false)
     private int languageId;
 
-    @Column(nullable = false)
+    @Column(name = "problem_id", nullable = false)
     private String problemId;
 
     @Column(columnDefinition = "TEXT", nullable = false)
