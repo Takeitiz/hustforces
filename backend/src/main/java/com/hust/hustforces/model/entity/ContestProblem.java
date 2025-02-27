@@ -24,6 +24,9 @@ public class ContestProblem {
     @Column(name = "problem_id")
     private String problemId;
 
+    @Column(nullable = false)
+    private String id;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -36,12 +39,12 @@ public class ContestProblem {
     @Column(nullable = false)
     private int solved = 0;
 
-    @ManyToOne
-    @JoinColumn(name = "contest_id", insertable = false, updatable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contest_id", referencedColumnName = "id", insertable = false, updatable = false)
     private Contest contest;
 
-    @ManyToOne
-    @JoinColumn(name = "problem_id", insertable = false, updatable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "problem_id", referencedColumnName = "id", insertable = false, updatable = false)
     private Problem problem;
 
     @PrePersist

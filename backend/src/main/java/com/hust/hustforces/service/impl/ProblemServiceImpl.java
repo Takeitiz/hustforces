@@ -1,7 +1,7 @@
 package com.hust.hustforces.service.impl;
 
-import com.hust.hustforces.model.dto.LanguageId;
-import com.hust.hustforces.model.dto.ProblemDto;
+import com.hust.hustforces.enums.LanguageId;
+import com.hust.hustforces.model.dto.ProblemDetails;
 import com.hust.hustforces.service.ProblemService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -19,12 +19,12 @@ public class ProblemServiceImpl implements ProblemService {
     private String mountPath;
 
     @Override
-    public ProblemDto getProblem(String problemId, LanguageId languageId) throws IOException {
+    public ProblemDetails getProblem(String problemId, LanguageId languageId) throws IOException {
         String fullBoilerplateCode = getProblemFullBoilerplateCode(problemId, languageId);
         List<String> inputs = getProblemInputs(problemId);
         List<String> outputs = getProblemOutputs(problemId);
 
-        return new ProblemDto(
+        return new ProblemDetails(
                 problemId,
                 fullBoilerplateCode,
                 inputs,

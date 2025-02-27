@@ -17,8 +17,7 @@ import java.util.List;
 @Builder
 public class Language {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private String id;
+    private Long id;
 
     @Column(nullable = false)
     private String name;

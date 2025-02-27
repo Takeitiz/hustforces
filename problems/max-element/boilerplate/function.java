@@ -1,4 +1,4 @@
-public static int maxElement(int[] arr) {
+public static int maxElement(List<Integer> arr) {
     // Implementation goes here
     return result;
 }

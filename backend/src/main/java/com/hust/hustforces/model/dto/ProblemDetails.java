@@ -7,7 +7,7 @@ import java.util.List;
 
 @Data
 @AllArgsConstructor
-public class ProblemDto {
+public class ProblemDetails {
     private String id;
     private String fullBoilerplateCode;
     private List<String> inputs;

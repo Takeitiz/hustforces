@@ -29,6 +29,8 @@ public class Main {
                     basicParser.generateCpp().getBytes());
             Files.write(Paths.get(generatorFilePath, "boilerplate", "function.js"),
                     basicParser.generateJs().getBytes());
+            Files.write(Paths.get(generatorFilePath, "boilerplate", "function.rs"),
+                    basicParser.generateRust().getBytes());
 
             Files.write(Paths.get(generatorFilePath, "boilerplate-full", "Solution.java"),
                     fullParser.generateJava().getBytes());
@@ -36,6 +38,8 @@ public class Main {
                     fullParser.generateCpp().getBytes());
             Files.write(Paths.get(generatorFilePath, "boilerplate-full", "solution.js"),
                     fullParser.generateJs().getBytes());
+            Files.write(Paths.get(generatorFilePath, "boilerplate-full", "solution.rs"),
+                    fullParser.generateRust().getBytes());
 
             System.out.println("All boilerplate code generated successfully!");
         } catch (IOException e) {

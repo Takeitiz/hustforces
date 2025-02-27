@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "contests")
@@ -45,6 +47,15 @@ public class Contest {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "contest", cascade = CascadeType.ALL)
+    private List<Submission> submissions = new ArrayList<>();
+
+    @OneToMany(mappedBy = "contest", cascade = CascadeType.ALL)
+    private List<ContestProblem> problems = new ArrayList<>();
+
+    @OneToMany(mappedBy = "contest", cascade = CascadeType.ALL)
+    private List<ContestSubmission> contestSubmissions = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

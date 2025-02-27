@@ -17,3 +17,6 @@ spring:
 
 mount:
   path: ${user.dir}/problems
+
+judge0:
+  uri: http://localhost:2358

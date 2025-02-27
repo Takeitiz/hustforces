@@ -9,9 +9,10 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
-@Table(name = "submissions")
+@Table(name = "submission")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -48,6 +49,9 @@ public class Submission {
     private int memory;
 
     private double time;
+
+    @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL)
+    private List<Submissions> testcases;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "active_contest_id", referencedColumnName = "id", insertable = false, updatable = false)

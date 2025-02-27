@@ -1,0 +1,2 @@
+compile code: javac boilerplate/generator/*java
+generate boilerplate: java boilerplate.generator.Main problems/{problem name}
