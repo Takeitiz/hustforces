@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "languages")
+@Table(name = "Language")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

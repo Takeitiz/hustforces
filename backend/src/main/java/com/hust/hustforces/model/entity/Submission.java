@@ -1,5 +1,6 @@
 package com.hust.hustforces.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.hust.hustforces.enums.SubmissionResult;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -9,10 +10,11 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 
 @Entity
-@Table(name = "submission")
+@Table(name = "Submission")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -33,8 +35,12 @@ public class Submission {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String code;
 
-    @Column(name = "active_contest_id", nullable = false)
+    @Column(name = "active_contest_id")
     private String activeContestId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "active_contest_id", insertable = false, updatable = false)
+    private Contest activeContest;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -51,18 +57,17 @@ public class Submission {
     private double time;
 
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Submissions> testcases;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "active_contest_id", referencedColumnName = "id", insertable = false, updatable = false)
-    private Contest contest;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "id", insertable = false, updatable = false)
+    @JsonIgnore
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "problem_id", referencedColumnName = "id", insertable = false, updatable = false)
+    @JsonIgnore
     private Problem problem;
 
     @PrePersist

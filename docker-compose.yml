@@ -1,68 +1,78 @@
+x-logging:
+  &default-logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 100m
+
 services:
-  judge0:
-    image: judge0/judge0:latest-dev
-    build:
-      context: .
-      target: development
+  server:
+    image: judge0/judge0:1.13.0
     volumes:
-      - .:/api
+      - ./judge0.conf:/judge0.conf:ro
+      - ./problems:/dev/problems
     ports:
       - "2358:2358"
-      - "3001:3001" # For ./scripts/dev/serve-docs
     privileged: true
+    <<: *default-logging
+    restart: always
+
+  workers:
+    image: judge0/judge0:1.13.0
+    command: ["./scripts/workers"]
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+      - ./problems:/dev/problems
+    privileged: true
+    <<: *default-logging
+    restart: always
 
   db:
-    image: postgres:16.2
+    image: postgres:13.0
     env_file: judge0.conf
-    volumes:
-      - data:/var/lib/postgresql/data/
-    restart: always
-
-  redis:
-    image: redis:7.2.4
-    command: [
-      "bash", "-c",
-      'docker-entrypoint.sh --appendonly no --requirepass "$$REDIS_PASSWORD"'
-    ]
-    env_file: judge0.conf
-    restart: always
-
-  postgres:
-    image: postgres:15-alpine
-    container_name: hustforces-postgres
-    environment:
-      POSTGRES_DB: hustforces
-      POSTGRES_USER: hustforces
-      POSTGRES_PASSWORD: hustforces123
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - hustforces-network
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U hustforces" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - postgres-data:/var/lib/postgresql/data/
+    <<: *default-logging
+    restart: always
 
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: hustforces-pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin123
-    ports:
-      - "5050:80"
-    depends_on:
-      - postgres
-    networks:
-      - hustforces-network
+  redis:
+    image: redis:6.0
+    command: [
+      "bash", "-c",
+      'docker-entrypoint.sh --appendonly yes --requirepass "$$REDIS_PASSWORD"'
+    ]
+    env_file: judge0.conf
+    volumes:
+      - redis-data:/data
+    <<: *default-logging
+    restart: always
 
-networks:
-  hustforces-network:
-    driver: bridge
+#  postgres:
+#    image: postgres:15-alpine
+#    container_name: hustforces-postgres
+#    environment:
+#      POSTGRES_DB: hustforces
+#      POSTGRES_USER: hustforces
+#      POSTGRES_PASSWORD: hustforces123
+#    ports:
+#      - "5432:5432"
+#    volumes:
+#      - postgres_data:/var/lib/postgresql/data
+#    networks:
+#      - hustforces-network
+#    healthcheck:
+#      test: [ "CMD-SHELL", "pg_isready -U hustforces" ]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+
+#networks:
+#  hustforces-network:
+#    driver: bridge
 
 volumes:
-  data:
+  postgres-data:
+  redis-data:
   postgres_data:

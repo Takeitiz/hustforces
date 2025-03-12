@@ -21,28 +21,28 @@ public class Submissions {
     private Long id;
 
     @Column(name = "source_code", columnDefinition = "TEXT")
-    private String sourceCode;
+    private String source_code;
 
     @Column(name = "language_id")
-    private Integer languageId;
+    private Integer language_id;
 
     @Column(columnDefinition = "TEXT")
     private String stdin;
 
     @Column(name = "expected_output", columnDefinition = "TEXT")
-    private String expectedOutput;
+    private String expected_output;
 
     @Column(columnDefinition = "TEXT")
     private String stdout;
 
     @Column(name = "status_id")
-    private Integer statusId;
+    private Integer status_id;
 
     @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    private LocalDateTime created_at;
 
     @Column(name = "finished_at")
-    private LocalDateTime finishedAt;
+    private LocalDateTime finished_at;
 
     @Column(precision = 10, scale = 2)
     private BigDecimal time;
@@ -56,70 +56,73 @@ public class Submissions {
     private String token;
 
     @Column(name = "number_of_runs")
-    private Integer numberOfRuns;
+    private Integer number_of_runs;
 
     @Column(name = "cpu_time_limit", precision = 10, scale = 2)
-    private BigDecimal cpuTimeLimit;
+    private BigDecimal cpu_time_limit;
 
     @Column(name = "cpu_extra_time", precision = 10, scale = 2)
-    private BigDecimal cpuExtraTime;
+    private BigDecimal cpu_extra_time;
 
     @Column(name = "wall_time_limit", precision = 10, scale = 2)
-    private BigDecimal wallTimeLimit;
+    private BigDecimal wall_time_limit;
 
     @Column(name = "memory_limit")
-    private Integer memoryLimit;
+    private Integer memory_limit;
 
     @Column(name = "stack_limit")
-    private Integer stackLimit;
+    private Integer stack_limit;
 
     @Column(name = "max_processes_and_or_threads")
-    private Integer maxProcessesAndOrThreads;
+    private Integer max_processes_and_or_threads;
 
     @Column(name = "enable_per_process_and_thread_time_limit")
-    private Boolean enablePerProcessAndThreadTimeLimit;
+    private Boolean enable_per_process_and_thread_time_limit;
 
     @Column(name = "enable_per_process_and_thread_memory_limit")
-    private Boolean enablePerProcessAndThreadMemoryLimit;
+    private Boolean enable_per_process_and_thread_memory_limit;
 
     @Column(name = "max_file_size")
-    private Integer maxFileSize;
+    private Integer max_file_size;
 
     @Column(name = "compile_output", columnDefinition = "TEXT")
-    private String compileOutput;
+    private String compile_output;
 
     @Column(name = "exit_code")
-    private Integer exitCode;
+    private Integer exit_code;
 
     @Column(name = "exit_signal")
-    private Integer exitSignal;
+    private Integer exit_signal;
 
     @Column(columnDefinition = "TEXT")
     private String message;
 
     @Column(name = "wall_time", precision = 10, scale = 2)
-    private BigDecimal wallTime;
+    private BigDecimal wall_time;
 
     @Column(name = "compiler_options", columnDefinition = "VARCHAR")
-    private String compilerOptions;
+    private String compiler_options;
 
     @Column(name = "command_line_arguments", columnDefinition = "VARCHAR")
-    private String commandLineArguments;
+    private String command_line_arguments;
 
     @Column(name = "redirect_stderr_to_stdout")
-    private Boolean redirectStderrToStdout;
+    private Boolean redirect_stderr_to_stdout;
 
     @Column(name = "callback_url", columnDefinition = "VARCHAR")
-    private String callbackUrl;
+    private String callback_url;
 
-    @Lob
-    @Column(name = "additional_files")
-    private byte[] additionalFiles;
+    @Column(name = "additional_files", columnDefinition = "BYTEA")
+    private byte[] additional_files;
 
     @Column(name = "enable_network")
-    private Boolean enableNetwork;
+    private Boolean enable_network;
+
+    @Column(name = "submissionId", columnDefinition = "TEXT")
+    private String submissionId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "submission_id", referencedColumnName = "id")
+    @JoinColumn(name = "submissionId", insertable = false, updatable = false)
     private Submission submission;
 }
+

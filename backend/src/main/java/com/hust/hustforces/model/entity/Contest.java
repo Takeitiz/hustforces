@@ -1,5 +1,6 @@
 package com.hust.hustforces.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "contests")
+@Table(name = "Contest")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -49,12 +50,15 @@ public class Contest {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "contest", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Submission> submissions = new ArrayList<>();
 
     @OneToMany(mappedBy = "contest", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<ContestProblem> problems = new ArrayList<>();
 
     @OneToMany(mappedBy = "contest", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<ContestSubmission> contestSubmissions = new ArrayList<>();
 
     @PrePersist

@@ -1,5 +1,6 @@
 package com.hust.hustforces.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.*;
 import com.hust.hustforces.model.entity.Problem;
@@ -40,12 +41,11 @@ public class SubmissionServiceImpl implements SubmissionService {
 
     @Override
     public Submission createSubmission(SubmissionInput input, String userId) throws IOException {
-//        Problem problem = problemRepository.findById(input.getProblemId()).orElseThrow(
-//                () -> new ResourceNotFoundException("Problem", "id", input.getProblemId())
-//        );
+        Problem problem = problemRepository.findById(input.getProblemId()).orElseThrow(
+                () -> new ResourceNotFoundException("Problem", "id", input.getProblemId())
+        );
 
-//        ProblemDetails problemDetails = problemService.getProblem(problem.getSlug(), input.getLanguageId());
-        ProblemDetails problemDetails = problemService.getProblem("max-element", input.getLanguageId());
+        ProblemDetails problemDetails = problemService.getProblem(problem.getSlug(), input.getLanguageId());
         String fullCode =  problemDetails.getFullBoilerplateCode().replace("##USER_CODE_HERE##", input.getCode());
 
         List<Judge0Submission> judge0Submissions = createJudge0Submissions(
@@ -105,37 +105,91 @@ public class SubmissionServiceImpl implements SubmissionService {
     }
 
     private List<Judge0Response> submitToJudge0(List<Judge0Submission> submissions) {
+        if (submissions == null || submissions.isEmpty()) {
+            throw new IllegalArgumentException("Cannot submit empty submissions list to Judge0");
+        }
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        Map<String, List<Judge0Submission>> requestBody = new HashMap<>();
-        requestBody.put("submissions", submissions);
-
-        HttpEntity<Map<String, List<Judge0Submission>>> request = new HttpEntity<>(requestBody, headers);
-        String url = judge0Uri + "/submissions/batch?base64_encoded=false";
-
-        ResponseEntity<List<Judge0Response>> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                request,
-                new ParameterizedTypeReference<List<Judge0Response>>() {}
-        );
-
-        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-            throw new RuntimeException("Failed to submit to Judge0");
+        ObjectMapper mapper = new ObjectMapper();
+        String jsonBody;
+        try {
+            Map<String, Object> requestMap = new HashMap<>();
+            requestMap.put("submissions", submissions);
+            jsonBody = mapper.writeValueAsString(requestMap);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize request", e);
         }
 
-        return response.getBody();
+        HttpEntity<String> request = new HttpEntity<>(jsonBody, headers);
+        String url = judge0Uri + "/submissions/batch?base64_encoded=false";
+
+        try {
+            ResponseEntity<List<Judge0Response>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    request,
+                    new ParameterizedTypeReference<List<Judge0Response>>() {}
+            );
+
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                throw new RuntimeException("Failed to submit to Judge0: " + response.getStatusCode());
+            }
+
+            return response.getBody();
+        } catch (Exception e) {
+            System.out.println("Judge0 API error: " + e.getMessage());
+            throw new RuntimeException("Failed to submit to Judge0: " + e.getMessage(), e);
+        }
     }
+
+
 
     private List<Submissions> createTestcases(List<Judge0Response> judge0Responses, Submission submission) {
         return judge0Responses.stream()
                 .map(response -> {
                     Submissions testcase = new Submissions();
-                    testcase.setSubmission(submission);
+
+                    testcase.setSource_code(response.getSource_code());
+                    testcase.setLanguage_id(response.getLanguage_id());
+                    testcase.setCompiler_options(response.getCompiler_options());
+                    testcase.setCommand_line_arguments(response.getCommand_line_arguments());
+                    testcase.setStdin(response.getStdin());
+                    testcase.setExpected_output(response.getExpected_output());
+                    testcase.setCpu_time_limit(response.getCpu_time_limit());
+                    testcase.setCpu_extra_time(response.getCpu_extra_time());
+                    testcase.setWall_time_limit(response.getWall_time_limit());
+                    testcase.setMemory_limit(response.getMemory_limit());
+                    testcase.setStack_limit(response.getStack_limit());
+                    testcase.setMax_processes_and_or_threads(response.getMax_processes_and_or_threads());
+                    testcase.setEnable_per_process_and_thread_time_limit(response.getEnable_per_process_and_thread_time_limit());
+                    testcase.setEnable_per_process_and_thread_memory_limit(response.getEnable_per_process_and_thread_memory_limit());
+                    testcase.setMax_file_size(response.getMax_file_size());
+                    testcase.setRedirect_stderr_to_stdout(response.getRedirect_stderr_to_stdout());
+                    testcase.setEnable_network(response.getEnable_network());
+                    testcase.setNumber_of_runs(response.getNumber_of_runs());
+                    testcase.setAdditional_files(response.getAdditional_files());
+                    testcase.setCallback_url(response.getCallback_url());
+                    testcase.setStdout(response.getStdout());
+                    testcase.setStderr(response.getStderr());
+                    testcase.setCompile_output(response.getCompile_output());
+                    testcase.setMessage(response.getMessage());
+                    testcase.setExit_code(response.getExit_code());
+                    testcase.setExit_signal(response.getExit_signal());
+
+                    if (response.getStatus() != null) {
+                        testcase.setStatus_id(response.getStatus().getId());
+                    }
+
+                    testcase.setCreated_at(response.getCreated_at());
+                    testcase.setFinished_at(response.getFinished_at());
                     testcase.setToken(response.getToken());
-                    testcase.setSourceCode(response.getSourceCode());
-                    // Add later
+                    testcase.setTime(response.getTime());
+                    testcase.setWall_time(response.getWall_time());
+                    testcase.setMemory(response.getMemory());
+                    testcase.setSubmissionId(submission.getId());
+
                     return testcase;
                 })
                 .collect(Collectors.toList());

@@ -2,9 +2,9 @@ spring:
   application:
     name: hustforces
   datasource:
-    url: jdbc:postgresql://localhost:5432/hustforces
-    username: hustforces
-    password: hustforces123
+    url: jdbc:postgresql://localhost:5432/judge0
+    username: judge0
+    password: YourPasswordHere1234
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:

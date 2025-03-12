@@ -10,7 +10,7 @@ import org.hibernate.annotations.UuidGenerator;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "contest_points",
+@Table(name = "ContestPoints",
         uniqueConstraints = {
                 @UniqueConstraint(
                         columnNames = {"contest_id", "user_id"}
