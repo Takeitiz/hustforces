@@ -1,10 +1,11 @@
 import {Route, Routes} from "react-router-dom";
+import {HomePage} from "../pages/Home/HomePage.tsx";
 
 
 export function AppRoutes() {
     return (
         <Routes>
-            <Route path=""/>
+            <Route path="/" element={<HomePage/>}/>
         </Routes>
     )
 }
