@@ -1,6 +1,6 @@
 ### Project Specific ###
 HELP.md
-.env
+frontend/.env
 .env.*
 !.env.example
 
@@ -92,7 +92,7 @@ Thumbs.db
 
 ### Environment Files ###
 *.local
-.env
+frontend/.env
 .env.*
 !.env.example
 
