@@ -20,3 +20,12 @@ mount:
 
 judge0:
   uri: http://localhost:2358
+
+logging:
+  pattern:
+    console: ${LOGPATTERN_CONSOLE:%green(%d{HH:mm:ss.SSS}) %blue(%-5level) %red([%thread]) %yellow(%logger{15}) - %msg%n}
+  level:
+    root: INFO
+    com.hust.hustforces: DEBUG
+    org.springframework: INFO
+    org.hibernate: INFO

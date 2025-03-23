@@ -10,8 +10,9 @@ import com.hust.hustforces.repository.SubmissionRepository;
 import com.hust.hustforces.service.PointsService;
 import com.hust.hustforces.service.SubmissionProcessingService;
 import jakarta.transaction.Transactional;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -20,60 +21,36 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 @Slf4j
 public class SubmissionProcessingServiceImpl implements SubmissionProcessingService {
-
-    private final SubmissionProcessingService self;
-
     private final SubmissionRepository submissionRepository;
     private final ContestSubmissionRepository contestSubmissionRepository;
     private final PointsService pointsService;
-
-    @Scheduled(fixedDelay = 1000)
-    @Override
-    public void processSubmissions() {
-        try {
-            List<Submission> pendingSubmissions = submissionRepository
-                    .findPendingSubmissions(
-                            SubmissionResult.PENDING,
-                            PageRequest.of(0, 20)
-                    );
-
-            for (Submission submission : pendingSubmissions) {
-                try {
-                    self.updateSubmission(submission);
-                } catch (Exception e) {
-                    log.error("Error processing submission {}: {}",
-                            submission.getId(), e.getMessage());
-                }
-            }
-        } catch (Exception e) {
-            log.error("Error during processing: ", e);
-        }
-    }
 
     @Transactional
     @Override
     public void updateSubmission(Submission submission) {
         boolean isAccepted = true;
 
-        for (Submissions testcase : submission.getTestcases()) {
-            switch (testcase.getStatus_id()) {
-                case 1:
-                case 2:
-                    isAccepted = false;
-                    break;
-                case 3:
-                    break;
-                default:
-                    submission.setStatus(SubmissionResult.REJECTED);
-                    submissionRepository.save(submission);
-                    return;
-            }
+        if (submission.getTestcases() != null) {
+            for (Submissions testcase : submission.getTestcases()) {
+                switch (testcase.getStatus_id()) {
+                    case 1:
+                    case 2:
+                        isAccepted = false;
+                        break;
+                    case 3:
+                        break;
+                    default:
+                        submission.setStatus(SubmissionResult.REJECTED);
+                        submissionRepository.save(submission);
+                        return;
+                }
 
-            if (!isAccepted) {
-                break;
+                if (!isAccepted) {
+                    break;
+                }
             }
         }
 

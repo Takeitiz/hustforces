@@ -49,7 +49,7 @@ public class Contest {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "contest", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "activeContest", cascade = CascadeType.ALL)
     @JsonIgnore
     private List<Submission> submissions = new ArrayList<>();
 
