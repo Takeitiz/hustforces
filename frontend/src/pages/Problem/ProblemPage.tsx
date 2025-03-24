@@ -3,6 +3,7 @@ import {useParams} from "react-router-dom";
 import {useEffect, useState} from "react";
 import {getProblem} from "../../api/problem.ts";
 import {Problem} from "../../types/problem.ts";
+import {ProblemSubmitBar} from "../../components/features/problem/ProblemSubmitBar.tsx";
 
 
 export function ProblemPage() {
@@ -53,6 +54,7 @@ export function ProblemPage() {
                         <ProblemStatement description={problem.description}/>
                     </div>
                 </div>
+                <ProblemSubmitBar problem={problem} />
             </main>
 
         </div>
