@@ -1,9 +1,10 @@
 import {ProblemStatement} from "../../components/features/problem/ProblemStatement.tsx";
 import {useParams} from "react-router-dom";
 import {useEffect, useState} from "react";
-import {getProblem} from "../../api/problem.ts";
 import {Problem} from "../../types/problem.ts";
 import {ProblemSubmitBar} from "../../components/features/problem/ProblemSubmitBar.tsx";
+import {toast} from "react-toastify";
+import problemService from "../../service/problemService.ts";
 
 
 export function ProblemPage() {
@@ -21,7 +22,7 @@ export function ProblemPage() {
             }
 
             try {
-                const problemData = await getProblem(problemId);
+                const problemData = await problemService.getProblem(problemId);
                 if (problemData) {
                     setProblem(problemData);
                 } else {
@@ -29,6 +30,7 @@ export function ProblemPage() {
                 }
             } catch (err) {
                 console.error("Error fetching problem:", err);
+                toast.error("Failed to load problem");
                 setError(true);
             } finally {
                 setLoading(false);
@@ -39,11 +41,22 @@ export function ProblemPage() {
     }, [problemId]);
 
     if (loading) {
-        return <div>Loading problem...</div>;
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+        );
     }
 
     if (error || !problem) {
-        return <div>Problem not found</div>;
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold">Problem not found</h2>
+                    <p className="text-gray-600 mt-2">The problem you're looking for doesn't exist or is unavailable.</p>
+                </div>
+            </div>
+        );
     }
 
     return (
