@@ -9,6 +9,8 @@ export interface Testcase {
     id?: string;
     submission_id?: string;
     status_id: number;
+    status?: string;
+    index?: number;
     time?: number;
     memory?: number;
     createdAt?: string;
@@ -24,8 +26,9 @@ export interface Submission {
     code?: string;
     fullCode: string;
     status: string;
-    testcases: {
-        status: string;
-        index: number;
-    }[];
+    testcases: Testcase[];
+    createdAt?: string;
+    updatedAt?: string;
+    userId?: string;
 }
+

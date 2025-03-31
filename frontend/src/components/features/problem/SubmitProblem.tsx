@@ -9,6 +9,9 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "../
 import {Button} from "../../ui/Button.tsx";
 import MonacoEditor from 'react-monaco-editor';
 import RenderTestcase from "./RenderTestcase.tsx";
+import submissionService from "../../../service/submissionService.ts";
+import {useAuth} from "../../../contexts/AuthContext.tsx";
+import {useNavigate} from "react-router-dom";
 
 /**
  * Props interface for SubmitProblem component
@@ -31,7 +34,9 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
     const [code, setCode] = useState<Record<string, string>>({});
     const [status, setStatus] = useState<string>(SubmitStatus.SUBMIT);
     const [testcases, setTestcases] = useState<Testcase[]>([]);
-    const { isLoggedIn, login } = useAuth();
+    const { isLoggedIn } = useAuth();
+    const navigate = useNavigate();
+
 
     // Initialize code with problem default code
     useEffect(() => {
@@ -89,8 +94,8 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
      */
     async function handleSubmit(): Promise<void> {
         if (!isLoggedIn) {
-            // Show login prompt or redirect to login
-            login({ username: 'demo', password: 'password' });
+            navigate("/login");
+            toast.info("Please log in to submit solutions");
             return;
         }
 

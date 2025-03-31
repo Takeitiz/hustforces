@@ -1,11 +1,22 @@
 import {Submission} from "../types/submission.ts";
 import {apiClient} from "../api/client.ts";
 
+export interface SubmissionRequest {
+    code: string;
+    languageId: string;
+    problemId: string;
+    activeContestId?: string;
+}
+
+export interface SubmissionResponse {
+    id: string;
+    status: string;
+}
+
 /**
  * Service for handling submission-related API calls
  */
 const submissionService = {
-
     /**
      * Get a list of submissions for a problem
      *
@@ -14,10 +25,10 @@ const submissionService = {
      */
     getSubmissions: async (problemId: string): Promise<Submission[]> => {
         try {
-            const response = await apiClient.get<{ submissions: Submission[] }>(`/api/submission/bulk?problemId=${problemId}`);
+            const response = await apiClient.get<{ submissions: Submission[] }>(`/submissions?problemId=${problemId}`);
             return response.data.submissions || [];
         } catch (error) {
-            console.log("Failed to fetch submissions", error);
+            console.error("Failed to fetch submissions", error);
             throw error;
         }
     },
@@ -30,7 +41,7 @@ const submissionService = {
      */
     getSubmissionStatus: async (submissionId: string): Promise<Submission> => {
         try {
-            const response = await apiClient.get<{ submission: Submission }>(`/api/submission/?id=${submissionId}`);
+            const response = await apiClient.get<{ submission: Submission }>(`/submissions/${submissionId}`);
             return response.data.submission;
         } catch (error) {
             console.error('Failed to fetch submission status:', error);
@@ -46,13 +57,13 @@ const submissionService = {
      */
     submitCode: async (submissionData: SubmissionRequest): Promise<SubmissionResponse> => {
         try {
-            const response = await apiClient.post<SubmissionResponse>('/api/submission/', submissionData);
+            const response = await apiClient.post<SubmissionResponse>('/submissions', submissionData);
             return response.data;
         } catch (error) {
             console.error('Submission failed:', error);
             throw error;
         }
     }
-}
+};
 
 export default submissionService;
