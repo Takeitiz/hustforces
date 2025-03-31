@@ -1,6 +1,8 @@
 import {Problem} from "../../../types/problem.ts";
 import {useState} from "react";
 import {Tabs, TabsList, TabsTrigger} from "../../ui/Tabs.tsx";
+import SubmitProblem from "./SubmitProblem.tsx";
+import Submissions from "./Submissions.tsx";
 
 export const ProblemSubmitBar: React.FC<{
     problem: Problem;
@@ -25,10 +27,10 @@ export const ProblemSubmitBar: React.FC<{
                         </Tabs>
                     </div>
                 </div>
-                {/*<div className={`${activeTab === "problem" ? "" : "hidden"}`}>*/}
-                {/*    <SubmitProblem problem={problem} contestId={contestId} />*/}
-                {/*</div>*/}
-                {/*{activeTab === "submissions" && <Submissions problem={problem} />}*/}
+                <div className={`${activeTab === "problem" ? "" : "hidden"}`}>
+                    <SubmitProblem problem={problem} contestId={contestId} />
+                </div>
+                {activeTab === "submissions" && <Submissions problem={problem} />}
             </div>
         </div>
     );
