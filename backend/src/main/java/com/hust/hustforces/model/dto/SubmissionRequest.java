@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class SubmissionInput {
+public class SubmissionRequest {
     @NotBlank(message = "Code cannot be empty")
     private String code;
 
@@ -23,7 +23,4 @@ public class SubmissionInput {
     private String problemId;
 
     private String activeContestId;
-
-    @NotBlank(message = "Token cannot be empty")
-    private String token;
 }

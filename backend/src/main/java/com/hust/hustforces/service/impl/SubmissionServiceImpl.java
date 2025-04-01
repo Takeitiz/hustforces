@@ -40,7 +40,7 @@ public class SubmissionServiceImpl implements SubmissionService {
     private final RestTemplate restTemplate;
 
     @Override
-    public Submission createSubmission(SubmissionInput input, String userId) throws IOException {
+    public Submission createSubmission(SubmissionRequest input, String userId) throws IOException {
         Problem problem = problemRepository.findById(input.getProblemId()).orElseThrow(
                 () -> new ResourceNotFoundException("Problem", "id", input.getProblemId())
         );
@@ -79,6 +79,11 @@ public class SubmissionServiceImpl implements SubmissionService {
         // For example, updating solve count, checking permissions, etc.
         return submissionRepository.findByIdWithTestcases(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
+    }
+
+    @Override
+    public List<Submission> getUserSubmissionsForProblem(String userId, String problemId) {
+        return submissionRepository.findByUserIdAndProblemIdOrderByCreatedAtDesc(userId, problemId);
     }
 
     private List<Judge0Submission> createJudge0Submissions(ProblemDetails problemDetails, String fullCode, String languageId) {
@@ -124,6 +129,8 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         HttpEntity<String> request = new HttpEntity<>(jsonBody, headers);
         String url = judge0Uri + "/submissions/batch?base64_encoded=false";
+
+        System.out.println(request);
 
         try {
             ResponseEntity<List<Judge0Response>> response = restTemplate.exchange(

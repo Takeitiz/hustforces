@@ -31,6 +31,7 @@ public class SubmissionSchedulerServiceImpl implements SubmissionSchedulerServic
                     );
 
             for (Submission submission : pendingSubmissions) {
+                System.out.println(submission);
                 try {
                     submissionProcessingService.updateSubmission(submission);
                 } catch (Exception e) {

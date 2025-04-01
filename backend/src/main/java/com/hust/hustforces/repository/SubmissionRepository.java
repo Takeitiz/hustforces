@@ -26,4 +26,6 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
             "LEFT JOIN FETCH s.problem " +
             "WHERE s.id = :submissionId")
     Optional<Submission> findByIdWithContestAndProblem(@Param("submissionId") String submissionId);
+
+    List<Submission> findByUserIdAndProblemIdOrderByCreatedAtDesc(String userId, String problemId);
 }
