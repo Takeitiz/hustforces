@@ -29,3 +29,7 @@ logging:
     com.hust.hustforces: DEBUG
     org.springframework: INFO
     org.hibernate: INFO
+
+jwt:
+  secret: yourSecretKeyHereShouldBeAtLeast32CharactersLong
+  expiration: 86400000
