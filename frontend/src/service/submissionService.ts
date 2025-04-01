@@ -25,7 +25,7 @@ const submissionService = {
      */
     getSubmissions: async (problemId: string): Promise<Submission[]> => {
         try {
-            const response = await apiClient.get<{ submissions: Submission[] }>(`/submissions?problemId=${problemId}`);
+            const response = await apiClient.get<{ submissions: Submission[] }>(`/submission?problemId=${problemId}`);
             return response.data.submissions || [];
         } catch (error) {
             console.error("Failed to fetch submissions", error);
@@ -41,7 +41,7 @@ const submissionService = {
      */
     getSubmissionStatus: async (submissionId: string): Promise<Submission> => {
         try {
-            const response = await apiClient.get<{ submission: Submission }>(`/submissions/${submissionId}`);
+            const response = await apiClient.get<{ submission: Submission }>(`/submission/${submissionId}`);
             return response.data.submission;
         } catch (error) {
             console.error('Failed to fetch submission status:', error);
@@ -57,7 +57,7 @@ const submissionService = {
      */
     submitCode: async (submissionData: SubmissionRequest): Promise<SubmissionResponse> => {
         try {
-            const response = await apiClient.post<SubmissionResponse>('/submissions', submissionData);
+            const response = await apiClient.post<SubmissionResponse>('/submission', submissionData);
             return response.data;
         } catch (error) {
             console.error('Submission failed:', error);
