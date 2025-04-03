@@ -15,7 +15,7 @@ import java.util.Optional;
 
 @Repository
 public interface SubmissionRepository extends JpaRepository<Submission, Integer> {
-    @Query("SELECT s FROM Submission s LEFT JOIN FETCH s.testcases WHERE s.id = :id")
+    @Query("SELECT DISTINCT s FROM Submission s LEFT JOIN FETCH s.testcases t WHERE s.id = :id")
     Optional<Submission> findByIdWithTestcases(@Param("id") String id);
 
     @Query("SELECT DISTINCT s FROM Submission s LEFT JOIN FETCH s.testcases " +

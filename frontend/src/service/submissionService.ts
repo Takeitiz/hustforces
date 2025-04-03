@@ -41,8 +41,8 @@ const submissionService = {
      */
     getSubmissionStatus: async (submissionId: string): Promise<Submission> => {
         try {
-            const response = await apiClient.get<{ submission: Submission }>(`/submission/${submissionId}`);
-            return response.data.submission;
+            const response = await apiClient.get<Submission>(`/submission/${submissionId}`);
+            return response.data;
         } catch (error) {
             console.error('Failed to fetch submission status:', error);
             throw error;

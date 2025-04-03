@@ -1,5 +1,6 @@
 package com.hust.hustforces.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -123,5 +124,6 @@ public class TestCase {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "submissionId", insertable = false, updatable = false)
+    @JsonIgnore
     private Submission submission;
 }

@@ -62,7 +62,6 @@ public class Submission {
     private double time;
 
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL)
-    @JsonIgnore
     private List<TestCase> testcases;
 
     @ManyToOne(fetch = FetchType.LAZY)

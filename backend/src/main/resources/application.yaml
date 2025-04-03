@@ -9,10 +9,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: false
+    show-sql: true
     properties:
       hibernate:
-        format_sql: false
+        format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
 mount:
@@ -23,7 +23,7 @@ judge0:
 
 server:
   port: 8080
-  base-url: ${SERVER_BASE_URL:https://ac4e-2001-ee0-40c1-c8fd-9050-b146-787e-a65d.ngrok-free.app}
+  base-url: ${SERVER_BASE_URL:https://bcee-2001-ee0-40c1-c8fd-9050-b146-787e-a65d.ngrok-free.app}
 
 logging:
   pattern:
