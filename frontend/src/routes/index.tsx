@@ -5,6 +5,7 @@ import {useAuth} from "../contexts/AuthContext.tsx";
 import {LoginPage} from "../pages/Auth/LoginPage.tsx";
 import {RegisterPage} from "../pages/Auth/RegisterPage.tsx";
 import {JSX} from "react";
+import {ProfilePage} from "../pages/Profile/ProfilePage.tsx";
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
     const { isLoggedIn, loading } = useAuth();
@@ -28,6 +29,7 @@ export function AppRoutes() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/problem/:problemId" element={<ProblemPage />} />
+            <Route path="/profile/:username?" element={<ProfilePage />} />
 
             {/* Routes that will be added later (for navigation) */}
             <Route path="/problems" element={<div>Problems page (coming soon)</div>} />
