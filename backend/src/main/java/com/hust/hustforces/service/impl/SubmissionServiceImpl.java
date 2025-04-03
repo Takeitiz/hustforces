@@ -64,6 +64,7 @@ public class SubmissionServiceImpl implements SubmissionService {
         submission.setProblemId(input.getProblemId());
         submission.setCode(input.getCode());
         submission.setActiveContestId(input.getActiveContestId());
+        submission.setLanguageId(input.getLanguageId());
 
         Submission savedSubmission = submissionRepository.save(submission);
         log.info("Created initial submission record with ID: {}", savedSubmission.getId());

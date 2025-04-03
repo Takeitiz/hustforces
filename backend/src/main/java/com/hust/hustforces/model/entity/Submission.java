@@ -1,6 +1,7 @@
 package com.hust.hustforces.model.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.hust.hustforces.enums.LanguageId;
 import com.hust.hustforces.enums.SubmissionResult;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -34,6 +35,10 @@ public class Submission {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String code;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "language_id", nullable = false)
+    private LanguageId languageId;
 
     @Column(name = "active_contest_id")
     private String activeContestId;
