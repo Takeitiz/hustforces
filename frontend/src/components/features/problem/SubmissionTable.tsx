@@ -1,6 +1,6 @@
 import { CheckIcon, ClockIcon, CircleX } from "lucide-react";
-import {Submission} from "../../../types/submission.ts";
-import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "../../ui/Table.tsx";
+import { SubmissionResponseDto } from "../../../types/submission.ts";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui/Table.tsx";
 
 function getColor(status: string) {
     switch (status) {
@@ -40,7 +40,7 @@ function getIcon(status: string) {
     }
 }
 
-export function SubmissionTable({submissions}: {submissions: Submission[]}) {
+export function SubmissionTable({ submissions }: { submissions: SubmissionResponseDto[] }) {
     return (
         <div className="overflow-x-auto">
             <Table>
@@ -62,15 +62,10 @@ export function SubmissionTable({submissions}: {submissions: Submission[]}) {
                                 {getIcon(submission.status)}
                             </TableCell>
                             <TableCell>
-                                {
-                                    submission.testcases.filter(
-                                        (testcase) => testcase.status_id === 3,
-                                    ).length
-                                }
-                                /{submission.testcases.length}
+                                {submission.passedTestCases}/{submission.totalTestCases}
                             </TableCell>
-                            <TableCell>{submission.time}</TableCell>
-                            <TableCell>{submission.memory}</TableCell>
+                            <TableCell>{submission.time ? `${submission.time.toFixed(2)}s` : "N/A"}</TableCell>
+                            <TableCell>{submission.memory ? `${submission.memory} KB` : "N/A"}</TableCell>
                         </TableRow>
                     ))}
                 </TableBody>

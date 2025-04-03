@@ -5,30 +5,43 @@ export enum SubmissionStatus {
     FAILED = "FAILED"
 }
 
-export interface Testcase {
-    id?: string;
-    submission_id?: string;
+export interface TestcaseDto {
+    id?: number;
     status_id: number;
-    status?: string;
-    index?: number;
+    stdin?: string;
+    stdout?: string;
+    expected_output?: string;
+    stderr?: string;
     time?: number;
     memory?: number;
-    createdAt?: string;
-    updatedAt?: string;
 }
 
-export interface Submission {
+export interface SubmissionResponseDto {
     id: string;
-    time?: string;
-    memory?: string;
     problemId: string;
-    languageId: string;
-    code?: string;
-    fullCode: string;
+    problemTitle: string;
     status: string;
-    testcases: Testcase[];
-    createdAt?: string;
-    updatedAt?: string;
-    userId?: string;
+    languageId: string;
+    time: number;
+    memory: number;
+    createdAt: string;
+    passedTestCases: number;
+    totalTestCases: number;
+}
+
+export interface SubmissionDetailDto {
+    id: string;
+    problemId: string;
+    problemTitle: string;
+    userId: string;
+    username: string;
+    code: string;
+    status: string;
+    languageId: string;
+    time: number;
+    memory: number;
+    createdAt: string;
+    testcases: TestcaseDto[];
+    activeContestId?: string;
 }
 

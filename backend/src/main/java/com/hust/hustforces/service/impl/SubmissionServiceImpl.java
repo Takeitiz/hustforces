@@ -3,13 +3,14 @@ package com.hust.hustforces.service.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.*;
-import com.hust.hustforces.model.entity.Problem;
-import com.hust.hustforces.model.entity.Submission;
-import com.hust.hustforces.model.entity.Submissions;
-import com.hust.hustforces.model.entity.TestCase;
+import com.hust.hustforces.model.dto.submission.SubmissionDetailDto;
+import com.hust.hustforces.model.dto.submission.SubmissionResponseDto;
+import com.hust.hustforces.model.dto.submission.TestCaseDto;
+import com.hust.hustforces.model.entity.*;
 import com.hust.hustforces.repository.ProblemRepository;
 import com.hust.hustforces.repository.SubmissionRepository;
 import com.hust.hustforces.repository.SubmissionsRepository;
+import com.hust.hustforces.repository.UserRepository;
 import com.hust.hustforces.service.ProblemService;
 import com.hust.hustforces.service.SubmissionService;
 import com.hust.hustforces.utils.LanguageMapping;
@@ -46,9 +47,10 @@ public class SubmissionServiceImpl implements SubmissionService {
     private final LanguageMapping languageMapping;
     private final RestTemplate restTemplate;
     private final SubmissionsRepository submissionsRepository;
+    private final UserRepository userRepository;
 
     @Override
-    public Submission createSubmission(SubmissionRequest input, String userId) throws IOException {
+    public SubmissionDetailDto createSubmission(SubmissionRequest input, String userId) throws IOException {
         log.info("Creating submission for problem: {}, language: {}, user: {}",
                 input.getProblemId(), input.getLanguageId(), userId);
 
@@ -84,25 +86,110 @@ public class SubmissionServiceImpl implements SubmissionService {
         savedSubmission = submissionRepository.save(savedSubmission);
         log.info("Submission created successfully with {} testcases", testcases.size());
 
-        return savedSubmission;
+        Submission finalSavedSubmission = savedSubmission;
+        Problem submissionProblem = problemRepository.findById(savedSubmission.getProblemId())
+                .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", finalSavedSubmission.getProblemId()));
+
+        User submissionUser = userRepository.findById(savedSubmission.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", finalSavedSubmission.getUserId()));
+
+        return mapToSubmissionDetailDto(savedSubmission, submissionProblem, submissionUser);
     }
 
     @Override
-    public Submission getSubmission(String submissionId) throws BadRequestException {
+    public SubmissionDetailDto getSubmission(String submissionId) throws BadRequestException {
         if (submissionId == null || submissionId.trim().isEmpty()) {
             throw new BadRequestException("Invalid submission id");
         }
-        // Add additional business logic later
-        // For example, updating solve count, checking permissions, etc.
+
         log.info("Fetching submission with ID: {}", submissionId);
-        return submissionRepository.findByIdWithTestcases(submissionId)
+        Submission submission = submissionRepository.findByIdWithTestcases(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
+
+        // Fetch needed related entities separately to avoid fetch joins
+        Problem problem = problemRepository.findById(submission.getProblemId())
+                .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", submission.getProblemId()));
+
+        User user = userRepository.findById(submission.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", submission.getUserId()));
+
+        return mapToSubmissionDetailDto(submission, problem, user);
     }
 
     @Override
-    public List<Submission> getUserSubmissionsForProblem(String userId, String problemId) {
+    public List<SubmissionResponseDto> getUserSubmissionsForProblem(String userId, String problemId) {
         log.info("Fetching submissions for user: {} and problem: {}", userId, problemId);
-        return submissionRepository.findByUserIdAndProblemIdOrderByCreatedAtDesc(userId, problemId);
+        List<Submission> submissions = submissionRepository.findByUserIdAndProblemIdOrderByCreatedAtDesc(userId, problemId);
+
+        List<String> problemIds = submissions.stream()
+                .map(Submission::getProblemId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        List<Problem> problems = problemRepository.findAllById(problemIds);
+
+        Map<String, Problem> problemMap = problems.stream()
+                .collect(Collectors.toMap(Problem::getId, p -> p));
+
+        return submissions.stream()
+                .map(submission -> mapToSubmissionResponseDto(submission, problemMap.get(submission.getProblemId())))
+                .collect(Collectors.toList());
+    }
+
+    private SubmissionResponseDto mapToSubmissionResponseDto(Submission submission, Problem problem) {
+        int totalTestCases = submission.getTestcases() != null ? submission.getTestcases().size() : 0;
+        int passedTestCases = submission.getTestcases() != null ?
+                (int) submission.getTestcases().stream().filter(tc -> tc.getStatus_id() == 3).count() : 0;
+
+        return SubmissionResponseDto.builder()
+                .id(submission.getId())
+                .problemId(submission.getProblemId())
+                .problemTitle(problem != null ? problem.getTitle() : "Unknown Problem")
+                .status(submission.getStatus())
+                .languageId(submission.getLanguageId())
+                .time(submission.getTime())
+                .memory(submission.getMemory())
+                .createdAt(submission.getCreatedAt())
+                .passedTestCases(passedTestCases)
+                .totalTestCases(totalTestCases)
+                .build();
+    }
+
+    private SubmissionDetailDto mapToSubmissionDetailDto(Submission submission, Problem problem, User user) {
+        List<TestCaseDto> testCaseDtos = submission.getTestcases() != null ?
+                submission.getTestcases().stream()
+                        .map(this::mapToTestCaseDto)
+                        .collect(Collectors.toList()) :
+                new ArrayList<>();
+
+        return SubmissionDetailDto.builder()
+                .id(submission.getId())
+                .problemId(submission.getProblemId())
+                .problemTitle(problem != null ? problem.getTitle() : "Unknown Problem")
+                .userId(submission.getUserId())
+                .username(user != null ? user.getUsername() : "Unknown User")
+                .code(submission.getCode())
+                .status(submission.getStatus())
+                .languageId(submission.getLanguageId())
+                .time(submission.getTime())
+                .memory(submission.getMemory())
+                .createdAt(submission.getCreatedAt())
+                .testcases(testCaseDtos)
+                .activeContestId(submission.getActiveContestId())
+                .build();
+    }
+
+    private TestCaseDto mapToTestCaseDto(TestCase testCase) {
+        return TestCaseDto.builder()
+                .id(testCase.getId())
+                .status_id(testCase.getStatus_id())
+                .stdin(testCase.getStdin())
+                .stdout(testCase.getStdout())
+                .expected_output(testCase.getExpected_output())
+                .stderr(testCase.getStderr())
+                .time(testCase.getTime() != null ? testCase.getTime().doubleValue() : null)
+                .memory(testCase.getMemory())
+                .build();
     }
 
     private List<Judge0Submission> createJudge0Submissions(
@@ -179,8 +266,6 @@ public class SubmissionServiceImpl implements SubmissionService {
             throw new RuntimeException("Failed to submit to Judge0: " + e.getMessage(), e);
         }
     }
-
-
 
     private List<TestCase> createTestcases(List<Judge0Response> judge0Responses, Submission submission) {
         return judge0Responses.stream()

@@ -1,16 +1,11 @@
-import {Submission} from "../types/submission.ts";
-import {apiClient} from "../api/client.ts";
+import { SubmissionDetailDto, SubmissionResponseDto } from "../types/submission.ts";
+import { apiClient } from "../api/client.ts";
 
 export interface SubmissionRequest {
     code: string;
     languageId: string;
     problemId: string;
     activeContestId?: string;
-}
-
-export interface SubmissionResponse {
-    id: string;
-    status: string;
 }
 
 /**
@@ -21,11 +16,13 @@ const submissionService = {
      * Get a list of submissions for a problem
      *
      * @param {string} problemId - ID of the problem
-     * @returns {Promise<Submission[]>} - Array of submissions
+     * @returns {Promise<SubmissionResponseDto[]>} - Array of submissions
      */
-    getSubmissions: async (problemId: string): Promise<Submission[]> => {
+    getSubmissions: async (problemId: string): Promise<SubmissionResponseDto[]> => {
         try {
-            const response = await apiClient.get<{ submissions: Submission[] }>(`/submission?problemId=${problemId}`);
+            const response = await apiClient.get<{ submissions: SubmissionResponseDto[] }>(
+                `/submission?problemId=${problemId}`
+            );
             return response.data.submissions || [];
         } catch (error) {
             console.error("Failed to fetch submissions", error);
@@ -37,11 +34,11 @@ const submissionService = {
      * Get submission details by ID
      *
      * @param {string} submissionId - ID of the submission
-     * @returns {Promise<Submission>} - Submission details
+     * @returns {Promise<SubmissionDetailDto>} - Submission details
      */
-    getSubmissionStatus: async (submissionId: string): Promise<Submission> => {
+    getSubmissionStatus: async (submissionId: string): Promise<SubmissionDetailDto> => {
         try {
-            const response = await apiClient.get<Submission>(`/submission/${submissionId}`);
+            const response = await apiClient.get<SubmissionDetailDto>(`/submission/${submissionId}`);
             return response.data;
         } catch (error) {
             console.error('Failed to fetch submission status:', error);
@@ -53,11 +50,11 @@ const submissionService = {
      * Submit code for evaluation
      *
      * @param {SubmissionRequest} submissionData - Submission data
-     * @returns {Promise<SubmissionResponse>} - Submission result
+     * @returns {Promise<SubmissionDetailDto>} - Submission result
      */
-    submitCode: async (submissionData: SubmissionRequest): Promise<SubmissionResponse> => {
+    submitCode: async (submissionData: SubmissionRequest): Promise<SubmissionDetailDto> => {
         try {
-            const response = await apiClient.post<SubmissionResponse>('/submission', submissionData);
+            const response = await apiClient.post<SubmissionDetailDto>('/submission', submissionData);
             return response.data;
         } catch (error) {
             console.error('Submission failed:', error);
