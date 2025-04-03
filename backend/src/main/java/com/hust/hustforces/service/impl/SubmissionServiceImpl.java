@@ -6,12 +6,15 @@ import com.hust.hustforces.model.dto.*;
 import com.hust.hustforces.model.entity.Problem;
 import com.hust.hustforces.model.entity.Submission;
 import com.hust.hustforces.model.entity.Submissions;
+import com.hust.hustforces.model.entity.TestCase;
 import com.hust.hustforces.repository.ProblemRepository;
 import com.hust.hustforces.repository.SubmissionRepository;
+import com.hust.hustforces.repository.SubmissionsRepository;
 import com.hust.hustforces.service.ProblemService;
 import com.hust.hustforces.service.SubmissionService;
 import com.hust.hustforces.utils.LanguageMapping;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -28,33 +31,33 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SubmissionServiceImpl implements SubmissionService {
 
     @Value("${judge0.uri}")
     private String judge0Uri;
+
+    @Value("${server.base-url:http://localhost:8080}")
+    private String baseUrl;
 
     private final SubmissionRepository submissionRepository;
     private final ProblemRepository problemRepository;
     private final ProblemService problemService;
     private final LanguageMapping languageMapping;
     private final RestTemplate restTemplate;
+    private final SubmissionsRepository submissionsRepository;
 
     @Override
     public Submission createSubmission(SubmissionRequest input, String userId) throws IOException {
+        log.info("Creating submission for problem: {}, language: {}, user: {}",
+                input.getProblemId(), input.getLanguageId(), userId);
+
         Problem problem = problemRepository.findById(input.getProblemId()).orElseThrow(
                 () -> new ResourceNotFoundException("Problem", "id", input.getProblemId())
         );
 
         ProblemDetails problemDetails = problemService.getProblem(problem.getSlug(), input.getLanguageId());
-        String fullCode =  problemDetails.getFullBoilerplateCode().replace("##USER_CODE_HERE##", input.getCode());
-
-        List<Judge0Submission> judge0Submissions = createJudge0Submissions(
-                problemDetails,
-                fullCode,
-                input.getLanguageId().toString()
-        );
-
-        List<Judge0Response> judge0Responses = submitToJudge0(judge0Submissions);
+        String fullCode = problemDetails.getFullBoilerplateCode().replace("##USER_CODE_HERE##", input.getCode());
 
         Submission submission = new Submission();
         submission.setUserId(userId);
@@ -62,12 +65,25 @@ public class SubmissionServiceImpl implements SubmissionService {
         submission.setCode(input.getCode());
         submission.setActiveContestId(input.getActiveContestId());
 
-        List<Submissions> testcases = createTestcases(judge0Responses, submission);
-        submission.setTestcases(testcases);
+        Submission savedSubmission = submissionRepository.save(submission);
+        log.info("Created initial submission record with ID: {}", savedSubmission.getId());
 
-        submission = submissionRepository.save(submission);
+        List<Judge0Submission> judge0Submissions = createJudge0Submissions(
+                problemDetails,
+                fullCode,
+                input.getLanguageId().toString(),
+                savedSubmission.getId()
+        );
 
-        return submission;
+        List<Judge0Response> judge0Responses = submitToJudge0(judge0Submissions);
+
+        List<TestCase> testcases = createTestcases(judge0Responses, savedSubmission);
+        savedSubmission.setTestcases(testcases);
+
+        savedSubmission = submissionRepository.save(savedSubmission);
+        log.info("Submission created successfully with {} testcases", testcases.size());
+
+        return savedSubmission;
     }
 
     @Override
@@ -77,16 +93,23 @@ public class SubmissionServiceImpl implements SubmissionService {
         }
         // Add additional business logic later
         // For example, updating solve count, checking permissions, etc.
+        log.info("Fetching submission with ID: {}", submissionId);
         return submissionRepository.findByIdWithTestcases(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
     }
 
     @Override
     public List<Submission> getUserSubmissionsForProblem(String userId, String problemId) {
+        log.info("Fetching submissions for user: {} and problem: {}", userId, problemId);
         return submissionRepository.findByUserIdAndProblemIdOrderByCreatedAtDesc(userId, problemId);
     }
 
-    private List<Judge0Submission> createJudge0Submissions(ProblemDetails problemDetails, String fullCode, String languageId) {
+    private List<Judge0Submission> createJudge0Submissions(
+            ProblemDetails problemDetails,
+            String fullCode,
+            String languageId,
+            String submissionId) {
+
         List<Judge0Submission> submissions = new ArrayList<>();
         Judge0Language language = languageMapping.getMapping(languageId);
 
@@ -100,7 +123,9 @@ public class SubmissionServiceImpl implements SubmissionService {
             Judge0Submission submission = new Judge0Submission(
                     language.getJudge0(),
                     codeWithInput,
-                    problemDetails.getOutputs().get(i)
+                    problemDetails.getOutputs().get(i),
+                    baseUrl,
+                    submissionId
             );
 
             submissions.add(submission);
@@ -123,16 +148,17 @@ public class SubmissionServiceImpl implements SubmissionService {
             Map<String, Object> requestMap = new HashMap<>();
             requestMap.put("submissions", submissions);
             jsonBody = mapper.writeValueAsString(requestMap);
+            log.debug("Submitting to Judge0: {}", jsonBody);
         } catch (Exception e) {
+            log.error("Failed to serialize request", e);
             throw new RuntimeException("Failed to serialize request", e);
         }
 
         HttpEntity<String> request = new HttpEntity<>(jsonBody, headers);
         String url = judge0Uri + "/submissions/batch?base64_encoded=false";
 
-        System.out.println(request);
-
         try {
+            log.info("Sending batch submission to Judge0");
             ResponseEntity<List<Judge0Response>> response = restTemplate.exchange(
                     url,
                     HttpMethod.POST,
@@ -141,22 +167,24 @@ public class SubmissionServiceImpl implements SubmissionService {
             );
 
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                log.error("Failed to submit to Judge0: {}", response.getStatusCode());
                 throw new RuntimeException("Failed to submit to Judge0: " + response.getStatusCode());
             }
 
+            log.info("Successfully submitted batch of {} submissions to Judge0", submissions.size());
             return response.getBody();
         } catch (Exception e) {
-            System.out.println("Judge0 API error: " + e.getMessage());
+            log.error("Judge0 API error: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to submit to Judge0: " + e.getMessage(), e);
         }
     }
 
 
 
-    private List<Submissions> createTestcases(List<Judge0Response> judge0Responses, Submission submission) {
+    private List<TestCase> createTestcases(List<Judge0Response> judge0Responses, Submission submission) {
         return judge0Responses.stream()
                 .map(response -> {
-                    Submissions testcase = new Submissions();
+                    TestCase testcase = new TestCase();
 
                     testcase.setSource_code(response.getSource_code());
                     testcase.setLanguage_id(response.getLanguage_id());
@@ -187,6 +215,8 @@ public class SubmissionServiceImpl implements SubmissionService {
 
                     if (response.getStatus() != null) {
                         testcase.setStatus_id(response.getStatus().getId());
+                    } else {
+                        testcase.setStatus_id(0);
                     }
 
                     testcase.setCreated_at(response.getCreated_at());

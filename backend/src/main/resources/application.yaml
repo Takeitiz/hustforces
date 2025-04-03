@@ -21,6 +21,10 @@ mount:
 judge0:
   uri: http://localhost:2358
 
+server:
+  port: 8080
+  base-url: ${SERVER_BASE_URL:https://ac4e-2001-ee0-40c1-c8fd-9050-b146-787e-a65d.ngrok-free.app}
+
 logging:
   pattern:
     console: ${LOGPATTERN_CONSOLE:%green(%d{HH:mm:ss.SSS}) %blue(%-5level) %red([%thread]) %yellow(%logger{15}) - %msg%n}

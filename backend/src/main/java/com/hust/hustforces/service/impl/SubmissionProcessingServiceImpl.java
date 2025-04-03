@@ -4,7 +4,7 @@ import com.hust.hustforces.enums.SubmissionResult;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.entity.ContestSubmission;
 import com.hust.hustforces.model.entity.Submission;
-import com.hust.hustforces.model.entity.Submissions;
+import com.hust.hustforces.model.entity.TestCase;
 import com.hust.hustforces.repository.ContestSubmissionRepository;
 import com.hust.hustforces.repository.SubmissionRepository;
 import com.hust.hustforces.service.PointsService;
@@ -12,9 +12,6 @@ import com.hust.hustforces.service.SubmissionProcessingService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -34,8 +31,9 @@ public class SubmissionProcessingServiceImpl implements SubmissionProcessingServ
         boolean isAccepted = true;
 
         if (submission.getTestcases() != null) {
-            for (Submissions testcase : submission.getTestcases()) {
+            for (TestCase testcase : submission.getTestcases()) {
                 switch (testcase.getStatus_id()) {
+                    case 0:
                     case 1:
                     case 2:
                         isAccepted = false;
@@ -65,7 +63,7 @@ public class SubmissionProcessingServiceImpl implements SubmissionProcessingServ
     }
 
     private void updateMemoryAndExecution(Submission submission) {
-        List<Submissions> testcases = submission.getTestcases();
+        List<TestCase> testcases = submission.getTestcases();
 
         double maxTime = testcases.stream()
                 .mapToDouble(t -> t.getTime() != null ? t.getTime().doubleValue() : 0)

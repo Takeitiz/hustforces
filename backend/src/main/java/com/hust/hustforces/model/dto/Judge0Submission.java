@@ -18,7 +18,14 @@ public class Judge0Submission {
     private String expectedOutput;
 
     @JsonProperty("callback_url")
-    private String callbackUrl = "https://44a6-2001-ee0-40c1-d32f-a831-96a2-fdb4-21e8.ngrok-free.app/api/callback";
+    private String callbackUrl;
+
+    public Judge0Submission(Integer languageId, String sourceCode, String expectedOutput, String baseUrl, String submissionId) {
+        this.languageId = languageId;
+        this.sourceCode = sourceCode;
+        this.expectedOutput = expectedOutput;
+        this.callbackUrl = baseUrl + "/api/callback/" + submissionId;
+    }
 
     public Judge0Submission(Integer languageId, String sourceCode, String expectedOutput) {
         this.languageId = languageId;

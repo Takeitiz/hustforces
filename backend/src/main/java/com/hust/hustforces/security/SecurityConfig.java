@@ -31,6 +31,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/problems/**").permitAll()
                         .requestMatchers("/api/import/**").permitAll()
+                        .requestMatchers("/api/callback/**").permitAll()
                         .anyRequest().authenticated()
                 );
 

@@ -58,7 +58,7 @@ public class Submission {
 
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL)
     @JsonIgnore
-    private List<Submissions> testcases;
+    private List<TestCase> testcases;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "id", insertable = false, updatable = false)

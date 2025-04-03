@@ -10,12 +10,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "submissions")
+@Table(name = "test_cases")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Submissions {
+public class TestCase {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -117,5 +117,11 @@ public class Submissions {
 
     @Column(name = "enable_network")
     private Boolean enable_network;
-}
 
+    @Column(name = "submissionId", columnDefinition = "TEXT")
+    private String submissionId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "submissionId", insertable = false, updatable = false)
+    private Submission submission;
+}
