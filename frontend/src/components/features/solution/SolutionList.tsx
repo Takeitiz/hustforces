@@ -1,4 +1,3 @@
-// src/components/features/solution/SolutionList.tsx
 import { SolutionDto } from "../../../types/solution";
 import { SolutionCard } from "./SolutionCard";
 

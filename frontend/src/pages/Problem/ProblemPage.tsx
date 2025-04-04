@@ -1,4 +1,3 @@
-// src/pages/Problem/ProblemPage.tsx
 import { ProblemStatement } from "../../components/features/problem/ProblemStatement.tsx";
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";

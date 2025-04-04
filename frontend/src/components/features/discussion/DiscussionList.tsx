@@ -1,4 +1,3 @@
-// src/components/features/discussion/DiscussionList.tsx
 import { DiscussionDto } from "../../../types/discussion";
 import { DiscussionCard } from "./DiscussionCard";
 

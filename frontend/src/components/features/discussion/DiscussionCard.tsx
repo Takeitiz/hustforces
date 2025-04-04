@@ -1,4 +1,3 @@
-// src/components/features/discussion/DiscussionCard.tsx
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
 import { MessageSquare, Eye, ThumbsUp, ThumbsDown } from "lucide-react";

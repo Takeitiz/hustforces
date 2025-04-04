@@ -6,7 +6,7 @@ export interface SolutionDto {
     user: UserSummaryDto;
     problemId: string;
     problemTitle: string;
-    languageId: string;
+    languageId: number;
     createdAt: string;
     updatedAt: string;
     commentCount: number;
@@ -21,7 +21,7 @@ export interface SolutionDetailDto {
     user: UserSummaryDto;
     problemId: string;
     problemTitle: string;
-    languageId: string;
+    languageId: number;
     createdAt: string;
     updatedAt: string;
     upvotes: number;

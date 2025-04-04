@@ -8,10 +8,12 @@ import com.hust.hustforces.model.dto.discussion.UserSummaryDto;
 import com.hust.hustforces.model.entity.Discussion;
 import com.hust.hustforces.model.entity.Problem;
 import com.hust.hustforces.model.entity.User;
+import com.hust.hustforces.model.entity.Vote;
 import com.hust.hustforces.repository.CommentRepository;
 import com.hust.hustforces.repository.DiscussionRepository;
 import com.hust.hustforces.repository.ProblemRepository;
 import com.hust.hustforces.repository.UserRepository;
+import com.hust.hustforces.repository.VoteRepository;
 import com.hust.hustforces.service.CommentService;
 import com.hust.hustforces.service.DiscussionService;
 import jakarta.transaction.Transactional;
@@ -22,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +35,7 @@ public class DiscussionServiceImpl implements DiscussionService {
     private final UserRepository userRepository;
     private final CommentRepository commentRepository;
     private final CommentService commentService;
+    private final VoteRepository voteRepository;
 
     @Override
     @Transactional
@@ -206,17 +210,59 @@ public class DiscussionServiceImpl implements DiscussionService {
         Discussion discussion = discussionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Discussion", "id", id));
 
-        // In a real application, you would track user votes in a separate table
-        // to prevent double voting. This is a simplified implementation.
-        if (isUpvote) {
-            discussion.setUpvotes(discussion.getUpvotes() + 1);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        // Check if the user has already voted
+        Optional<Vote> existingVote = voteRepository.findByUserIdAndEntityIdAndEntityType(
+                userId, id, "DISCUSSION");
+
+        if (existingVote.isPresent()) {
+            Vote vote = existingVote.get();
+
+            if (vote.isUpvote() == isUpvote) {
+                // User is trying to vote the same way again, remove the vote
+                voteRepository.delete(vote);
+
+                if (isUpvote) {
+                    discussion.setUpvotes(Math.max(0, discussion.getUpvotes() - 1));
+                } else {
+                    discussion.setDownvotes(Math.max(0, discussion.getDownvotes() - 1));
+                }
+            } else {
+                // User is changing their vote
+                vote.setUpvote(isUpvote);
+                voteRepository.save(vote);
+
+                if (isUpvote) {
+                    discussion.setUpvotes(discussion.getUpvotes() + 1);
+                    discussion.setDownvotes(Math.max(0, discussion.getDownvotes() - 1));
+                } else {
+                    discussion.setDownvotes(discussion.getDownvotes() + 1);
+                    discussion.setUpvotes(Math.max(0, discussion.getUpvotes() - 1));
+                }
+            }
         } else {
-            discussion.setDownvotes(discussion.getDownvotes() + 1);
+            // New vote
+            Vote vote = Vote.builder()
+                    .userId(userId)
+                    .entityId(id)
+                    .entityType("DISCUSSION")
+                    .isUpvote(isUpvote)
+                    .build();
+
+            voteRepository.save(vote);
+
+            if (isUpvote) {
+                discussion.setUpvotes(discussion.getUpvotes() + 1);
+            } else {
+                discussion.setDownvotes(discussion.getDownvotes() + 1);
+            }
         }
 
         Discussion updatedDiscussion = discussionRepository.save(discussion);
 
-        User user = userRepository.findById(updatedDiscussion.getUserId())
+        User discussionOwner = userRepository.findById(updatedDiscussion.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", updatedDiscussion.getUserId()));
 
         Problem problem = null;
@@ -227,7 +273,7 @@ public class DiscussionServiceImpl implements DiscussionService {
 
         int commentCount = commentRepository.countByDiscussionId(id);
 
-        return mapToDiscussionDto(updatedDiscussion, user, problem, commentCount);
+        return mapToDiscussionDto(updatedDiscussion, discussionOwner, problem, commentCount);
     }
 
     private DiscussionDto mapToDiscussionDto(Discussion discussion, User user, Problem problem, int commentCount) {

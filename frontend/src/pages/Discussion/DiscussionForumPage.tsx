@@ -1,4 +1,3 @@
-// src/pages/Discussion/DiscussionForumPage.tsx
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";

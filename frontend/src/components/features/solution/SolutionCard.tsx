@@ -1,4 +1,3 @@
-// src/components/features/solution/SolutionCard.tsx
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
 import { MessageSquare, ThumbsUp, ThumbsDown, Code } from "lucide-react";

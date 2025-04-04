@@ -1,4 +1,3 @@
-// src/pages/Discussion/DiscussionDetailPage.tsx
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { toast } from "react-toastify";
