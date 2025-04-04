@@ -4,6 +4,7 @@ import { ProblemPage } from "../pages/Problem/ProblemPage.tsx";
 import { useAuth } from "../contexts/AuthContext.tsx";
 import { LoginPage } from "../pages/Auth/LoginPage.tsx";
 import { RegisterPage } from "../pages/Auth/RegisterPage.tsx";
+import { ForgotPasswordPage } from "../pages/Auth/ForgotPasswordPage.tsx";
 import { JSX } from "react";
 import { ProfilePage } from "../pages/Profile/ProfilePage.tsx";
 import { DiscussionForumPage } from "../pages/Discussion/DiscussionForumPage.tsx";
@@ -14,6 +15,10 @@ import { SolutionsPage } from "../pages/Solution/SolutionsPage.tsx";
 import { SolutionDetailPage } from "../pages/Solution/SolutionDetailPage.tsx";
 import { CreateSolutionPage } from "../pages/Solution/CreateSolutionPage.tsx";
 import { EditSolutionPage } from "../pages/Solution/EditSolutionPage.tsx";
+import { SettingsPage } from "../pages/User/SettingsPage.tsx";
+import { TermsPage } from "../pages/Legal/TermsPage.tsx";
+import { PrivacyPolicyPage } from "../pages/Legal/PrivacyPolicyPage.tsx";
+import { NotFoundPage, UnauthorizedPage, ForbiddenPage } from "../pages/Error/ErrorPages.tsx";
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
     const { isLoggedIn, loading } = useAuth();
@@ -36,6 +41,13 @@ export function AppRoutes() {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+
+            {/* Error Pages */}
+            <Route path="/unauthorized" element={<UnauthorizedPage />} />
+            <Route path="/forbidden" element={<ForbiddenPage />} />
 
             {/* Problem routes */}
             <Route path="/problem/:problemId" element={<ProblemPage />} />
@@ -53,6 +65,14 @@ export function AppRoutes() {
             <Route path="/profile/:username?" element={<ProfilePage />} />
 
             {/* Protected routes */}
+            <Route
+                path="/settings"
+                element={
+                    <ProtectedRoute>
+                        <SettingsPage />
+                    </ProtectedRoute>
+                }
+            />
             <Route
                 path="/discussions/create"
                 element={
@@ -100,7 +120,7 @@ export function AppRoutes() {
             <Route path="/standings" element={<div>Standings page (coming soon)</div>} />
 
             {/* 404 route */}
-            <Route path="*" element={<div className="flex justify-center items-center h-screen">Page not found</div>} />
+            <Route path="*" element={<NotFoundPage />} />
         </Routes>
     );
 }
