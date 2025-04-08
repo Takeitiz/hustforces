@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class SubmissionCallback {
+    private String submissionId;
+
     private String stdout;
     private String time;
     private int memory;

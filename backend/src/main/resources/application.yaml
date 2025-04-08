@@ -9,11 +9,16 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
 
 mount:
   path: ${user.dir}/problems
@@ -23,7 +28,7 @@ judge0:
 
 server:
   port: 8080
-  base-url: ${SERVER_BASE_URL:https://bcee-2001-ee0-40c1-c8fd-9050-b146-787e-a65d.ngrok-free.app}
+  base-url: ${SERVER_BASE_URL:https://f375-2001-ee0-40c1-f134-80be-acd5-6130-481d.ngrok-free.app}
 
 logging:
   pattern:

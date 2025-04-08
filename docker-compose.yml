@@ -16,6 +16,10 @@ services:
     privileged: true
     <<: *default-logging
     restart: always
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
 
   workers:
     image: judge0/judge0:1.13.0
@@ -26,6 +30,10 @@ services:
     privileged: true
     <<: *default-logging
     restart: always
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
 
   db:
     image: postgres:13.0
@@ -49,30 +57,23 @@ services:
     <<: *default-logging
     restart: always
 
-#  postgres:
-#    image: postgres:15-alpine
-#    container_name: hustforces-postgres
-#    environment:
-#      POSTGRES_DB: hustforces
-#      POSTGRES_USER: hustforces
-#      POSTGRES_PASSWORD: hustforces123
-#    ports:
-#      - "5432:5432"
-#    volumes:
-#      - postgres_data:/var/lib/postgresql/data
-#    networks:
-#      - hustforces-network
-#    healthcheck:
-#      test: [ "CMD-SHELL", "pg_isready -U hustforces" ]
-#      interval: 10s
-#      timeout: 5s
-#      retries: 5
-
-#networks:
-#  hustforces-network:
-#    driver: bridge
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      # Port for AMQP clients
+      - "5672:5672"
+      # Port for Management UI (access via http://localhost:15672)
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq/
+    <<: *default-logging
+    restart: always
 
 volumes:
   postgres-data:
   redis-data:
-  postgres_data:
+  rabbitmq-data:

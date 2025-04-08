@@ -1,19 +1,17 @@
-package com.hust.hustforces.service.impl;
+package com.hust.hustforces.service.listener;
 
+import com.hust.hustforces.config.RabbitMQConfig;
 import com.hust.hustforces.exception.ResourceNotFoundException;
-import com.hust.hustforces.model.dto.Judge0Response;
 import com.hust.hustforces.model.dto.SubmissionCallback;
 import com.hust.hustforces.model.entity.Submission;
-import com.hust.hustforces.model.entity.Submissions;
 import com.hust.hustforces.model.entity.TestCase;
 import com.hust.hustforces.repository.SubmissionRepository;
-import com.hust.hustforces.repository.SubmissionsRepository;
 import com.hust.hustforces.repository.TestCaseRepository;
-import com.hust.hustforces.service.CallbackService;
 import com.hust.hustforces.service.SubmissionProcessingService;
 import jakarta.transaction.Transactional;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -21,32 +19,46 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 @Slf4j
-public class CallbackServiceImpl implements CallbackService {
+public class JudgeResultListener {
 
     private final SubmissionRepository submissionRepository;
     private final SubmissionProcessingService submissionProcessingService;
     private final TestCaseRepository testCaseRepository;
 
-    @Override
+    @RabbitListener(queues = RabbitMQConfig.JUDGE_RESULT_QUEUE_NAME)
     @Transactional
-    public void processCallback(String submissionId, SubmissionCallback callback) {
-        log.info("Processing callback for submission: {}, status: {}", submissionId, callback.getStatus().getId());
-
-        Submission submission = submissionRepository.findByIdWithTestcases(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
-
-        updateTestcaseFromCallback(submission, callback);
-
-        boolean allTestcasesProcessed = submission.getTestcases().stream()
-                .noneMatch(testcase -> testcase.getStatus_id() == 1 || testcase.getStatus_id() == 2);
-
-        if (allTestcasesProcessed) {
-            submissionProcessingService.updateSubmission(submission);
-            log.info("All testcases processed for submission: {}, final status: {}", submissionId, submission.getStatus());
+    public void handleJudgeResult(SubmissionCallback callback) {
+        String submissionId = callback.getSubmissionId();
+        if (submissionId == null) {
+            log.error("Received callback message without submissionId. Token: {}", callback.getToken());
+            return;
         }
 
+        log.info("Processing judge result from queue for submission: {}, status: {}", submissionId, callback.getStatus().getId());
+
+        try {
+            Submission submission = submissionRepository.findByIdWithTestcases(submissionId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
+
+            updateTestcaseFromCallback(submission, callback);
+
+            boolean allTestcasesProcessed = submission.getTestcases().stream()
+                    .noneMatch(testcase -> testcase.getStatus_id() == 1 || testcase.getStatus_id() == 2);
+
+            if (allTestcasesProcessed) {
+                submissionProcessingService.updateSubmission(submission);
+                log.info("All testcases processed for submission: {}, final status determined: {}", submissionId, submission.getStatus());
+            } else {
+                log.debug("Submission {} still has pending/processing testcases.", submissionId);
+            }
+        } catch (ResourceNotFoundException e) {
+            log.error("Submission not found while processing result from queue: {}", submissionId, e);
+        } catch (Exception e) {
+            log.error("Error processing judge result for submission {}: {}", submissionId, e.getMessage(), e);
+            throw new RuntimeException("Failed to process judge result for submission " + submissionId, e);
+        }
     }
 
     private void updateTestcaseFromCallback(Submission submission, SubmissionCallback callback) {
@@ -65,11 +77,13 @@ public class CallbackServiceImpl implements CallbackService {
                 testcase.setStderr(callback.getStderr());
             }
             if (callback.getTime() != null) {
-                testcase.setTime(new BigDecimal(callback.getTime()));
+                try {
+                    testcase.setTime(new BigDecimal(callback.getTime()));
+                } catch (NumberFormatException e) {
+                    log.warn("Invalid time format '{}' for testcase token {}", callback.getTime(), callback.getToken());
+                }
             }
-
             testcase.setMemory(callback.getMemory());
-
             testcase.setFinished_at(LocalDateTime.now());
             if (callback.getCompileOutput() != null) {
                 testcase.setCompile_output(callback.getCompileOutput());
