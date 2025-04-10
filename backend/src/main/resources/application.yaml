@@ -1,11 +1,15 @@
 spring:
   application:
     name: hustforces
+
+  # Database connection (PostgreSQL)
   datasource:
     url: jdbc:postgresql://localhost:5432/judge0
-    username: judge0
-    password: YourPasswordHere1234
+    username: ${DB_USERNAME:judge0}
+    password: ${DB_PASSWORD:YourPasswordHere1234}
     driver-class-name: org.postgresql.Driver
+
+  # JPA configuration
   jpa:
     hibernate:
       ddl-auto: update
@@ -14,22 +18,37 @@ spring:
       hibernate:
         format_sql: false
         dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # Redis configuration (for leaderboard)
+  data:
+    redis:
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:YourPasswordHere1234}
+      timeout: 2000
+      host: localhost
+
+  # RabbitMQ configuration
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 
+
+# Mount path for problems
 mount:
-  path: ${user.dir}/problems
+  path: ${MOUNT_PATH:${user.dir}/problems}
 
+# Judge0 API configuration
 judge0:
-  uri: http://localhost:2358
+  uri: ${JUDGE0_URI:http://localhost:2358}
 
+# Server configuration
 server:
   port: 8080
   base-url: ${SERVER_BASE_URL:https://f375-2001-ee0-40c1-f134-80be-acd5-6130-481d.ngrok-free.app}
 
+# Logging configuration
 logging:
   pattern:
     console: ${LOGPATTERN_CONSOLE:%green(%d{HH:mm:ss.SSS}) %blue(%-5level) %red([%thread]) %yellow(%logger{15}) - %msg%n}
@@ -39,6 +58,7 @@ logging:
     org.springframework: INFO
     org.hibernate: INFO
 
+# JWT configuration
 jwt:
-  secret: yourSecretKeyHereShouldBeAtLeast32CharactersLong
-  expiration: 86400000
+  secret: ${JWT_SECRET:yourSecretKeyHereShouldBeAtLeast32CharactersLong}
+  expiration: 86400000  # 24 hours in milliseconds
