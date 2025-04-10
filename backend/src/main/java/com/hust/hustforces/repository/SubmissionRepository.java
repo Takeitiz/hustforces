@@ -39,4 +39,6 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
     List<Submission> findByUserIdAndProblemIdOrderByCreatedAtDesc(String userId, String problemId);
 
     List<Submission> findByUserId(String userId);
+
+    public List<Submission> findByUserIdAndProblemIdAndActiveContestId(String userId, String problemId, String contestId);
 }

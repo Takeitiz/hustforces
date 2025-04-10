@@ -1,116 +1,176 @@
 package com.hust.hustforces.controller;
 
+import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.contest.*;
+import com.hust.hustforces.model.entity.User;
+import com.hust.hustforces.repository.UserRepository;
 import com.hust.hustforces.service.ContestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@RequestMapping("api/contests")
+@RequestMapping("/api/contests")
 @RequiredArgsConstructor
 @Slf4j
 public class ContestController {
-
     private final ContestService contestService;
+    private final UserRepository userRepository;
 
-    /**
-     * Creates a new contest. Requires ADMIN role.
-     */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ContestDetailDto> createContest(@Valid @RequestBody CreateContestRequest request) {
-        log.info("Request received to create contest: {}", request.getName());
-        ContestDetailDto createdContest = contestService.createContest(request);
-        log.info("Contest created successfully with ID: {}", createdContest.getId());
-        return new ResponseEntity<>(createdContest, HttpStatus.CREATED);
+    public ResponseEntity<ContestDto> createContest(@Valid @RequestBody CreateContestRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+
+        ContestDto contest = contestService.createContest(request, user.getId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(contest);
     }
 
-    /**
-     * Retrieves a paginated list of contests (summary view).
-     */
-    @GetMapping
-    public ResponseEntity<Page<ContestSummaryDto>> getAllContests(Pageable pageable) {
-        log.info("Request received to list contests");
-        Page<ContestSummaryDto> contests = contestService.getAllContests(pageable);
-        return ResponseEntity.ok(contests);
-    }
+    @PutMapping("/{contestId}")
+    public ResponseEntity<ContestDto> updateContest(
+            @PathVariable String contestId,
+            @Valid @RequestBody UpdateContestRequest request) {
 
-    /**
-     * Retrieves detailed information about a specific contest.
-     * Access control might be needed in the service layer (e.g., based on registration/timing).
-     */
-    @GetMapping("/{contestId}")
-    public ResponseEntity<ContestDetailDto> getContestDetails(@PathVariable String contestId) {
-        log.info("Request received for details of contest ID: {}", contestId);
-        ContestDetailDto contest = contestService.getContestDetails(contestId);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+
+        ContestDto contest = contestService.updateContest(contestId, request, user.getId());
         return ResponseEntity.ok(contest);
     }
 
-    /**
-     * Updates an existing contest. Requires ADMIN role.
-     */
-    @PutMapping("/{contestId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ContestDetailDto> updateContest(@PathVariable String contestId, @Valid @RequestBody UpdateContestRequest request) {
-        log.info("Request received to update contest ID: {}", contestId);
-        ContestDetailDto updatedContest = contestService.updateContest(contestId, request);
-        log.info("Contest ID: {} updated successfully", contestId);
-        return ResponseEntity.ok(updatedContest);
-    }
-
-    /**
-     * Deletes a contest. Requires ADMIN role.
-     */
     @DeleteMapping("/{contestId}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteContest(@PathVariable String contestId) {
-        log.info("Request received to delete contest ID: {}", contestId);
-        contestService.deleteContest(contestId);
-        log.info("Contest ID: {} deleted successfully", contestId);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+
+        contestService.deleteContest(contestId, user.getId());
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Registers the currently authenticated user for a contest.
-     */
+    @GetMapping("/{contestId}")
+    public ResponseEntity<ContestDetailDto> getContestDetails(@PathVariable String contestId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+
+        ContestDetailDto contest = contestService.getContestDetails(contestId, user.getId());
+        return ResponseEntity.ok(contest);
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<ContestDto>> getAllContests(
+            @PageableDefault(size = 10, sort = "startTime") Pageable pageable) {
+
+        Page<ContestDto> contests = contestService.getAllContests(pageable);
+        return ResponseEntity.ok(contests);
+    }
+
+    @GetMapping("/active")
+    public ResponseEntity<List<ContestDto>> getActiveContests() {
+        List<ContestDto> contests = contestService.getActiveContests();
+        return ResponseEntity.ok(contests);
+    }
+
+    @GetMapping("/upcoming")
+    public ResponseEntity<List<ContestDto>> getUpcomingContests() {
+        List<ContestDto> contests = contestService.getUpcomingContests();
+        return ResponseEntity.ok(contests);
+    }
+
+    @GetMapping("/past")
+    public ResponseEntity<Page<ContestDto>> getPastContests(
+            @PageableDefault(size = 10, sort = "endTime") Pageable pageable) {
+
+        Page<ContestDto> contests = contestService.getPastContests(pageable);
+        return ResponseEntity.ok(contests);
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<Page<ContestDto>> searchContests(
+            @RequestParam String query,
+            @PageableDefault(size = 10, sort = "startTime") Pageable pageable) {
+
+        Page<ContestDto> contests = contestService.searchContests(query, pageable);
+        return ResponseEntity.ok(contests);
+    }
+
     @PostMapping("/{contestId}/register")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Void> registerForContest(@PathVariable String contestId) {
-        log.info("Request received for user registration to contest ID: {}", contestId);
-        contestService.registerUserForContest(contestId);
-        log.info("User registered successfully for contest ID: {}", contestId);
+    public ResponseEntity<ContestRegistrationDto> registerForContest(@PathVariable String contestId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+
+        ContestRegistrationDto registration = contestService.registerForContest(contestId, user.getId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(registration);
+    }
+
+    @PostMapping("/{contestId}/problems")
+    public ResponseEntity<Void> addProblemToContest(
+            @PathVariable String contestId,
+            @RequestBody Map<String, Object> request) {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+
+        String problemId = (String) request.get("problemId");
+        int index = Integer.parseInt(request.get("index").toString());
+
+        contestService.addProblemToContest(contestId, problemId, index, user.getId());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @DeleteMapping("/{contestId}/problems/{problemId}")
+    public ResponseEntity<Void> removeProblemFromContest(
+            @PathVariable String contestId,
+            @PathVariable String problemId) {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+
+        contestService.removeProblemFromContest(contestId, problemId, user.getId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{contestId}/updateLeaderboard")
+    public ResponseEntity<Void> updateLeaderboard(@PathVariable String contestId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+
+        contestService.updateLeaderboard(contestId);
         return ResponseEntity.ok().build();
-    }
-
-    /**
-     * Retrieves the list of problems associated with a contest.
-     * Access control (timing, registration) should be handled in the service.
-     */
-    @GetMapping("/{contestId}/problems")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<ContestProblemDto>> getContestProblems(@PathVariable String contestId) {
-        log.info("Request received for problems of contest ID: {}", contestId);
-        List<ContestProblemDto> problems = contestService.getContestProblems(contestId);
-        return ResponseEntity.ok(problems);
-    }
-
-    /**
-     * Retrieves the scoreboard for a specific contest.
-     * Access control (e.g., visibility during/after contest) should be handled in the service.
-     */
-    @GetMapping("/{contestId}/scoreboard")
-    public ResponseEntity<List<ScoreboardEntryDto>> getScoreboard(@PathVariable String contestId) {
-        log.info("Request received for scoreboard of contest ID: {}", contestId);
-        List<ScoreboardEntryDto> scoreboard = contestService.getScoreboard(contestId);
-        return ResponseEntity.ok(scoreboard);
     }
 }

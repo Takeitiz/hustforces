@@ -7,28 +7,38 @@ import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 public interface ContestService {
+    // Contest management
+    ContestDto createContest(CreateContestRequest request, String creatorId);
 
-    /** Creates a new contest with associated problems */
-    ContestDetailDto createContest(CreateContestRequest request);
+    ContestDto updateContest(String contestId, UpdateContestRequest request, String userId);
 
-    /** Retrieves a paginated list of contest summaries */
-    Page<ContestSummaryDto> getAllContests(Pageable pageable);
+    void deleteContest(String contestId, String userId);
 
-    /** Retrieves detailed information for a specific contest */
-    ContestDetailDto getContestDetails(String contestId);
+    ContestDetailDto getContestDetails(String contestId, String userId);
 
-    /** Updates an existing contest */
-    ContestDetailDto updateContest(String contestId, UpdateContestRequest request);
+    // Contest listings
+    Page<ContestDto> getAllContests(Pageable pageable);
 
-    /** Deletes a contest */
-    void deleteContest(String contestId);
+    List<ContestDto> getActiveContests();
 
-    /** Registers the current user for the contest */
-    void registerUserForContest(String contestId);
+    List<ContestDto> getUpcomingContests();
 
-    /** Retrieves the list of problems for a specific contest */
-    List<ContestProblemDto> getContestProblems(String contestId);
+    Page<ContestDto> getPastContests(Pageable pageable);
 
-    /** Retrieves the calculated scoreboard for a contest */
-    List<ScoreboardEntryDto> getScoreboard(String contestId);
+    Page<ContestDto> searchContests(String query, Pageable pageable);
+
+    // Contest participation
+    ContestRegistrationDto registerForContest(String contestId, String userId);
+
+    void updateLeaderboard(String contestId);
+
+    // Contest problem management
+    void addProblemToContest(String contestId, String problemId, int index, String userId);
+
+    void removeProblemFromContest(String contestId, String problemId, String userId);
+
+    // Contest status
+    boolean isContestActive(String contestId);
+
+    boolean canViewContestProblems(String contestId, String userId);
 }
