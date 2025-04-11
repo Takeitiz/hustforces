@@ -40,6 +40,10 @@ public class ContestSubmission {
     @Column(name = "submission_id", nullable = false)
     private String submissionId;
 
+    @OneToOne
+    @JoinColumn(name = "submission_id", insertable = false, updatable = false)
+    private Submission submission;
+
     @Column(nullable = false)
     private int points;
 

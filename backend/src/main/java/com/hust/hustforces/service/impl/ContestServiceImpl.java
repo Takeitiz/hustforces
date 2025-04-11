@@ -6,6 +6,7 @@ import com.hust.hustforces.model.dto.contest.*;
 import com.hust.hustforces.model.entity.*;
 import com.hust.hustforces.repository.*;
 import com.hust.hustforces.service.ContestService;
+import com.hust.hustforces.service.LeaderboardService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,7 @@ public class ContestServiceImpl implements ContestService {
     private final ProblemRepository problemRepository;
     private final UserRepository userRepository;
     private final SubmissionRepository submissionRepository;
+    private final LeaderboardService leaderboardService;
 
     @Override
     @Transactional
@@ -238,63 +240,7 @@ public class ContestServiceImpl implements ContestService {
                     .build());
         }
 
-        List<ContestLeaderboardEntryDto> leaderboard = new ArrayList<>();
-
-        if (contest.isLeaderboard() &&
-                (contest.getEndTime().isBefore(LocalDateTime.now()) || contest.getStartTime().isBefore(LocalDateTime.now()))) {
-
-            List<ContestPoints> contestPointsList = contestPointsRepository.findByContestIdOrderByRankAsc(contestId);
-
-            for (ContestPoints cp : contestPointsList) {
-                User participant = userRepository.findById(cp.getUserId())
-                        .orElseThrow(() -> new ResourceNotFoundException("User", "id", cp.getUserId()));
-
-                List<ContestSubmission> userSubmissions = contestSubmissionRepository
-                        .findByContestIdAndUserIdOrderByPointsDesc(contestId, participant.getId());
-
-                List<ProblemSubmissionStatusDto> problemStatuses = new ArrayList<>();
-
-                for (ContestProblem problem : contestProblems) {
-                    Optional<ContestSubmission> submission = userSubmissions.stream()
-                            .filter(s -> s.getProblemId().equals(problem.getProblemId()))
-                            .findFirst();
-
-                    if (submission.isPresent()) {
-                        ContestSubmission cs = submission.get();
-
-                        List<Submission> allSubmissions = submissionRepository
-                                .findByUserIdAndProblemIdAndActiveContestId(participant.getId(), problem.getProblemId(), contestId);
-
-                        problemStatuses.add(ProblemSubmissionStatusDto.builder()
-                                .problemId(problem.getProblemId())
-                                .points(cs.getPoints())
-                                .attempts(allSubmissions.size())
-                                .submissionId(cs.getSubmissionId())
-                                .solved(true)
-                                .build());
-                    } else {
-                        List<Submission> attempts = submissionRepository
-                                .findByUserIdAndProblemIdAndActiveContestId(participant.getId(), problem.getProblemId(), contestId);
-
-                        problemStatuses.add(ProblemSubmissionStatusDto.builder()
-                                .problemId(problem.getProblemId())
-                                .points(0)
-                                .attempts(attempts.size())
-                                .submissionId(null)
-                                .solved(false)
-                                .build());
-                    }
-                }
-
-                leaderboard.add(ContestLeaderboardEntryDto.builder()
-                        .userId(participant.getId())
-                        .username(participant.getUsername())
-                        .rank(cp.getRank())
-                        .totalPoints(cp.getPoints())
-                        .problemStatuses(problemStatuses)
-                        .build());
-            }
-        }
+        List<ContestLeaderboardEntryDto> leaderboard = leaderboardService.getLeaderboard(contestId);
 
         return ContestDetailDto.builder()
                 .id(contest.getId())
@@ -539,56 +485,7 @@ public class ContestServiceImpl implements ContestService {
 
     @Override
     public void updateLeaderboard(String contestId) {
-        log.info("Updating leaderboard for contest: {}", contestId);
-
-        Contest contest = contestRepository.findById(contestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
-
-        List<ContestSubmission> allSubmissions = contestSubmissionRepository.findAllByContestId(contestId);
-
-        Map<String, List<ContestSubmission>> submissionsByUser = allSubmissions.stream()
-                .collect(Collectors.groupingBy(ContestSubmission::getUserId));
-
-        List<ContestPoints> userPoints = new ArrayList<>();
-
-        for (Map.Entry<String, List<ContestSubmission>> entry : submissionsByUser.entrySet()) {
-            String userId = entry.getKey();
-            List<ContestSubmission> userSubmissions = entry.getValue();
-
-            int totalPoints = userSubmissions.stream()
-                    .mapToInt(ContestSubmission::getPoints)
-                    .sum();
-
-            ContestPoints points = contestPointsRepository.findByContestIdAndUserId(contestId, userId)
-                    .orElseGet(() -> ContestPoints.builder()
-                            .contestId(contestId)
-                            .userId(userId)
-                            .build());
-
-            points.setPoints(totalPoints);
-            userPoints.add(points);
-        }
-
-        userPoints.sort(Comparator.comparing(ContestPoints::getPoints).reversed());
-
-        int currentRank = 1;
-        int sameRankCount = 0;
-        Integer lastPoints = null;
-
-        for (ContestPoints points : userPoints) {
-            if (lastPoints != null && !lastPoints.equals(points.getPoints())) {
-                currentRank += sameRankCount;
-                sameRankCount = 1;
-            } else {
-                sameRankCount++;
-            }
-
-            points.setRank(currentRank);
-            lastPoints = points.getPoints();
-        }
-
-        contestPointsRepository.saveAll(userPoints);
-        log.info("Leaderboard updated for contest: {}", contestId);
+        leaderboardService.rebuildLeaderboard(contestId);
     }
 
     @Override

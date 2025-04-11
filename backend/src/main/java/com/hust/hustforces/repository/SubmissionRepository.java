@@ -18,18 +18,6 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
     @Query("SELECT DISTINCT s FROM Submission s LEFT JOIN FETCH s.testcases t WHERE s.id = :id")
     Optional<Submission> findByIdWithTestcases(@Param("id") String id);
 
-    @Query("SELECT DISTINCT s FROM Submission s LEFT JOIN FETCH s.testcases " +
-            "WHERE s.status = :status " +
-            "ORDER BY s.id ASC")
-    List<Submission> findPendingSubmissions(@Param("status") SubmissionResult status, Pageable pageable);
-
-    @Query("SELECT DISTINCT s FROM Submission s LEFT JOIN FETCH s.testcases " +
-            "WHERE s.status = :status AND s.createdAt < :cutoffTime " +
-            "ORDER BY s.createdAt ASC")
-    List<Submission> findStalePendingSubmissions(@Param("status") SubmissionResult status,
-                                                 @Param("cutoffTime") LocalDateTime cutoffTime,
-                                                 Pageable pageable);
-
     @Query("SELECT s FROM Submission s " +
             "LEFT JOIN FETCH s.activeContest " +
             "LEFT JOIN FETCH s.problem " +
@@ -40,5 +28,8 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
 
     List<Submission> findByUserId(String userId);
 
-    public List<Submission> findByUserIdAndProblemIdAndActiveContestId(String userId, String problemId, String contestId);
+    List<Submission> findByActiveContestId(String contestId);
+
+    @Query("SELECT s FROM Submission s LEFT JOIN FETCH s.contestSubmission WHERE s.id = :submissionId")
+    Optional<Submission> findByIdWithContestSubmission(@Param("submissionId") String submissionId);
 }

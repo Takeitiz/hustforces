@@ -47,6 +47,9 @@ public class Submission {
     @JoinColumn(name = "active_contest_id", insertable = false, updatable = false)
     private Contest activeContest;
 
+    @OneToOne(mappedBy = "submission")
+    private ContestSubmission contestSubmission;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

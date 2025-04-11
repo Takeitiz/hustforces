@@ -1,12 +1,14 @@
 package com.hust.hustforces.service.listener;
 
 import com.hust.hustforces.config.RabbitMQConfig;
+import com.hust.hustforces.enums.SubmissionResult;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.SubmissionCallback;
 import com.hust.hustforces.model.entity.Submission;
 import com.hust.hustforces.model.entity.TestCase;
 import com.hust.hustforces.repository.SubmissionRepository;
 import com.hust.hustforces.repository.TestCaseRepository;
+import com.hust.hustforces.service.LeaderboardService;
 import com.hust.hustforces.service.SubmissionProcessingService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ public class JudgeResultListener {
     private final SubmissionRepository submissionRepository;
     private final SubmissionProcessingService submissionProcessingService;
     private final TestCaseRepository testCaseRepository;
+    private final LeaderboardService leaderboardService;
 
     @RabbitListener(queues = RabbitMQConfig.JUDGE_RESULT_QUEUE_NAME)
     @Transactional
@@ -42,6 +45,15 @@ public class JudgeResultListener {
             Submission submission = submissionRepository.findByIdWithTestcases(submissionId)
                     .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
 
+            // If this is part of a contest, increment attempt count
+            if (submission.getActiveContestId() != null) {
+                leaderboardService.incrementAttemptCount(
+                        submission.getActiveContestId(),
+                        submission.getUserId(),
+                        submission.getProblemId()
+                );
+            }
+
             updateTestcaseFromCallback(submission, callback);
 
             boolean allTestcasesProcessed = submission.getTestcases().stream()
@@ -50,6 +62,27 @@ public class JudgeResultListener {
             if (allTestcasesProcessed) {
                 submissionProcessingService.updateSubmission(submission);
                 log.info("All testcases processed for submission: {}, final status determined: {}", submissionId, submission.getStatus());
+
+                // Update contest leaderboard if this was a successful submission in a contest
+                if (submission.getActiveContestId() != null && submission.getStatus() == SubmissionResult.AC) {
+                    // Check if we have a ContestSubmission created and get its points
+                    submissionProcessingService.updateContest(submission);
+
+                    // Find points from contest submission (should be created by updateContest)
+                    // and update leaderboard
+                    submissionRepository.findByIdWithContestSubmission(submissionId)
+                            .ifPresent(submissionWithContestData -> {
+                                if (submissionWithContestData.getContestSubmission() != null) {
+                                    leaderboardService.updateUserScore(
+                                            submissionWithContestData.getActiveContestId(),
+                                            submissionWithContestData.getUserId(),
+                                            submissionWithContestData.getProblemId(),
+                                            submissionWithContestData.getContestSubmission().getPoints(),
+                                            submissionId
+                                    );
+                                }
+                            });
+                }
             } else {
                 log.debug("Submission {} still has pending/processing testcases.", submissionId);
             }
