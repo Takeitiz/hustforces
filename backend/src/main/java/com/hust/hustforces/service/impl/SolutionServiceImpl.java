@@ -2,10 +2,10 @@ package com.hust.hustforces.service.impl;
 
 import com.hust.hustforces.enums.LanguageId;
 import com.hust.hustforces.exception.ResourceNotFoundException;
+import com.hust.hustforces.mapper.SolutionMapper;
 import com.hust.hustforces.model.dto.discussion.CommentDto;
 import com.hust.hustforces.model.dto.discussion.SolutionDetailDto;
 import com.hust.hustforces.model.dto.discussion.SolutionDto;
-import com.hust.hustforces.model.dto.discussion.UserSummaryDto;
 import com.hust.hustforces.model.entity.Problem;
 import com.hust.hustforces.model.entity.Solution;
 import com.hust.hustforces.model.entity.User;
@@ -37,6 +37,7 @@ public class SolutionServiceImpl implements SolutionService {
     private final CommentRepository commentRepository;
     private final CommentService commentService;
     private final VoteRepository voteRepository;
+    private final SolutionMapper solutionMapper;
 
     @Override
     @Transactional
@@ -57,7 +58,7 @@ public class SolutionServiceImpl implements SolutionService {
 
         Solution savedSolution = solutionRepository.save(solution);
 
-        return mapToSolutionDto(savedSolution, user, problem, 0);
+        return solutionMapper.toSolutionDto(savedSolution, user, problem, 0);
     }
 
     @Override
@@ -74,7 +75,7 @@ public class SolutionServiceImpl implements SolutionService {
 
         List<CommentDto> comments = commentService.getSolutionComments(id);
 
-        return mapToSolutionDetailDto(solution, user, problem, comments);
+        return solutionMapper.toSolutionDetailDto(solution, user, problem, comments);
     }
 
     @Override
@@ -100,7 +101,7 @@ public class SolutionServiceImpl implements SolutionService {
 
         int commentCount = commentRepository.countBySolutionId(id);
 
-        return mapToSolutionDto(updatedSolution, user, problem, commentCount);
+        return solutionMapper.toSolutionDto(updatedSolution, user, problem, commentCount);
     }
 
     @Override
@@ -129,7 +130,7 @@ public class SolutionServiceImpl implements SolutionService {
 
             int commentCount = commentRepository.countBySolutionId(solution.getId());
 
-            return mapToSolutionDto(solution, user, problem, commentCount);
+            return solutionMapper.toSolutionDto(solution, user, problem, commentCount);
         });
     }
 
@@ -146,7 +147,7 @@ public class SolutionServiceImpl implements SolutionService {
 
             int commentCount = commentRepository.countBySolutionId(solution.getId());
 
-            return mapToSolutionDto(solution, user, problem, commentCount);
+            return solutionMapper.toSolutionDto(solution, user, problem, commentCount);
         });
     }
 
@@ -163,7 +164,7 @@ public class SolutionServiceImpl implements SolutionService {
 
             int commentCount = commentRepository.countBySolutionId(solution.getId());
 
-            return mapToSolutionDto(solution, user, problem, commentCount);
+            return solutionMapper.toSolutionDto(solution, user, problem, commentCount);
         });
     }
 
@@ -173,7 +174,7 @@ public class SolutionServiceImpl implements SolutionService {
         Solution solution = solutionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Solution", "id", id));
 
-        User user = userRepository.findById(userId)
+        userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
         // Check if the user has already voted
@@ -233,47 +234,6 @@ public class SolutionServiceImpl implements SolutionService {
 
         int commentCount = commentRepository.countBySolutionId(id);
 
-        return mapToSolutionDto(updatedSolution, solutionOwner, problem, commentCount);
-    }
-
-    private SolutionDto mapToSolutionDto(Solution solution, User user, Problem problem, int commentCount) {
-        return SolutionDto.builder()
-                .id(solution.getId())
-                .description(solution.getDescription())
-                .user(mapToUserSummaryDto(user))
-                .problemId(solution.getProblemId())
-                .problemTitle(problem.getTitle())
-                .languageId(solution.getLanguageId())
-                .createdAt(solution.getCreatedAt())
-                .updatedAt(solution.getUpdatedAt())
-                .commentCount(commentCount)
-                .upvotes(solution.getUpvotes())
-                .downvotes(solution.getDownvotes())
-                .build();
-    }
-
-    private SolutionDetailDto mapToSolutionDetailDto(Solution solution, User user, Problem problem, List<CommentDto> comments) {
-        return SolutionDetailDto.builder()
-                .id(solution.getId())
-                .code(solution.getCode())
-                .description(solution.getDescription())
-                .user(mapToUserSummaryDto(user))
-                .problemId(solution.getProblemId())
-                .problemTitle(problem.getTitle())
-                .languageId(solution.getLanguageId())
-                .createdAt(solution.getCreatedAt())
-                .updatedAt(solution.getUpdatedAt())
-                .upvotes(solution.getUpvotes())
-                .downvotes(solution.getDownvotes())
-                .comments(comments)
-                .build();
-    }
-
-    private UserSummaryDto mapToUserSummaryDto(User user) {
-        return UserSummaryDto.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .profilePicture(null)
-                .build();
+        return solutionMapper.toSolutionDto(updatedSolution, solutionOwner, problem, commentCount);
     }
 }

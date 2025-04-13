@@ -1,10 +1,10 @@
 package com.hust.hustforces.service.impl;
 
 import com.hust.hustforces.exception.ResourceNotFoundException;
+import com.hust.hustforces.mapper.DiscussionMapper;
 import com.hust.hustforces.model.dto.discussion.CommentDto;
 import com.hust.hustforces.model.dto.discussion.DiscussionDetailDto;
 import com.hust.hustforces.model.dto.discussion.DiscussionDto;
-import com.hust.hustforces.model.dto.discussion.UserSummaryDto;
 import com.hust.hustforces.model.entity.Discussion;
 import com.hust.hustforces.model.entity.Problem;
 import com.hust.hustforces.model.entity.User;
@@ -36,6 +36,7 @@ public class DiscussionServiceImpl implements DiscussionService {
     private final CommentRepository commentRepository;
     private final CommentService commentService;
     private final VoteRepository voteRepository;
+    private final DiscussionMapper discussionMapper;
 
     @Override
     @Transactional
@@ -58,7 +59,7 @@ public class DiscussionServiceImpl implements DiscussionService {
 
         Discussion savedDiscussion = discussionRepository.save(discussion);
 
-        return mapToDiscussionDto(savedDiscussion, user, problem, 0);
+        return discussionMapper.toDiscussionDto(savedDiscussion, user, problem, 0);
     }
 
     @Override
@@ -82,7 +83,7 @@ public class DiscussionServiceImpl implements DiscussionService {
 
         List<CommentDto> comments = commentService.getDiscussionComments(id);
 
-        return mapToDiscussionDetailDto(discussion, user, problem, comments);
+        return discussionMapper.toDiscussionDetailDto(discussion, user, problem, comments);
     }
 
     @Override
@@ -111,7 +112,7 @@ public class DiscussionServiceImpl implements DiscussionService {
 
         int commentCount = commentRepository.countByDiscussionId(id);
 
-        return mapToDiscussionDto(updatedDiscussion, user, problem, commentCount);
+        return discussionMapper.toDiscussionDto(updatedDiscussion, user, problem, commentCount);
     }
 
     @Override
@@ -143,7 +144,7 @@ public class DiscussionServiceImpl implements DiscussionService {
 
             int commentCount = commentRepository.countByDiscussionId(discussion.getId());
 
-            return mapToDiscussionDto(discussion, user, problem, commentCount);
+            return discussionMapper.toDiscussionDto(discussion, user, problem, commentCount);
         });
     }
 
@@ -160,7 +161,7 @@ public class DiscussionServiceImpl implements DiscussionService {
 
             int commentCount = commentRepository.countByDiscussionId(discussion.getId());
 
-            return mapToDiscussionDto(discussion, user, problem, commentCount);
+            return discussionMapper.toDiscussionDto(discussion, user, problem, commentCount);
         });
     }
 
@@ -180,7 +181,7 @@ public class DiscussionServiceImpl implements DiscussionService {
 
             int commentCount = commentRepository.countByDiscussionId(discussion.getId());
 
-            return mapToDiscussionDto(discussion, user, problem, commentCount);
+            return discussionMapper.toDiscussionDto(discussion, user, problem, commentCount);
         });
     }
 
@@ -200,7 +201,7 @@ public class DiscussionServiceImpl implements DiscussionService {
 
             int commentCount = commentRepository.countByDiscussionId(discussion.getId());
 
-            return mapToDiscussionDto(discussion, user, problem, commentCount);
+            return discussionMapper.toDiscussionDto(discussion, user, problem, commentCount);
         });
     }
 
@@ -273,48 +274,6 @@ public class DiscussionServiceImpl implements DiscussionService {
 
         int commentCount = commentRepository.countByDiscussionId(id);
 
-        return mapToDiscussionDto(updatedDiscussion, discussionOwner, problem, commentCount);
-    }
-
-    private DiscussionDto mapToDiscussionDto(Discussion discussion, User user, Problem problem, int commentCount) {
-        return DiscussionDto.builder()
-                .id(discussion.getId())
-                .title(discussion.getTitle())
-                .content(discussion.getContent())
-                .user(mapToUserSummaryDto(user))
-                .problemId(discussion.getProblemId())
-                .problemTitle(problem != null ? problem.getTitle() : null)
-                .createdAt(discussion.getCreatedAt())
-                .updatedAt(discussion.getUpdatedAt())
-                .commentCount(commentCount)
-                .viewCount(discussion.getViewCount())
-                .upvotes(discussion.getUpvotes())
-                .downvotes(discussion.getDownvotes())
-                .build();
-    }
-
-    private DiscussionDetailDto mapToDiscussionDetailDto(Discussion discussion, User user, Problem problem, List<CommentDto> comments) {
-        return DiscussionDetailDto.builder()
-                .id(discussion.getId())
-                .title(discussion.getTitle())
-                .content(discussion.getContent())
-                .user(mapToUserSummaryDto(user))
-                .problemId(discussion.getProblemId())
-                .problemTitle(problem != null ? problem.getTitle() : null)
-                .createdAt(discussion.getCreatedAt())
-                .updatedAt(discussion.getUpdatedAt())
-                .viewCount(discussion.getViewCount())
-                .upvotes(discussion.getUpvotes())
-                .downvotes(discussion.getDownvotes())
-                .comments(comments)
-                .build();
-    }
-
-    private UserSummaryDto mapToUserSummaryDto(User user) {
-        return UserSummaryDto.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .profilePicture(null)
-                .build();
+        return discussionMapper.toDiscussionDto(updatedDiscussion, discussionOwner, problem, commentCount);
     }
 }

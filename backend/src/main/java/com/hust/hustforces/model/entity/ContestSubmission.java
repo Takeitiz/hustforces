@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ContestSubmission {
+public class ContestSubmission extends BaseEntity {
     @Id
     @GeneratedValue
     @UuidGenerator(style = UuidGenerator.Style.TIME)
@@ -58,21 +58,4 @@ public class ContestSubmission {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contest_id", referencedColumnName = "id", insertable = false, updatable = false)
     private Contest contest;
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

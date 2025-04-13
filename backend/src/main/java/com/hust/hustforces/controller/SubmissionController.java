@@ -1,21 +1,16 @@
 package com.hust.hustforces.controller;
 
-import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.ResponseDto;
 import com.hust.hustforces.model.dto.SubmissionRequest;
 import com.hust.hustforces.model.dto.submission.SubmissionDetailDto;
 import com.hust.hustforces.model.dto.submission.SubmissionResponseDto;
-import com.hust.hustforces.model.entity.Submission;
-import com.hust.hustforces.model.entity.User;
-import com.hust.hustforces.repository.UserRepository;
 import com.hust.hustforces.service.SubmissionService;
+import com.hust.hustforces.utils.CurrentUserUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -28,33 +23,22 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SubmissionController {
     private final SubmissionService submissionService;
-    private final UserRepository userRepository;
-
+    private final CurrentUserUtil currentUserUtil;
 
     @PostMapping("")
     public ResponseEntity<SubmissionDetailDto> post(@Valid @RequestBody SubmissionRequest input) throws IOException {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
-
-        SubmissionDetailDto submission = submissionService.createSubmission(input, user.getId());
-
+        String userId = currentUserUtil.getCurrentUserId();
+        SubmissionDetailDto submission = submissionService.createSubmission(input, userId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(submission);
     }
 
+
     @GetMapping("")
     public ResponseEntity<?> getSubmissions(@RequestParam(required = false) String problemId) {
         if (problemId != null && !problemId.isEmpty()) {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            String username = authentication.getName();
-
-            User user = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
-
-            List<SubmissionResponseDto> submissions = submissionService.getUserSubmissionsForProblem(user.getId(), problemId);
+            String userId = currentUserUtil.getCurrentUserId();
+            List<SubmissionResponseDto> submissions = submissionService.getUserSubmissionsForProblem(userId, problemId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("submissions", submissions);

@@ -2,6 +2,7 @@ package com.hust.hustforces.service.impl;
 
 import com.hust.hustforces.enums.UserRole;
 import com.hust.hustforces.exception.ResourceNotFoundException;
+import com.hust.hustforces.mapper.ContestMapper;
 import com.hust.hustforces.model.dto.contest.*;
 import com.hust.hustforces.model.entity.*;
 import com.hust.hustforces.repository.*;
@@ -25,441 +26,159 @@ public class ContestServiceImpl implements ContestService {
 
     private final ContestRepository contestRepository;
     private final ContestProblemRepository contestProblemRepository;
-    private final ContestSubmissionRepository contestSubmissionRepository;
     private final ContestPointsRepository contestPointsRepository;
     private final ProblemRepository problemRepository;
     private final UserRepository userRepository;
-    private final SubmissionRepository submissionRepository;
     private final LeaderboardService leaderboardService;
+    private final ContestMapper contestMapper;
 
+    /**
+     * Create a new contest
+     */
     @Override
     @Transactional
     public ContestDto createContest(CreateContestRequest request, String creatorId) {
-        log.info("Creating contest with title: {}", request.getTitle());
+        // Validate creator and permissions
+        validateCreator(creatorId);
+        validateContestTimes(request.getStartTime(), request.getEndTime());
 
-        User creator = userRepository.findById(creatorId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", creatorId));
-
-        if (creator.getRole() != UserRole.ADMIN) {
-            throw new IllegalArgumentException("Only administrators can create contests");
-        }
-
-        if (request.getEndTime().isBefore(request.getStartTime())) {
-            throw new IllegalArgumentException("End time cannot be before start time");
-        }
-
-        Contest contest = Contest.builder()
-                .title(request.getTitle())
-                .description(request.getDescription())
-                .startTime(request.getStartTime())
-                .endTime(request.getEndTime())
-                .hidden(request.isHidden())
-                .leaderboard(request.isLeaderboard())
-                .build();
-
+        // Create and save contest
+        Contest contest = buildContestFromRequest(request);
         Contest savedContest = contestRepository.save(contest);
-        log.info("Contest created with ID: {}", savedContest.getId());
 
-        List<ContestProblemInfoDto> problems = new ArrayList<>();
-        int index = 0;
+        // Add problems to contest
+        List<ContestProblemInfoDto> problems = addProblemsToContest(savedContest.getId(), request.getProblems());
 
-        for (ContestProblemDto problemDto : request.getProblems()) {
-            Problem problem = problemRepository.findById(problemDto.getProblemId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", problemDto.getProblemId()));
-
-            int problemIndex = problemDto.getIndex() > 0 ? problemDto.getIndex() : index;
-
-            ContestProblem contestProblem = ContestProblem.builder()
-                    .contestId(savedContest.getId())
-                    .problemId(problem.getId())
-                    .index(problemIndex)
-                    .id(UUID.randomUUID().toString())
-                    .build();
-
-            ContestProblem savedContestProblem = contestProblemRepository.save(contestProblem);
-
-            problems.add(ContestProblemInfoDto.builder()
-                    .id(savedContestProblem.getId())
-                    .problemId(problem.getId())
-                    .title(problem.getTitle())
-                    .index(problemIndex)
-                    .solved(0)
-                    .build());
-
-            index++;
-        }
-
-        return ContestDto.builder()
-                .id(savedContest.getId())
-                .title(savedContest.getTitle())
-                .description(savedContest.getDescription())
-                .startTime(savedContest.getStartTime())
-                .endTime(savedContest.getEndTime())
-                .hidden(savedContest.isHidden())
-                .leaderboard(savedContest.isLeaderboard())
-                .createdAt(savedContest.getCreatedAt())
-                .problems(problems)
-                .status(determineContestStatus(savedContest))
-                .build();
+        return contestMapper.toContestDto(savedContest, problems);
     }
 
+    /**
+     * Update existing contest
+     */
     @Override
     @Transactional
     public ContestDto updateContest(String contestId, UpdateContestRequest request, String userId) {
-        log.info("Updating contest with ID: {}", contestId);
+        validateAdminPermission(userId);
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-
-        if (user.getRole() != UserRole.ADMIN) {
-            throw new IllegalArgumentException("Only administrators can update contests");
-        }
-
-        Contest contest = contestRepository.findById(contestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
-
-        contest.setTitle(request.getTitle());
-        contest.setDescription(request.getDescription());
-        contest.setStartTime(request.getStartTime());
-        contest.setEndTime(request.getEndTime());
-        contest.setHidden(request.isHidden());
-        contest.setLeaderboard(request.isLeaderboard());
+        Contest contest = findContestById(contestId);
+        updateContestFields(contest, request);
 
         Contest updatedContest = contestRepository.save(contest);
-        log.info("Contest updated: {}", updatedContest.getId());
 
-        List<ContestProblemInfoDto> problems = new ArrayList<>();
-
+        List<ContestProblemInfoDto> problems;
         if (request.getProblems() != null && !request.getProblems().isEmpty()) {
-            List<ContestProblem> existingProblems = contestProblemRepository.findByContestIdOrderByIndex(contestId);
-            contestProblemRepository.deleteAll(existingProblems);
-
-            int index = 0;
-            for (ContestProblemDto problemDto : request.getProblems()) {
-                Problem problem = problemRepository.findById(problemDto.getProblemId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", problemDto.getProblemId()));
-
-                int problemIndex = problemDto.getIndex() > 0 ? problemDto.getIndex() : index;
-
-                ContestProblem contestProblem = ContestProblem.builder()
-                        .contestId(updatedContest.getId())
-                        .problemId(problem.getId())
-                        .index(problemIndex)
-                        .id(UUID.randomUUID().toString())
-                        .build();
-
-                ContestProblem savedContestProblem = contestProblemRepository.save(contestProblem);
-
-                problems.add(ContestProblemInfoDto.builder()
-                        .id(savedContestProblem.getId())
-                        .problemId(problem.getId())
-                        .title(problem.getTitle())
-                        .index(problemIndex)
-                        .solved(0)
-                        .build());
-
-                index++;
-            }
+            problems = updateContestProblems(contestId, request.getProblems());
         } else {
-            List<ContestProblem> existingProblems = contestProblemRepository.findByContestIdOrderByIndex(contestId);
-
-            for (ContestProblem cp : existingProblems) {
-                Problem problem = problemRepository.findById(cp.getProblemId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", cp.getProblemId()));
-
-                problems.add(ContestProblemInfoDto.builder()
-                        .id(cp.getId())
-                        .problemId(problem.getId())
-                        .title(problem.getTitle())
-                        .index(cp.getIndex())
-                        .solved(cp.getSolved())
-                        .build());
-            }
+            problems = getExistingProblems(contestId);
         }
 
-        return ContestDto.builder()
-                .id(updatedContest.getId())
-                .title(updatedContest.getTitle())
-                .description(updatedContest.getDescription())
-                .startTime(updatedContest.getStartTime())
-                .endTime(updatedContest.getEndTime())
-                .hidden(updatedContest.isHidden())
-                .leaderboard(updatedContest.isLeaderboard())
-                .createdAt(updatedContest.getCreatedAt())
-                .problems(problems)
-                .status(determineContestStatus(updatedContest))
-                .build();
+        return contestMapper.toContestDto(updatedContest, problems);
     }
 
+    /**
+     * Delete a contest
+     */
     @Override
     @Transactional
     public void deleteContest(String contestId, String userId) {
-        log.info("Deleting contest with ID: {}", contestId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-
-        if (user.getRole() != UserRole.ADMIN) {
-            throw new IllegalArgumentException("Only administrators can delete contests");
-        }
-
-        Contest contest = contestRepository.findById(contestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
-
+        validateAdminPermission(userId);
+        Contest contest = findContestById(contestId);
         contestRepository.delete(contest);
-        log.info("Contest deleted: {}", contestId);
     }
 
+    /**
+     * Get contest details including problems and leaderboard
+     */
     @Override
     public ContestDetailDto getContestDetails(String contestId, String userId) {
-        log.info("Getting details for contest with ID: {}", contestId);
+        Contest contest = findContestById(contestId);
+        validateContestVisibility(contest, userId);
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-
-        Contest contest = contestRepository.findById(contestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
-
-        if (contest.isHidden() && user.getRole() != UserRole.ADMIN) {
-            throw new IllegalArgumentException("Contest not found or not available");
-        }
-
-        List<ContestProblem> contestProblems = contestProblemRepository.findByContestIdOrderByIndex(contestId);
-        List<ContestProblemInfoDto> problemInfoDtos = new ArrayList<>();
-
-        for (ContestProblem cp : contestProblems) {
-            Problem problem = problemRepository.findById(cp.getProblemId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", cp.getProblemId()));
-
-            problemInfoDtos.add(ContestProblemInfoDto.builder()
-                    .id(cp.getId())
-                    .problemId(problem.getId())
-                    .title(problem.getTitle())
-                    .index(cp.getIndex())
-                    .solved(cp.getSolved())
-                    .build());
-        }
-
+        List<ContestProblemInfoDto> problemInfoDtos = getContestProblems(contestId);
         List<ContestLeaderboardEntryDto> leaderboard = leaderboardService.getLeaderboard(contestId);
 
-        return ContestDetailDto.builder()
-                .id(contest.getId())
-                .title(contest.getTitle())
-                .description(contest.getDescription())
-                .startTime(contest.getStartTime())
-                .endTime(contest.getEndTime())
-                .hidden(contest.isHidden())
-                .leaderboard(contest.isLeaderboard())
-                .createdAt(contest.getCreatedAt())
-                .status(determineContestStatus(contest))
-                .problems(problemInfoDtos)
-                .leaderboard(leaderboard)
-                .build();
+        return contestMapper.toContestDetailDto(contest, problemInfoDtos, leaderboard);
     }
 
+    /**
+     * Get paginated list of all visible contests
+     */
     @Override
     public Page<ContestDto> getAllContests(Pageable pageable) {
-        log.info("Getting all visible contests");
-
-        Page<Contest> contests = contestRepository.findAllVisibleContests(pageable);
+        Page<Contest> contests = contestRepository.findByHiddenFalseOrderByStartTimeDesc(pageable);
 
         return contests.map(contest -> {
-            List<ContestProblem> contestProblems = contestProblemRepository.findByContestIdOrderByIndex(contest.getId());
-            List<ContestProblemInfoDto> problemInfoDtos = new ArrayList<>();
-
-            for (ContestProblem cp : contestProblems) {
-                Problem problem = problemRepository.findById(cp.getProblemId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", cp.getProblemId()));
-
-                problemInfoDtos.add(ContestProblemInfoDto.builder()
-                        .id(cp.getId())
-                        .problemId(problem.getId())
-                        .title(problem.getTitle())
-                        .index(cp.getIndex())
-                        .solved(cp.getSolved())
-                        .build());
-            }
-
-            return ContestDto.builder()
-                    .id(contest.getId())
-                    .title(contest.getTitle())
-                    .description(contest.getDescription())
-                    .startTime(contest.getStartTime())
-                    .endTime(contest.getEndTime())
-                    .hidden(contest.isHidden())
-                    .leaderboard(contest.isLeaderboard())
-                    .createdAt(contest.getCreatedAt())
-                    .problems(problemInfoDtos)
-                    .status(determineContestStatus(contest))
-                    .build();
+            List<ContestProblemInfoDto> problemInfoDtos = getContestProblems(contest.getId());
+            return contestMapper.toContestDto(contest, problemInfoDtos);
         });
     }
 
+    /**
+     * Get list of active contests
+     */
     @Override
     public List<ContestDto> getActiveContests() {
-        log.info("Getting active contests");
-
         List<Contest> activeContests = contestRepository.findActiveContests(LocalDateTime.now());
 
-        return activeContests.stream().map(contest -> {
-            List<ContestProblem> contestProblems = contestProblemRepository.findByContestIdOrderByIndex(contest.getId());
-            List<ContestProblemInfoDto> problemInfoDtos = new ArrayList<>();
-
-            for (ContestProblem cp : contestProblems) {
-                Problem problem = problemRepository.findById(cp.getProblemId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", cp.getProblemId()));
-
-                problemInfoDtos.add(ContestProblemInfoDto.builder()
-                        .id(cp.getId())
-                        .problemId(problem.getId())
-                        .title(problem.getTitle())
-                        .index(cp.getIndex())
-                        .solved(cp.getSolved())
-                        .build());
-            }
-
-            return ContestDto.builder()
-                    .id(contest.getId())
-                    .title(contest.getTitle())
-                    .description(contest.getDescription())
-                    .startTime(contest.getStartTime())
-                    .endTime(contest.getEndTime())
-                    .hidden(contest.isHidden())
-                    .leaderboard(contest.isLeaderboard())
-                    .createdAt(contest.getCreatedAt())
-                    .problems(problemInfoDtos)
-                    .status(ContestStatus.ACTIVE)
-                    .build();
-        }).collect(Collectors.toList());
+        return activeContests.stream()
+                .map(contest -> {
+                    List<ContestProblemInfoDto> problemInfoDtos = getContestProblems(contest.getId());
+                    return contestMapper.toContestDto(contest, problemInfoDtos);
+                })
+                .collect(Collectors.toList());
     }
 
+    /**
+     * Get list of upcoming contests
+     */
     @Override
     public List<ContestDto> getUpcomingContests() {
-        log.info("Getting upcoming contests");
-
         List<Contest> upcomingContests = contestRepository.findUpcomingContests(LocalDateTime.now());
 
-        return upcomingContests.stream().map(contest -> {
-            List<ContestProblem> contestProblems = contestProblemRepository.findByContestIdOrderByIndex(contest.getId());
-            List<ContestProblemInfoDto> problemInfoDtos = new ArrayList<>();
-
-            for (ContestProblem cp : contestProblems) {
-                Problem problem = problemRepository.findById(cp.getProblemId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", cp.getProblemId()));
-
-                problemInfoDtos.add(ContestProblemInfoDto.builder()
-                        .id(cp.getId())
-                        .problemId(problem.getId())
-                        .title(problem.getTitle())
-                        .index(cp.getIndex())
-                        .solved(cp.getSolved())
-                        .build());
-            }
-
-            return ContestDto.builder()
-                    .id(contest.getId())
-                    .title(contest.getTitle())
-                    .description(contest.getDescription())
-                    .startTime(contest.getStartTime())
-                    .endTime(contest.getEndTime())
-                    .hidden(contest.isHidden())
-                    .leaderboard(contest.isLeaderboard())
-                    .createdAt(contest.getCreatedAt())
-                    .problems(problemInfoDtos)
-                    .status(ContestStatus.UPCOMING)
-                    .build();
-        }).collect(Collectors.toList());
+        return upcomingContests.stream()
+                .map(contest -> {
+                    List<ContestProblemInfoDto> problemInfoDtos = getContestProblems(contest.getId());
+                    return contestMapper.toContestDto(contest, problemInfoDtos);
+                })
+                .collect(Collectors.toList());
     }
 
+    /**
+     * Get paginated list of past contests
+     */
     @Override
     public Page<ContestDto> getPastContests(Pageable pageable) {
-        log.info("Getting past contests");
-
         Page<Contest> pastContests = contestRepository.findPastContests(LocalDateTime.now(), pageable);
 
         return pastContests.map(contest -> {
-            List<ContestProblem> contestProblems = contestProblemRepository.findByContestIdOrderByIndex(contest.getId());
-            List<ContestProblemInfoDto> problemInfoDtos = new ArrayList<>();
-
-            for (ContestProblem cp : contestProblems) {
-                Problem problem = problemRepository.findById(cp.getProblemId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", cp.getProblemId()));
-
-                problemInfoDtos.add(ContestProblemInfoDto.builder()
-                        .id(cp.getId())
-                        .problemId(problem.getId())
-                        .title(problem.getTitle())
-                        .index(cp.getIndex())
-                        .solved(cp.getSolved())
-                        .build());
-            }
-
-            return ContestDto.builder()
-                    .id(contest.getId())
-                    .title(contest.getTitle())
-                    .description(contest.getDescription())
-                    .startTime(contest.getStartTime())
-                    .endTime(contest.getEndTime())
-                    .hidden(contest.isHidden())
-                    .leaderboard(contest.isLeaderboard())
-                    .createdAt(contest.getCreatedAt())
-                    .problems(problemInfoDtos)
-                    .status(ContestStatus.ENDED)
-                    .build();
+            List<ContestProblemInfoDto> problemInfoDtos = getContestProblems(contest.getId());
+            return contestMapper.toContestDto(contest, problemInfoDtos);
         });
     }
 
+    /**
+     * Search contests by title
+     */
     @Override
     public Page<ContestDto> searchContests(String query, Pageable pageable) {
-        log.info("Searching contests with query: {}", query);
-
         Page<Contest> searchResults = contestRepository.searchContests(query, pageable);
 
         return searchResults.map(contest -> {
-            List<ContestProblem> contestProblems = contestProblemRepository.findByContestIdOrderByIndex(contest.getId());
-            List<ContestProblemInfoDto> problemInfoDtos = new ArrayList<>();
-
-            for (ContestProblem cp : contestProblems) {
-                Problem problem = problemRepository.findById(cp.getProblemId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", cp.getProblemId()));
-
-                problemInfoDtos.add(ContestProblemInfoDto.builder()
-                        .id(cp.getId())
-                        .problemId(problem.getId())
-                        .title(problem.getTitle())
-                        .index(cp.getIndex())
-                        .solved(cp.getSolved())
-                        .build());
-            }
-
-            return ContestDto.builder()
-                    .id(contest.getId())
-                    .title(contest.getTitle())
-                    .description(contest.getDescription())
-                    .startTime(contest.getStartTime())
-                    .endTime(contest.getEndTime())
-                    .hidden(contest.isHidden())
-                    .leaderboard(contest.isLeaderboard())
-                    .createdAt(contest.getCreatedAt())
-                    .problems(problemInfoDtos)
-                    .status(determineContestStatus(contest))
-                    .build();
+            List<ContestProblemInfoDto> problemInfoDtos = getContestProblems(contest.getId());
+            return contestMapper.toContestDto(contest, problemInfoDtos);
         });
     }
 
+    /**
+     * Register a user for a contest
+     */
     @Override
     public ContestRegistrationDto registerForContest(String contestId, String userId) {
-        log.info("Registering user {} for contest {}", userId, contestId);
-
-        User user = userRepository.findById(userId)
+        userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        Contest contest = contestRepository.findById(contestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
-
-        if (contest.getEndTime().isBefore(LocalDateTime.now())) {
-            throw new IllegalArgumentException("Cannot register for ended contests");
-        }
+        Contest contest = findContestById(contestId);
+        validateContestRegistration(contest);
 
         Optional<ContestPoints> existingRegistration = contestPointsRepository.findByContestIdAndUserId(contestId, userId);
 
@@ -483,27 +202,24 @@ public class ContestServiceImpl implements ContestService {
                 .build();
     }
 
+    /**
+     * Update contest leaderboard
+     */
     @Override
     public void updateLeaderboard(String contestId) {
         leaderboardService.rebuildLeaderboard(contestId);
     }
 
+    /**
+     * Add a problem to a contest
+     */
     @Override
     @Transactional
     public void addProblemToContest(String contestId, String problemId, int index, String userId) {
-        log.info("Adding problem {} to contest {} at index {}", problemId, contestId, index);
+        validateAdminPermission(userId);
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-
-        if (user.getRole() != UserRole.ADMIN) {
-            throw new IllegalArgumentException("Only administrators can modify contests");
-        }
-
-        Contest contest = contestRepository.findById(contestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
-
-        Problem problem = problemRepository.findById(problemId)
+        findContestById(contestId);
+        problemRepository.findById(problemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", problemId));
 
         Optional<ContestProblem> existingProblem = contestProblemRepository
@@ -521,41 +237,39 @@ public class ContestServiceImpl implements ContestService {
                 .build();
 
         contestProblemRepository.save(contestProblem);
-        log.info("Problem added to contest successfully");
     }
 
+    /**
+     * Remove a problem from a contest
+     */
     @Override
     @Transactional
     public void removeProblemFromContest(String contestId, String problemId, String userId) {
-        log.info("Removing problem {} from contest {}", problemId, contestId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-
-        if (user.getRole() != UserRole.ADMIN) {
-            throw new IllegalArgumentException("Only administrators can modify contests");
-        }
+        validateAdminPermission(userId);
 
         ContestProblem contestProblem = contestProblemRepository.findByContestIdAndProblemId(contestId, problemId)
                 .orElseThrow(() -> new ResourceNotFoundException("ContestProblem", "contestId_problemId", contestId + "_" + problemId));
 
         contestProblemRepository.delete(contestProblem);
-        log.info("Problem removed from contest successfully");
     }
 
+    /**
+     * Check if a contest is active
+     */
     @Override
     public boolean isContestActive(String contestId) {
-        Contest contest = contestRepository.findById(contestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
+        Contest contest = findContestById(contestId);
 
         LocalDateTime now = LocalDateTime.now();
         return !contest.isHidden() && contest.getStartTime().isBefore(now) && contest.getEndTime().isAfter(now);
     }
 
+    /**
+     * Check if a user can view contest problems
+     */
     @Override
     public boolean canViewContestProblems(String contestId, String userId) {
-        Contest contest = contestRepository.findById(contestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
+        Contest contest = findContestById(contestId);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
@@ -571,15 +285,185 @@ public class ContestServiceImpl implements ContestService {
         return contest.getEndTime().isBefore(LocalDateTime.now());
     }
 
-    private ContestStatus determineContestStatus(Contest contest) {
-        LocalDateTime now = LocalDateTime.now();
+    /**
+     * Validate that the user is an admin
+     */
+    private void validateAdminPermission(String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        if (contest.getEndTime().isBefore(now)) {
-            return ContestStatus.ENDED;
-        } else if (contest.getStartTime().isBefore(now)) {
-            return ContestStatus.ACTIVE;
-        } else {
-            return ContestStatus.UPCOMING;
+        if (user.getRole() != UserRole.ADMIN) {
+            throw new IllegalArgumentException("Only administrators can perform this action");
         }
+    }
+
+    /**
+     * Validate creator permissions
+     */
+    private void validateCreator(String creatorId) {
+        User creator = userRepository.findById(creatorId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", creatorId));
+
+        if (creator.getRole() != UserRole.ADMIN) {
+            throw new IllegalArgumentException("Only administrators can create contests");
+        }
+    }
+
+    /**
+     * Validate contest time range
+     */
+    private void validateContestTimes(LocalDateTime startTime, LocalDateTime endTime) {
+        if (endTime.isBefore(startTime)) {
+            throw new IllegalArgumentException("End time cannot be before start time");
+        }
+    }
+
+    /**
+     * Validate contest registration
+     */
+    private void validateContestRegistration(Contest contest) {
+        if (contest.getEndTime().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Cannot register for ended contests");
+        }
+    }
+
+    /**
+     * Validate contest visibility for a user
+     */
+    private void validateContestVisibility(Contest contest, String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        if (contest.isHidden() && user.getRole() != UserRole.ADMIN) {
+            throw new IllegalArgumentException("Contest not found or not available");
+        }
+    }
+
+    /**
+     * Build contest entity from request
+     */
+    private Contest buildContestFromRequest(CreateContestRequest request) {
+        return Contest.builder()
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .startTime(request.getStartTime())
+                .endTime(request.getEndTime())
+                .hidden(request.isHidden())
+                .leaderboard(request.isLeaderboard())
+                .build();
+    }
+
+    /**
+     * Update contest fields from request
+     */
+    private void updateContestFields(Contest contest, UpdateContestRequest request) {
+        contest.setTitle(request.getTitle());
+        contest.setDescription(request.getDescription());
+        contest.setStartTime(request.getStartTime());
+        contest.setEndTime(request.getEndTime());
+        contest.setHidden(request.isHidden());
+        contest.setLeaderboard(request.isLeaderboard());
+    }
+
+    /**
+     * Find contest by ID
+     */
+    private Contest findContestById(String contestId) {
+        return contestRepository.findById(contestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
+    }
+
+    /**
+     * Add problems to a contest
+     */
+    private List<ContestProblemInfoDto> addProblemsToContest(String contestId, List<ContestProblemDto> problemDtos) {
+        List<ContestProblemInfoDto> result = new ArrayList<>();
+        int index = 0;
+
+        for (ContestProblemDto problemDto : problemDtos) {
+            Problem problem = problemRepository.findById(problemDto.getProblemId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", problemDto.getProblemId()));
+
+            int problemIndex = problemDto.getIndex() > 0 ? problemDto.getIndex() : index;
+
+            ContestProblem contestProblem = ContestProblem.builder()
+                    .contestId(contestId)
+                    .problemId(problem.getId())
+                    .index(problemIndex)
+                    .id(UUID.randomUUID().toString())
+                    .build();
+
+            ContestProblem savedContestProblem = contestProblemRepository.save(contestProblem);
+
+            result.add(ContestProblemInfoDto.builder()
+                    .id(savedContestProblem.getId())
+                    .problemId(problem.getId())
+                    .title(problem.getTitle())
+                    .index(problemIndex)
+                    .solved(0)
+                    .build());
+
+            index++;
+        }
+
+        return result;
+    }
+
+    /**
+     * Update problems in a contest
+     */
+    private List<ContestProblemInfoDto> updateContestProblems(String contestId, List<ContestProblemDto> problemDtos) {
+        // Delete existing problems
+        List<ContestProblem> existingProblems = contestProblemRepository.findByContestIdOrderByIndex(contestId);
+        contestProblemRepository.deleteAll(existingProblems);
+
+        // Add new problems
+        return addProblemsToContest(contestId, problemDtos);
+    }
+
+    /**
+     * Get existing problems for a contest
+     */
+    private List<ContestProblemInfoDto> getExistingProblems(String contestId) {
+        List<ContestProblem> existingProblems = contestProblemRepository.findByContestIdOrderByIndex(contestId);
+        List<ContestProblemInfoDto> result = new ArrayList<>();
+
+        for (ContestProblem cp : existingProblems) {
+            Problem problem = problemRepository.findById(cp.getProblemId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", cp.getProblemId()));
+
+            result.add(ContestProblemInfoDto.builder()
+                    .id(cp.getId())
+                    .problemId(problem.getId())
+                    .title(problem.getTitle())
+                    .index(cp.getIndex())
+                    .solved(cp.getSolved())
+                    .build());
+        }
+
+        return result;
+    }
+
+    /**
+     * Get problems for a contest
+     */
+    private List<ContestProblemInfoDto> getContestProblems(String contestId) {
+        List<ContestProblem> contestProblems = contestProblemRepository.findByContestIdOrderByIndex(contestId);
+        List<ContestProblemInfoDto> result = new ArrayList<>();
+
+        for (ContestProblem cp : contestProblems) {
+            Problem problem = problemRepository.findById(cp.getProblemId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", cp.getProblemId()));
+
+            result.add(ContestProblemInfoDto.builder()
+                    .id(cp.getId())
+                    .problemId(problem.getId())
+                    .title(problem.getTitle())
+                    .index(cp.getIndex())
+                    .solved(cp.getSolved())
+                    .build());
+        }
+
+        return result;
     }
 }

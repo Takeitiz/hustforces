@@ -1,13 +1,11 @@
 package com.hust.hustforces.controller;
 
-import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.discussion.CreateDiscussionRequest;
 import com.hust.hustforces.model.dto.discussion.DiscussionDetailDto;
 import com.hust.hustforces.model.dto.discussion.DiscussionDto;
 import com.hust.hustforces.model.dto.discussion.UpdateDiscussionRequest;
-import com.hust.hustforces.model.entity.User;
-import com.hust.hustforces.repository.UserRepository;
 import com.hust.hustforces.service.DiscussionService;
+import com.hust.hustforces.utils.CurrentUserUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,8 +14,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -26,20 +22,16 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 public class DiscussionController {
     private final DiscussionService discussionService;
-    private final UserRepository userRepository;
+    private final CurrentUserUtil currentUserUtil;
 
     @PostMapping
     public ResponseEntity<DiscussionDto> createDiscussion(@Valid @RequestBody CreateDiscussionRequest request) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+        String userId = currentUserUtil.getCurrentUserId();
 
         DiscussionDto discussion = discussionService.createDiscussion(
                 request.getTitle(),
                 request.getContent(),
-                user.getId(),
+                userId,
                 request.getProblemId()
         );
 
@@ -48,14 +40,8 @@ public class DiscussionController {
 
     @GetMapping("/{id}")
     public ResponseEntity<DiscussionDetailDto> getDiscussion(@PathVariable String id) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
-
-        DiscussionDetailDto discussion = discussionService.getDiscussion(id, user.getId());
-
+        String userId = currentUserUtil.getCurrentUserId();
+        DiscussionDetailDto discussion = discussionService.getDiscussion(id, userId);
         return ResponseEntity.ok(discussion);
     }
 
@@ -64,17 +50,13 @@ public class DiscussionController {
             @PathVariable String id,
             @Valid @RequestBody UpdateDiscussionRequest request
     ) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+        String userId = currentUserUtil.getCurrentUserId();
 
         DiscussionDto discussion = discussionService.updateDiscussion(
                 id,
                 request.getTitle(),
                 request.getContent(),
-                user.getId()
+                userId
         );
 
         return ResponseEntity.ok(discussion);
@@ -82,14 +64,8 @@ public class DiscussionController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteDiscussion(@PathVariable String id) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
-
-        discussionService.deleteDiscussion(id, user.getId());
-
+        String userId = currentUserUtil.getCurrentUserId();
+        discussionService.deleteDiscussion(id, userId);
         return ResponseEntity.noContent().build();
     }
 
@@ -98,7 +74,6 @@ public class DiscussionController {
             @PageableDefault(size = 10, sort = "createdAt") Pageable pageable
     ) {
         Page<DiscussionDto> discussions = discussionService.getAllDiscussions(pageable);
-
         return ResponseEntity.ok(discussions);
     }
 
@@ -108,7 +83,6 @@ public class DiscussionController {
             @PageableDefault(size = 10, sort = "createdAt") Pageable pageable
     ) {
         Page<DiscussionDto> discussions = discussionService.getDiscussionsByProblem(problemId, pageable);
-
         return ResponseEntity.ok(discussions);
     }
 
@@ -118,7 +92,6 @@ public class DiscussionController {
             @PageableDefault(size = 10, sort = "createdAt") Pageable pageable
     ) {
         Page<DiscussionDto> discussions = discussionService.getDiscussionsByUser(userId, pageable);
-
         return ResponseEntity.ok(discussions);
     }
 
@@ -128,7 +101,6 @@ public class DiscussionController {
             @PageableDefault(size = 10, sort = "createdAt") Pageable pageable
     ) {
         Page<DiscussionDto> discussions = discussionService.searchDiscussions(query, pageable);
-
         return ResponseEntity.ok(discussions);
     }
 
@@ -137,14 +109,8 @@ public class DiscussionController {
             @PathVariable String id,
             @RequestParam boolean upvote
     ) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
-
-        DiscussionDto discussion = discussionService.voteDiscussion(id, user.getId(), upvote);
-
+        String userId = currentUserUtil.getCurrentUserId();
+        DiscussionDto discussion = discussionService.voteDiscussion(id, userId, upvote);
         return ResponseEntity.ok(discussion);
     }
 }

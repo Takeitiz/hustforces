@@ -18,7 +18,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Contest {
+public class Contest extends BaseEntity {
 
     @Id
     @GeneratedValue
@@ -43,12 +43,6 @@ public class Contest {
     @Column(nullable = false)
     private boolean leaderboard = false;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
     @OneToMany(mappedBy = "activeContest", cascade = CascadeType.ALL)
     @JsonIgnore
     private List<Submission> submissions = new ArrayList<>();
@@ -61,14 +55,4 @@ public class Contest {
     @JsonIgnore
     private List<ContestSubmission> contestSubmissions = new ArrayList<>();
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

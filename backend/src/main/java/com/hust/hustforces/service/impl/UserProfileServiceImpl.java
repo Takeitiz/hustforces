@@ -3,6 +3,7 @@ package com.hust.hustforces.service.impl;
 import com.hust.hustforces.enums.Difficulty;
 import com.hust.hustforces.enums.SubmissionResult;
 import com.hust.hustforces.exception.ResourceNotFoundException;
+import com.hust.hustforces.mapper.UserMapper;
 import com.hust.hustforces.model.dto.UserDto;
 import com.hust.hustforces.model.dto.profile.RankingHistoryDto;
 import com.hust.hustforces.model.dto.profile.SubmissionHistoryDto;
@@ -29,6 +30,7 @@ import java.util.*;
 public class UserProfileServiceImpl implements UserProfileService {
     private final UserRepository userRepository;
     private final SubmissionRepository submissionRepository;
+    private final UserMapper userMapper;
 
     @Override
     public UserProfileDto getUserProfile(String username) {
@@ -103,13 +105,10 @@ public class UserProfileServiceImpl implements UserProfileService {
         // Mock ranking history data (this would come from contest results in a real app)
         List<RankingHistoryDto> rankingHistory = generateMockRankingHistory();
 
+        UserDto userDto = userMapper.toUserDto(user);
+
         return UserProfileDto.builder()
-                .user(UserDto.builder()
-                        .id(user.getId())
-                        .username(user.getUsername())
-                        .email(user.getEmail())
-                        .profilePicture(null) // Assuming no profile picture yet
-                        .build())
+                .user(userDto)
                 .stats(stats)
                 .recentSubmissions(recentSubmissions)
                 .rankingHistory(rankingHistory)

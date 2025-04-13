@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class DefaultCode {
+public class DefaultCode extends BaseEntity {
     @Id
     @GeneratedValue
     @UuidGenerator(style = UuidGenerator.Style.TIME)
@@ -36,12 +36,6 @@ public class DefaultCode {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String code;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "problem_id", referencedColumnName = "id", insertable = false, updatable = false)
     @JsonIgnore
@@ -51,15 +45,4 @@ public class DefaultCode {
     @JoinColumn(name = "language_id", referencedColumnName = "id", insertable = false, updatable = false)
     @JsonIgnore
     private Language language;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

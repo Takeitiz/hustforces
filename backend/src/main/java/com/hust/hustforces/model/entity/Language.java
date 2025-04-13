@@ -18,7 +18,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Language {
+public class Language extends BaseEntity {
     @Id
     private Long id;
 
@@ -28,23 +28,6 @@ public class Language {
     @Column(unique = true, nullable = false)
     private int judge0Id;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
     @OneToMany(mappedBy = "language", cascade = CascadeType.ALL)
     private List<DefaultCode> defaultCodes;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

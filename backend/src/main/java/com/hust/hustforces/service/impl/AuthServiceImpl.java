@@ -2,6 +2,7 @@ package com.hust.hustforces.service.impl;
 
 import com.hust.hustforces.enums.UserRole;
 import com.hust.hustforces.exception.ResourceNotFoundException;
+import com.hust.hustforces.mapper.UserMapper;
 import com.hust.hustforces.model.dto.UserDto;
 import com.hust.hustforces.model.dto.auth.AuthResponse;
 import com.hust.hustforces.model.dto.auth.LoginRequest;
@@ -30,27 +31,24 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
     private final PasswordEncoder passwordEncoder;
+    private final UserMapper userMapper;
 
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest registerRequest) {
-        log.info("Processing registration for user: {}", registerRequest.getUsername());
-
-        // Validate if passwords match
         if (!registerRequest.getPassword().equals(registerRequest.getConfirmPassword())) {
             throw new IllegalArgumentException("Passwords do not match");
         }
 
-        // Check if username is already taken
         if (userRepository.existsByUsername(registerRequest.getUsername())) {
             throw new IllegalArgumentException("Username is already taken");
         }
 
-        // Check if email is already registered
         if (userRepository.existsByEmail(registerRequest.getEmail())) {
             throw new IllegalArgumentException("Email is already registered");
         }
 
+        // Build and save user
         User user = User.builder()
                 .username(registerRequest.getUsername())
                 .email(registerRequest.getEmail())
@@ -59,15 +57,11 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         User savedUser = userRepository.save(user);
-        log.info("User registered successfully: {}", savedUser.getUsername());
 
+        // Generate token
         String token = tokenProvider.generateToken(savedUser.getUsername());
 
-        UserDto userDto = UserDto.builder()
-                .id(savedUser.getId())
-                .username(savedUser.getUsername())
-                .email(savedUser.getEmail())
-                .build();
+        UserDto userDto = userMapper.toUserDto(savedUser);
 
         return AuthResponse.builder()
                 .token(token)
@@ -77,8 +71,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(LoginRequest loginRequest) {
-        log.info("Processing login for user: {}", loginRequest.getUsername());
-
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         loginRequest.getUsername(),
@@ -92,13 +84,8 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + loginRequest.getUsername()));
 
         String token = tokenProvider.generateToken(user.getUsername());
-        log.info("User authenticated successfully: {}", user.getUsername());
 
-        UserDto userDto = UserDto.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .build();
+        UserDto userDto = userMapper.toUserDto(user);
 
         return AuthResponse.builder()
                 .token(token)
@@ -114,10 +101,6 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
 
-        return UserDto.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .build();
+        return userMapper.toUserDto(user);
     }
 }

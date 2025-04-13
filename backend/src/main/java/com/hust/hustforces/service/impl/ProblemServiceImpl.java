@@ -16,9 +16,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -35,7 +37,8 @@ public class ProblemServiceImpl implements ProblemService {
 
         try {
             String fullBoilerplateCode = getProblemFullBoilerplateCode(problemId, languageId);
-            log.debug("Retrieved boilerplate code for problem: {}, size: {} characters", problemId, fullBoilerplateCode.length());
+            log.debug("Retrieved boilerplate code for problem: {}, size: {} characters",
+                    problemId, fullBoilerplateCode.length());
 
             List<String> inputs = getProblemInputs(problemId);
             log.debug("Retrieved {} input files for problem: {}", inputs.size(), problemId);
@@ -53,7 +56,8 @@ public class ProblemServiceImpl implements ProblemService {
             log.info("Successfully built problem details for problemId: {}", problemId);
             return details;
         } catch (IOException e) {
-            log.error("Failed to get problem details for problemId: {}, languageId: {}", problemId, languageId, e);
+            log.error("Failed to get problem details for problemId: {}, languageId: {}",
+                    problemId, languageId, e);
             throw e;
         }
     }
@@ -66,10 +70,7 @@ public class ProblemServiceImpl implements ProblemService {
         log.debug("Looking for boilerplate code at path: {}", path);
 
         try {
-            String code = Files.readString(path);
-            log.info("Successfully retrieved boilerplate code for problemId: {}, languageId: {}, size: {} bytes",
-                    problemId, languageId, code.length());
-            return code;
+            return Files.readString(path);
         } catch (IOException e) {
             log.error("Failed to read boilerplate code file for problemId: {}, languageId: {}, path: {}",
                     problemId, languageId, path, e);
@@ -84,25 +85,27 @@ public class ProblemServiceImpl implements ProblemService {
         Path inputsDir = Paths.get(mountPath, problemId, "tests", "inputs");
         log.debug("Looking for input files in directory: {}", inputsDir);
 
-        try {
-            List<String> inputs = Files.list(inputsDir)
-                    .map(path -> {
-                        try {
-                            log.debug("Reading input file: {}", path.getFileName());
-                            String content = Files.readString(path);
-                            log.trace("Input file {} content size: {} bytes", path.getFileName(), content.length());
-                            return content;
-                        } catch (IOException e) {
-                            log.error("Error reading input file: {}", path, e);
-                            throw new RuntimeException("Error reading input file: " + path, e);
-                        }
-                    })
-                    .collect(Collectors.toList());
+        List<String> inputs = new ArrayList<>();
+
+        // Use try-with-resources to ensure the Stream is properly closed
+        try (Stream<Path> paths = Files.list(inputsDir)) {
+            inputs = paths.map(path -> {
+                try {
+                    log.debug("Reading input file: {}", path.getFileName());
+                    String content = Files.readString(path);
+                    log.trace("Input file {} content size: {} bytes", path.getFileName(), content.length());
+                    return content;
+                } catch (IOException e) {
+                    log.error("Error reading input file: {}", path, e);
+                    throw new RuntimeException("Error reading input file: " + path, e);
+                }
+            }).collect(Collectors.toList());
 
             log.info("Successfully retrieved {} input files for problemId: {}", inputs.size(), problemId);
             return inputs;
         } catch (IOException e) {
-            log.error("Failed to list input files for problemId: {}, directory: {}", problemId, inputsDir, e);
+            log.error("Failed to list input files for problemId: {}, directory: {}",
+                    problemId, inputsDir, e);
             throw e;
         }
     }
@@ -114,25 +117,27 @@ public class ProblemServiceImpl implements ProblemService {
         Path outputsDir = Paths.get(mountPath, problemId, "tests", "outputs");
         log.debug("Looking for output files in directory: {}", outputsDir);
 
-        try {
-            List<String> outputs = Files.list(outputsDir)
-                    .map(path -> {
-                        try {
-                            log.debug("Reading output file: {}", path.getFileName());
-                            String content = Files.readString(path);
-                            log.trace("Output file {} content size: {} bytes", path.getFileName(), content.length());
-                            return content;
-                        } catch (IOException e) {
-                            log.error("Error reading output file: {}", path, e);
-                            throw new RuntimeException("Error reading output file: " + path, e);
-                        }
-                    })
-                    .collect(Collectors.toList());
+        List<String> outputs = new ArrayList<>();
+
+        // Use try-with-resources to ensure the Stream is properly closed
+        try (Stream<Path> paths = Files.list(outputsDir)) {
+            outputs = paths.map(path -> {
+                try {
+                    log.debug("Reading output file: {}", path.getFileName());
+                    String content = Files.readString(path);
+                    log.trace("Output file {} content size: {} bytes", path.getFileName(), content.length());
+                    return content;
+                } catch (IOException e) {
+                    log.error("Error reading output file: {}", path, e);
+                    throw new RuntimeException("Error reading output file: " + path, e);
+                }
+            }).collect(Collectors.toList());
 
             log.info("Successfully retrieved {} output files for problemId: {}", outputs.size(), problemId);
             return outputs;
         } catch (IOException e) {
-            log.error("Failed to list output files for problemId: {}, directory: {}", problemId, outputsDir, e);
+            log.error("Failed to list output files for problemId: {}, directory: {}",
+                    problemId, outputsDir, e);
             throw e;
         }
     }

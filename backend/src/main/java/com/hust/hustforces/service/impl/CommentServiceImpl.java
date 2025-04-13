@@ -1,11 +1,9 @@
 package com.hust.hustforces.service.impl;
 
 import com.hust.hustforces.exception.ResourceNotFoundException;
+import com.hust.hustforces.mapper.CommentMapper;
 import com.hust.hustforces.model.dto.discussion.CommentDto;
-import com.hust.hustforces.model.dto.discussion.UserSummaryDto;
 import com.hust.hustforces.model.entity.Comment;
-import com.hust.hustforces.model.entity.Discussion;
-import com.hust.hustforces.model.entity.Solution;
 import com.hust.hustforces.model.entity.User;
 import com.hust.hustforces.model.entity.Vote;
 import com.hust.hustforces.repository.CommentRepository;
@@ -35,6 +33,7 @@ public class CommentServiceImpl implements CommentService {
     private final SolutionRepository solutionRepository;
     private final UserRepository userRepository;
     private final VoteRepository voteRepository;
+    private final CommentMapper commentMapper;
 
     @Override
     @Transactional
@@ -48,23 +47,23 @@ public class CommentServiceImpl implements CommentService {
                 .build();
 
         if (discussionId != null) {
-            Discussion discussion = discussionRepository.findById(discussionId)
+            discussionRepository.findById(discussionId)
                     .orElseThrow(() -> new ResourceNotFoundException("Discussion", "id", discussionId));
             comment.setDiscussionId(discussionId);
         } else if (solutionId != null) {
-            Solution solution = solutionRepository.findById(solutionId)
+            solutionRepository.findById(solutionId)
                     .orElseThrow(() -> new ResourceNotFoundException("Solution", "id", solutionId));
             comment.setSolutionId(solutionId);
         }
 
         if (parentId != null) {
-            Comment parentComment = commentRepository.findById(parentId)
+            commentRepository.findById(parentId)
                     .orElseThrow(() -> new ResourceNotFoundException("Comment", "id", parentId));
             comment.setParentId(parentId);
         }
 
         Comment savedComment = commentRepository.save(comment);
-        return mapToCommentDto(savedComment, user, new ArrayList<>());
+        return commentMapper.toCommentDto(savedComment, user, new ArrayList<>());
     }
 
     @Override
@@ -83,7 +82,7 @@ public class CommentServiceImpl implements CommentService {
         User user = userRepository.findById(updatedComment.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", updatedComment.getUserId()));
 
-        return mapToCommentDto(updatedComment, user, new ArrayList<>());
+        return commentMapper.toCommentDto(updatedComment, user, new ArrayList<>());
     }
 
     @Override
@@ -170,7 +169,7 @@ public class CommentServiceImpl implements CommentService {
         Comment updatedComment = commentRepository.save(comment);
         List<Comment> replies = commentRepository.findByParentIdOrderByCreatedAtAsc(id);
 
-        return mapToCommentDto(updatedComment, user, buildCommentTree(replies));
+        return commentMapper.toCommentDto(updatedComment, user, buildCommentTree(replies));
     }
 
     private List<CommentDto> buildCommentTree(List<Comment> comments) {
@@ -199,37 +198,15 @@ public class CommentServiceImpl implements CommentService {
                         .map(reply -> {
                             User replyUser = userRepository.findById(reply.getUserId())
                                     .orElseThrow(() -> new ResourceNotFoundException("User", "id", reply.getUserId()));
-                            return mapToCommentDto(reply, replyUser, buildCommentTree(
+                            return commentMapper.toCommentDto(reply, replyUser, buildCommentTree(
                                     repliesMap.getOrDefault(reply.getId(), new ArrayList<>())));
                         })
                         .collect(Collectors.toList());
 
-                result.add(mapToCommentDto(comment, user, replyDtos));
+                result.add(commentMapper.toCommentDto(comment, user, replyDtos));
             }
         }
 
         return result;
-    }
-
-    private CommentDto mapToCommentDto(Comment comment, User user, List<CommentDto> replies) {
-        return CommentDto.builder()
-                .id(comment.getId())
-                .content(comment.getContent())
-                .user(mapToUserSummaryDto(user))
-                .parentId(comment.getParentId())
-                .createdAt(comment.getCreatedAt())
-                .updatedAt(comment.getUpdatedAt())
-                .upvotes(comment.getUpvotes())
-                .downvotes(comment.getDownvotes())
-                .replies(replies)
-                .build();
-    }
-
-    private UserSummaryDto mapToUserSummaryDto(User user) {
-        return UserSummaryDto.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .profilePicture(null)
-                .build();
     }
 }

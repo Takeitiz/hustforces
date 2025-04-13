@@ -17,7 +17,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Discussion {
+public class Discussion extends BaseEntity {
     @Id
     @GeneratedValue
     @UuidGenerator(style = UuidGenerator.Style.TIME)
@@ -47,12 +47,6 @@ public class Discussion {
     private List<Comment> comments = new ArrayList<>();
 
     @Column(nullable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
-    @Column(nullable = false)
     private int viewCount = 0;
 
     @Column(nullable = false)
@@ -60,15 +54,4 @@ public class Discussion {
 
     @Column(nullable = false)
     private int downvotes = 0;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

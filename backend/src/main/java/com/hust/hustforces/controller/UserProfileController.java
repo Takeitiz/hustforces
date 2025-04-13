@@ -2,6 +2,7 @@ package com.hust.hustforces.controller;
 
 import com.hust.hustforces.model.dto.profile.UserProfileDto;
 import com.hust.hustforces.service.UserProfileService;
+import com.hust.hustforces.utils.CurrentUserUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

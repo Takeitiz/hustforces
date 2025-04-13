@@ -5,11 +5,13 @@ import com.hust.hustforces.model.dto.discussion.CommentDto;
 import com.hust.hustforces.model.entity.User;
 import com.hust.hustforces.repository.UserRepository;
 import com.hust.hustforces.service.CommentService;
+import com.hust.hustforces.utils.CurrentUserUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -23,15 +25,11 @@ import java.util.Map;
 @Slf4j
 public class CommentController {
     private final CommentService commentService;
-    private final UserRepository userRepository;
+    private final CurrentUserUtil currentUserUtil;
 
     @PostMapping
     public ResponseEntity<CommentDto> createComment(@Valid @RequestBody Map<String, String> request) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+        String userId = currentUserUtil.getCurrentUserId();
 
         String content = request.get("content");
         String discussionId = request.get("discussionId");
@@ -40,7 +38,7 @@ public class CommentController {
 
         CommentDto comment = commentService.createComment(
                 content,
-                user.getId(),
+                userId,
                 discussionId,
                 solutionId,
                 parentId
@@ -66,27 +64,17 @@ public class CommentController {
             @PathVariable String id,
             @Valid @RequestBody Map<String, String> request
     ) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
-
+        String userId = currentUserUtil.getCurrentUserId();
         String content = request.get("content");
 
-        CommentDto comment = commentService.updateComment(id, content, user.getId());
+        CommentDto comment = commentService.updateComment(id, content, userId);
         return ResponseEntity.ok(comment);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteComment(@PathVariable String id) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
-
-        commentService.deleteComment(id, user.getId());
+        String userId = currentUserUtil.getCurrentUserId();
+        commentService.deleteComment(id, userId);
         return ResponseEntity.noContent().build();
     }
 
@@ -95,13 +83,8 @@ public class CommentController {
             @PathVariable String id,
             @RequestParam boolean upvote
     ) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
-
-        CommentDto comment = commentService.voteComment(id, user.getId(), upvote);
+        String userId = currentUserUtil.getCurrentUserId();
+        CommentDto comment = commentService.voteComment(id, userId, upvote);
         return ResponseEntity.ok(comment);
     }
 }

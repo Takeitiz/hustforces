@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @IdClass(ContestProblemId.class)
-public class ContestProblem {
+public class ContestProblem extends BaseEntity {
     @Id
     @Column(name = "contest_id")
     private String contestId;
@@ -26,12 +26,6 @@ public class ContestProblem {
 
     @Column(nullable = false)
     private String id;
-
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
 
     @Column(nullable = false)
     private int index;
@@ -46,15 +40,4 @@ public class ContestProblem {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "problem_id", referencedColumnName = "id", insertable = false, updatable = false)
     private Problem problem;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

@@ -20,7 +20,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Submission {
+public class Submission extends BaseEntity {
 
     @Id
     @GeneratedValue
@@ -50,12 +50,6 @@ public class Submission {
     @OneToOne(mappedBy = "submission")
     private ContestSubmission contestSubmission;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SubmissionResult status = SubmissionResult.PENDING;
@@ -76,15 +70,4 @@ public class Submission {
     @JoinColumn(name = "problem_id", referencedColumnName = "id", insertable = false, updatable = false)
     @JsonIgnore
     private Problem problem;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

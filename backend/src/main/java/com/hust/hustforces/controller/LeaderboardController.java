@@ -6,12 +6,14 @@ import com.hust.hustforces.model.dto.contest.ProblemSubmissionStatusDto;
 import com.hust.hustforces.model.entity.User;
 import com.hust.hustforces.repository.UserRepository;
 import com.hust.hustforces.service.LeaderboardService;
+import com.hust.hustforces.utils.CurrentUserUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -24,9 +26,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class LeaderboardController {
-
     private final LeaderboardService leaderboardService;
-    private final UserRepository userRepository;
+    private final CurrentUserUtil currentUserUtil;
     private final SimpMessagingTemplate messagingTemplate;
 
     @GetMapping("/contest/{contestId}")
@@ -38,14 +39,9 @@ public class LeaderboardController {
 
     @GetMapping("/contest/{contestId}/user")
     public ResponseEntity<ContestLeaderboardEntryDto> getCurrentUserRanking(@PathVariable String contestId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
-
+        String userId = currentUserUtil.getCurrentUserId();
         log.info("Fetching ranking for current user in contest: {}", contestId);
-        ContestLeaderboardEntryDto ranking = leaderboardService.getUserRanking(contestId, user.getId());
+        ContestLeaderboardEntryDto ranking = leaderboardService.getUserRanking(contestId, userId);
         return ResponseEntity.ok(ranking);
     }
 
@@ -53,7 +49,6 @@ public class LeaderboardController {
     public ResponseEntity<ContestLeaderboardEntryDto> getUserRanking(
             @PathVariable String contestId,
             @PathVariable String userId) {
-
         log.info("Fetching ranking for user: {} in contest: {}", userId, contestId);
         ContestLeaderboardEntryDto ranking = leaderboardService.getUserRanking(contestId, userId);
         return ResponseEntity.ok(ranking);
@@ -63,13 +58,13 @@ public class LeaderboardController {
     public ResponseEntity<Map<String, ProblemSubmissionStatusDto>> getUserProblemStatuses(
             @PathVariable String contestId,
             @PathVariable String userId) {
-
         log.info("Fetching problem statuses for user: {} in contest: {}", userId, contestId);
         Map<String, ProblemSubmissionStatusDto> statuses = leaderboardService.getUserProblemStatuses(contestId, userId);
         return ResponseEntity.ok(statuses);
     }
 
     @PostMapping("/contest/{contestId}/initialize")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> initializeLeaderboard(@PathVariable String contestId) {
         log.info("Initializing leaderboard for contest: {}", contestId);
         leaderboardService.initializeLeaderboard(contestId);
@@ -77,6 +72,7 @@ public class LeaderboardController {
     }
 
     @PostMapping("/contest/{contestId}/rebuild")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> rebuildLeaderboard(@PathVariable String contestId) {
         log.info("Rebuilding leaderboard for contest: {}", contestId);
         leaderboardService.rebuildLeaderboard(contestId);

@@ -19,7 +19,6 @@ public class ContestDetailDto {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private boolean hidden;
-    private boolean leaderboard;
     private LocalDateTime createdAt;
     private ContestStatus status;
     private List<ContestProblemInfoDto> problems;

@@ -1,7 +1,5 @@
 package com.hust.hustforces.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.contest.ContestLeaderboardEntryDto;
 import com.hust.hustforces.model.dto.contest.ProblemSubmissionStatusDto;
@@ -10,7 +8,6 @@ import com.hust.hustforces.repository.*;
 import com.hust.hustforces.service.LeaderboardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -23,18 +20,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Slf4j
 public class LeaderboardServiceImpl implements LeaderboardService {
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisCacheService cacheService;
     private final SimpMessagingTemplate messagingTemplate;
     private final ContestRepository contestRepository;
     private final UserRepository userRepository;
     private final ContestSubmissionRepository contestSubmissionRepository;
-    private final ContestProblemRepository contestProblemRepository;
     private final SubmissionRepository submissionRepository;
-    private final ObjectMapper objectMapper;
-
-    private static final String CONTEST_SCORES_PREFIX = "contest:scores:";
-    private static final String USER_PROBLEMS_PREFIX = "user:problems:";
-    private static final String PROBLEM_ATTEMPTS_PREFIX = "problem:attempts:";
 
     @Override
     public int updateUserScore(String contestId, String userId, String problemId, int points, String submissionId) {
@@ -46,33 +37,26 @@ public class LeaderboardServiceImpl implements LeaderboardService {
                 .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
 
         // Get user details
-        User user = userRepository.findById(userId)
+        userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        // Update redis score
-        String scoresKey = CONTEST_SCORES_PREFIX + contestId;
-        Double currentScore = redisTemplate.opsForZSet().score(scoresKey, userId);
+        // Get current score
+        Double currentScore = cacheService.getUserScore(contestId, userId);
         int totalPoints = points;
 
         if (currentScore != null) {
             // Check if user already has points for this problem
-            String userProblemsKey = USER_PROBLEMS_PREFIX + contestId + ":" + userId;
-            String problemData = (String) redisTemplate.opsForHash().get(userProblemsKey, problemId);
+            String userProblemsKey = cacheService.getUserProblemsKey(contestId, userId);
+            ProblemSubmissionStatusDto existingStatus = cacheService.getFromHash(
+                    userProblemsKey, problemId, ProblemSubmissionStatusDto.class);
 
-            if (problemData != null) {
-                try {
-                    ProblemSubmissionStatusDto existingStatus = objectMapper.readValue(
-                            problemData, ProblemSubmissionStatusDto.class);
-
-                    // Only update if new points are higher
-                    if (points > existingStatus.getPoints()) {
-                        totalPoints = calculateTotalPoints(contestId, userId, problemId, points);
-                    } else {
-                        // No update needed, return current rank
-                        return getCurrentRank(scoresKey, userId);
-                    }
-                } catch (JsonProcessingException e) {
-                    log.error("Error parsing problem data from Redis", e);
+            if (existingStatus != null) {
+                // Only update if new points are higher
+                if (points > existingStatus.getPoints()) {
+                    totalPoints = calculateTotalPoints(contestId, userId, problemId, points);
+                } else {
+                    // No update needed, return current rank
+                    return cacheService.getUserRank(contestId, userId);
                 }
             } else {
                 // First time solving this problem
@@ -81,13 +65,13 @@ public class LeaderboardServiceImpl implements LeaderboardService {
         }
 
         // Update the leaderboard score
-        redisTemplate.opsForZSet().add(scoresKey, userId, totalPoints);
+        cacheService.updateUserScore(contestId, userId, totalPoints);
 
         // Update problem status for this user
         updateProblemStatus(contestId, userId, problemId, points, submissionId);
 
         // Get the new rank
-        int newRank = getCurrentRank(scoresKey, userId);
+        int newRank = cacheService.getUserRank(contestId, userId);
 
         // Publish the updated leaderboard to subscribers
         publishLeaderboardUpdate(contestId);
@@ -99,14 +83,11 @@ public class LeaderboardServiceImpl implements LeaderboardService {
     public List<ContestLeaderboardEntryDto> getLeaderboard(String contestId) {
         log.info("Getting leaderboard for contest {}", contestId);
 
-        Contest contest = contestRepository.findById(contestId)
+        contestRepository.findById(contestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
 
-        String scoresKey = CONTEST_SCORES_PREFIX + contestId;
-
         // Get top scores from Redis, ordered by rank (highest score first)
-        Set<ZSetOperations.TypedTuple<Object>> rankedScores =
-                redisTemplate.opsForZSet().reverseRangeWithScores(scoresKey, 0, -1);
+        Set<ZSetOperations.TypedTuple<Object>> rankedScores = cacheService.getContestLeaderboard(contestId);
 
         if (rankedScores == null || rankedScores.isEmpty()) {
             log.info("No leaderboard data found for contest {}", contestId);
@@ -130,7 +111,7 @@ public class LeaderboardServiceImpl implements LeaderboardService {
                     .userId(userId)
                     .username(user.getUsername())
                     .rank(rank.getAndIncrement())
-                    .totalPoints(entry.getScore().intValue())
+                    .totalPoints(Objects.requireNonNull(entry.getScore()).intValue())
                     .problemStatuses(new ArrayList<>(problemStatuses.values()))
                     .build();
 
@@ -144,15 +125,15 @@ public class LeaderboardServiceImpl implements LeaderboardService {
     public ContestLeaderboardEntryDto getUserRanking(String contestId, String userId) {
         log.info("Getting ranking for user {} in contest {}", userId, contestId);
 
-        String scoresKey = CONTEST_SCORES_PREFIX + contestId;
-        Double score = redisTemplate.opsForZSet().score(scoresKey, userId);
+        Double score = cacheService.getUserScore(contestId, userId);
 
         if (score == null) {
             log.info("No score found for user {} in contest {}", userId, contestId);
             return null;
         }
 
-        int rank = getCurrentRank(scoresKey, userId);
+        int rank = cacheService.getUserRank(contestId, userId);
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
@@ -171,27 +152,12 @@ public class LeaderboardServiceImpl implements LeaderboardService {
     public Map<String, ProblemSubmissionStatusDto> getUserProblemStatuses(String contestId, String userId) {
         log.info("Getting problem statuses for user {} in contest {}", userId, contestId);
 
-        String userProblemsKey = USER_PROBLEMS_PREFIX + contestId + ":" + userId;
-        Map<Object, Object> problemData = redisTemplate.opsForHash().entries(userProblemsKey);
+        String userProblemsKey = cacheService.getUserProblemsKey(contestId, userId);
+        Map<String, ProblemSubmissionStatusDto> problemStatuses =
+                cacheService.getAllFromHash(userProblemsKey, ProblemSubmissionStatusDto.class);
 
-        if (problemData.isEmpty()) {
+        if (problemStatuses.isEmpty()) {
             log.info("No problem data found for user {} in contest {}", userId, contestId);
-            return new HashMap<>();
-        }
-
-        Map<String, ProblemSubmissionStatusDto> problemStatuses = new HashMap<>();
-
-        for (Map.Entry<Object, Object> entry : problemData.entrySet()) {
-            String problemId = (String) entry.getKey();
-            String statusJson = (String) entry.getValue();
-
-            try {
-                ProblemSubmissionStatusDto status = objectMapper.readValue(
-                        statusJson, ProblemSubmissionStatusDto.class);
-                problemStatuses.put(problemId, status);
-            } catch (JsonProcessingException e) {
-                log.error("Error parsing problem status JSON for problem {}", problemId, e);
-            }
         }
 
         return problemStatuses;
@@ -202,20 +168,7 @@ public class LeaderboardServiceImpl implements LeaderboardService {
         log.info("Initializing leaderboard for contest {}", contestId);
 
         // Clear existing data
-        String scoresKey = CONTEST_SCORES_PREFIX + contestId;
-        redisTemplate.delete(scoresKey);
-
-        // Delete all user problem data for this contest
-        Set<String> userProblemKeys = redisTemplate.keys(USER_PROBLEMS_PREFIX + contestId + ":*");
-        if (userProblemKeys != null && !userProblemKeys.isEmpty()) {
-            redisTemplate.delete(userProblemKeys);
-        }
-
-        // Delete all problem attempt data for this contest
-        Set<String> problemAttemptKeys = redisTemplate.keys(PROBLEM_ATTEMPTS_PREFIX + contestId + ":*");
-        if (problemAttemptKeys != null && !problemAttemptKeys.isEmpty()) {
-            redisTemplate.delete(problemAttemptKeys);
-        }
+        cacheService.clearContestData(contestId);
 
         log.info("Leaderboard initialized for contest {}", contestId);
     }
@@ -242,51 +195,7 @@ public class LeaderboardServiceImpl implements LeaderboardService {
         }
 
         // Add attempt counts
-        List<Submission> allSubmissions = submissionRepository.findByActiveContestId(contestId);
-        Map<String, Map<String, Integer>> attemptCounts = new HashMap<>();
-
-        for (Submission submission : allSubmissions) {
-            String userId = submission.getUserId();
-            String problemId = submission.getProblemId();
-
-            attemptCounts
-                    .computeIfAbsent(userId, k -> new HashMap<>())
-                    .compute(problemId, (k, v) -> v == null ? 1 : v + 1);
-        }
-
-        // Update attempt counts in Redis
-        for (Map.Entry<String, Map<String, Integer>> userEntry : attemptCounts.entrySet()) {
-            String userId = userEntry.getKey();
-
-            for (Map.Entry<String, Integer> problemEntry : userEntry.getValue().entrySet()) {
-                String problemId = problemEntry.getKey();
-                int attempts = problemEntry.getValue();
-
-                String attemptsKey = PROBLEM_ATTEMPTS_PREFIX + contestId + ":" + userId;
-                redisTemplate.opsForHash().put(attemptsKey, problemId, String.valueOf(attempts));
-
-                // Update problem status if it exists
-                String userProblemsKey = USER_PROBLEMS_PREFIX + contestId + ":" + userId;
-                String problemData = (String) redisTemplate.opsForHash().get(userProblemsKey, problemId);
-
-                if (problemData != null) {
-                    try {
-                        ProblemSubmissionStatusDto status = objectMapper.readValue(
-                                problemData, ProblemSubmissionStatusDto.class);
-
-                        status.setAttempts(attempts);
-
-                        redisTemplate.opsForHash().put(
-                                userProblemsKey,
-                                problemId,
-                                objectMapper.writeValueAsString(status)
-                        );
-                    } catch (JsonProcessingException e) {
-                        log.error("Error updating attempt count for problem {}", problemId, e);
-                    }
-                }
-            }
-        }
+        updateAttemptCounts(contestId);
 
         log.info("Leaderboard rebuilt for contest {}", contestId);
 
@@ -299,36 +208,20 @@ public class LeaderboardServiceImpl implements LeaderboardService {
         log.info("Incrementing attempt count for user {} on problem {} in contest {}",
                 userId, problemId, contestId);
 
-        String attemptsKey = PROBLEM_ATTEMPTS_PREFIX + contestId + ":" + userId;
-        String currentCountStr = (String) redisTemplate.opsForHash().get(attemptsKey, problemId);
-        int currentCount = currentCountStr != null ? Integer.parseInt(currentCountStr) : 0;
-        int newCount = currentCount + 1;
-
-        // Update attempt count
-        redisTemplate.opsForHash().put(attemptsKey, problemId, String.valueOf(newCount));
+        String attemptsKey = cacheService.getProblemAttemptsKey(contestId, userId);
+        int newCount = cacheService.incrementHashCounter(attemptsKey, problemId);
 
         // Update problem status if it exists
-        String userProblemsKey = USER_PROBLEMS_PREFIX + contestId + ":" + userId;
-        String problemData = (String) redisTemplate.opsForHash().get(userProblemsKey, problemId);
+        String userProblemsKey = cacheService.getUserProblemsKey(contestId, userId);
+        ProblemSubmissionStatusDto status = cacheService.getFromHash(
+                userProblemsKey, problemId, ProblemSubmissionStatusDto.class);
 
-        if (problemData != null) {
-            try {
-                ProblemSubmissionStatusDto status = objectMapper.readValue(
-                        problemData, ProblemSubmissionStatusDto.class);
+        if (status != null) {
+            status.setAttempts(newCount);
+            cacheService.storeInHash(userProblemsKey, problemId, status);
 
-                status.setAttempts(newCount);
-
-                redisTemplate.opsForHash().put(
-                        userProblemsKey,
-                        problemId,
-                        objectMapper.writeValueAsString(status)
-                );
-
-                // Publish update to websocket
-                publishUserUpdate(contestId, userId);
-            } catch (JsonProcessingException e) {
-                log.error("Error updating attempt count for problem {}", problemId, e);
-            }
+            // Publish update to websocket
+            publishUserUpdate(contestId, userId);
         } else {
             // Create new problem status entry
             ProblemSubmissionStatusDto newStatus = ProblemSubmissionStatusDto.builder()
@@ -338,54 +231,46 @@ public class LeaderboardServiceImpl implements LeaderboardService {
                     .solved(false)
                     .build();
 
-            try {
-                redisTemplate.opsForHash().put(
-                        userProblemsKey,
-                        problemId,
-                        objectMapper.writeValueAsString(newStatus)
-                );
+            cacheService.storeInHash(userProblemsKey, problemId, newStatus);
 
-                // Publish update to websocket
-                publishUserUpdate(contestId, userId);
-            } catch (JsonProcessingException e) {
-                log.error("Error creating problem status for problem {}", problemId, e);
-            }
+            // Publish update to websocket
+            publishUserUpdate(contestId, userId);
         }
     }
 
+    /**
+     * Calculate total points across all problems for a user
+     */
     private int calculateTotalPoints(String contestId, String userId, String problemId, int newPoints) {
         // Get all problem statuses
-        String userProblemsKey = USER_PROBLEMS_PREFIX + contestId + ":" + userId;
-        Map<Object, Object> problemData = redisTemplate.opsForHash().entries(userProblemsKey);
+        String userProblemsKey = cacheService.getUserProblemsKey(contestId, userId);
+        Map<String, ProblemSubmissionStatusDto> problemStatuses =
+                cacheService.getAllFromHash(userProblemsKey, ProblemSubmissionStatusDto.class);
 
         int totalPoints = newPoints;
 
-        for (Map.Entry<Object, Object> entry : problemData.entrySet()) {
-            String pid = (String) entry.getKey();
+        for (Map.Entry<String, ProblemSubmissionStatusDto> entry : problemStatuses.entrySet()) {
+            String pid = entry.getKey();
 
             // Skip the current problem as we're updating it
             if (pid.equals(problemId)) continue;
 
-            String statusJson = (String) entry.getValue();
-
-            try {
-                ProblemSubmissionStatusDto status = objectMapper.readValue(
-                        statusJson, ProblemSubmissionStatusDto.class);
-                totalPoints += status.getPoints();
-            } catch (JsonProcessingException e) {
-                log.error("Error parsing problem status for problem {}", pid, e);
-            }
+            ProblemSubmissionStatusDto status = entry.getValue();
+            totalPoints += status.getPoints();
         }
 
         return totalPoints;
     }
 
+    /**
+     * Update problem status in Redis
+     */
     private void updateProblemStatus(String contestId, String userId, String problemId,
                                      int points, String submissionId) {
 
         // Get attempt count
-        String attemptsKey = PROBLEM_ATTEMPTS_PREFIX + contestId + ":" + userId;
-        String currentCountStr = (String) redisTemplate.opsForHash().get(attemptsKey, problemId);
+        String attemptsKey = cacheService.getProblemAttemptsKey(contestId, userId);
+        String currentCountStr = (String) cacheService.getFromHash(attemptsKey, problemId, String.class);
         int attempts = currentCountStr != null ? Integer.parseInt(currentCountStr) : 1;
 
         // Create problem status
@@ -397,33 +282,63 @@ public class LeaderboardServiceImpl implements LeaderboardService {
                 .solved(true)
                 .build();
 
-        try {
-            String userProblemsKey = USER_PROBLEMS_PREFIX + contestId + ":" + userId;
-            redisTemplate.opsForHash().put(
-                    userProblemsKey,
-                    problemId,
-                    objectMapper.writeValueAsString(status)
-            );
-        } catch (JsonProcessingException e) {
-            log.error("Error serializing problem status", e);
+        String userProblemsKey = cacheService.getUserProblemsKey(contestId, userId);
+        cacheService.storeInHash(userProblemsKey, problemId, status);
+    }
+
+    /**
+     * Update attempt counts for all users and problems in a contest
+     */
+    private void updateAttemptCounts(String contestId) {
+        List<Submission> allSubmissions = submissionRepository.findByActiveContestId(contestId);
+        Map<String, Map<String, Integer>> attemptCounts = new HashMap<>();
+
+        // Count attempts
+        for (Submission submission : allSubmissions) {
+            String userId = submission.getUserId();
+            String problemId = submission.getProblemId();
+
+            attemptCounts
+                    .computeIfAbsent(userId, k -> new HashMap<>())
+                    .compute(problemId, (k, v) -> v == null ? 1 : v + 1);
+        }
+
+        // Update Redis
+        for (Map.Entry<String, Map<String, Integer>> userEntry : attemptCounts.entrySet()) {
+            String userId = userEntry.getKey();
+
+            for (Map.Entry<String, Integer> problemEntry : userEntry.getValue().entrySet()) {
+                String problemId = problemEntry.getKey();
+                int attempts = problemEntry.getValue();
+
+                // Store attempt count
+                String attemptsKey = cacheService.getProblemAttemptsKey(contestId, userId);
+                cacheService.storeInHash(attemptsKey, problemId, String.valueOf(attempts));
+
+                // Update problem status if it exists
+                String userProblemsKey = cacheService.getUserProblemsKey(contestId, userId);
+                ProblemSubmissionStatusDto status = cacheService.getFromHash(
+                        userProblemsKey, problemId, ProblemSubmissionStatusDto.class);
+
+                if (status != null) {
+                    status.setAttempts(attempts);
+                    cacheService.storeInHash(userProblemsKey, problemId, status);
+                }
+            }
         }
     }
 
-    private int getCurrentRank(String scoresKey, String userId) {
-        // Get user's score
-        Double score = redisTemplate.opsForZSet().score(scoresKey, userId);
-        if (score == null) return 0;
-
-        // Count users with higher score (reverse order for leaderboard)
-        Long higherScores = redisTemplate.opsForZSet().reverseRank(scoresKey, userId);
-        return higherScores != null ? higherScores.intValue() + 1 : 0;
-    }
-
+    /**
+     * Publish leaderboard update via WebSocket
+     */
     private void publishLeaderboardUpdate(String contestId) {
         List<ContestLeaderboardEntryDto> leaderboard = getLeaderboard(contestId);
         messagingTemplate.convertAndSend("/topic/contest/" + contestId + "/leaderboard", leaderboard);
     }
 
+    /**
+     * Publish user update via WebSocket
+     */
     private void publishUserUpdate(String contestId, String userId) {
         ContestLeaderboardEntryDto userRanking = getUserRanking(contestId, userId);
         messagingTemplate.convertAndSend(

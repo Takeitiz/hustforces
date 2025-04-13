@@ -25,7 +25,7 @@ import java.util.stream.Stream;
 
 @Service
 public class ImportServiceImpl implements ImportService {
-    private static final Logger logger =    LoggerFactory.getLogger(ImportServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(ImportServiceImpl.class);
 
     @Value("${mount.path}")
     private String mountPath;
