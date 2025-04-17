@@ -1,3 +1,5 @@
+// src/routes/index.tsx - Modified to include the new contest routes
+
 import { Navigate, Route, Routes } from "react-router-dom";
 import { HomePage } from "../pages/Home/HomePage.tsx";
 import { ProblemPage } from "../pages/Problem/ProblemPage.tsx";
@@ -19,6 +21,9 @@ import { SettingsPage } from "../pages/User/SettingsPage.tsx";
 import { TermsPage } from "../pages/Legal/TermsPage.tsx";
 import { PrivacyPolicyPage } from "../pages/Legal/PrivacyPolicyPage.tsx";
 import { NotFoundPage, UnauthorizedPage, ForbiddenPage } from "../pages/Error/ErrorPages.tsx";
+import { ContestsPage } from "../pages/Contest/ContestsPage.tsx";
+import { ContestDetailPage } from "../pages/Contest/ContestDetailPage.tsx";
+import { ContestLeaderboardPage } from "../pages/Contest/ContestLeaderboardPage.tsx";
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
     const { isLoggedIn, loading } = useAuth();
@@ -63,6 +68,11 @@ export function AppRoutes() {
 
             {/* Profile routes */}
             <Route path="/profile/:username?" element={<ProfilePage />} />
+
+            {/* Contest routes */}
+            <Route path="/contests" element={<ContestsPage />} />
+            <Route path="/contests/:contestId" element={<ContestDetailPage />} />
+            <Route path="/contests/:contestId/leaderboard" element={<ContestLeaderboardPage />} />
 
             {/* Protected routes */}
             <Route
@@ -113,11 +123,6 @@ export function AppRoutes() {
                     </ProtectedRoute>
                 }
             />
-
-            {/* Routes that will be added later (for navigation) */}
-            <Route path="/problems" element={<div>Problems page (coming soon)</div>} />
-            <Route path="/contests" element={<div>Contests page (coming soon)</div>} />
-            <Route path="/standings" element={<div>Standings page (coming soon)</div>} />
 
             {/* 404 route */}
             <Route path="*" element={<NotFoundPage />} />
