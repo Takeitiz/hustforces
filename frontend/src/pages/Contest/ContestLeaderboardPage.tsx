@@ -8,7 +8,6 @@ import contestService from "../../service/contestService";
 import leaderboardService from "../../service/leaderboardService";
 import websocketService from "../../service/websocketService";
 import { ContestDetailDto, ContestLeaderboardEntryDto } from "../../types/contest";
-import { useAuth } from "../../contexts/AuthContext";
 
 export function ContestLeaderboardPage() {
     const { contestId } = useParams<{ contestId: string }>();
@@ -18,7 +17,6 @@ export function ContestLeaderboardPage() {
     const [refreshing, setRefreshing] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [isLive, setIsLive] = useState(false);
-    const { user } = useAuth();
     const subscriptionRef = useRef<string | null>(null);
 
     // Fetch initial data

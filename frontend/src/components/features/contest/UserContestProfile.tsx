@@ -13,7 +13,7 @@ interface UserContestProfileProps {
     username: string;
 }
 
-export function UserContestProfile({ userId, username }: UserContestProfileProps) {
+export function UserContestProfile({ userId }: UserContestProfileProps) {
     const { contestId } = useParams<{ contestId: string }>();
     const [loading, setLoading] = useState(true);
     const [contest, setContest] = useState<ContestDetailDto | null>(null);

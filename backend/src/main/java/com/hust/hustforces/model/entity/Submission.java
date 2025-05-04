@@ -3,6 +3,7 @@ package com.hust.hustforces.model.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.hust.hustforces.enums.LanguageId;
 import com.hust.hustforces.enums.SubmissionResult;
+import com.hust.hustforces.enums.SubmissionState;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -70,4 +71,14 @@ public class Submission extends BaseEntity {
     @JoinColumn(name = "problem_id", referencedColumnName = "id", insertable = false, updatable = false)
     @JsonIgnore
     private Problem problem;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "state")
+    private SubmissionState state = SubmissionState.CREATED;
+
+    @Column(name = "processing_attempts")
+    private int processingAttempts = 0;
+
+    @Column(name = "contest_processing_error")
+    private String contestProcessingError;
 }
