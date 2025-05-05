@@ -1,6 +1,5 @@
 package com.hust.hustforces.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hust.hustforces.enums.LanguageId;
 import com.hust.hustforces.enums.SubmissionResult;
 import com.hust.hustforces.enums.SubmissionState;
@@ -23,10 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.util.*;
@@ -37,9 +33,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class SubmissionServiceImpl implements SubmissionService {
-
-    @Value("${judge0.uri}")
-    private String judge0Uri;
 
     @Value("${server.base-url:http://localhost:8080}")
     private String baseUrl;
@@ -176,7 +169,37 @@ public class SubmissionServiceImpl implements SubmissionService {
         try {
             updateSubmissionState(submission.getId(), SubmissionState.SUBMITTED);
 
-            // Get problem details 
+            // Get problem details and prepare full code
+            ProblemDetails problemDetails = problemService.getProblem(problem.getSlug(), languageId);
+            String fullCode = problemDetails.getFullBoilerplateCode().replace("##USER_CODE_HERE##", submission.getCode());
+
+            // Create Judge0 submissions
+            List<Judge0Submission> judge0Submissions = createJudge0Submissions(
+                    problemDetails,
+                    fullCode,
+                    languageId.toString(),
+                    submission.getId()
+            );
+
+            // Submit to Judge0 with retry
+            List<Judge0Response> judge0Responses = judge0Client.submitBatch(judge0Submissions);
+
+            // Update submission state
+            updateSubmissionState(submission.getId(), SubmissionState.PROCESSING);
+
+            // Create test cases
+            List<TestCase> testcases = createTestcases(judge0Responses, submission);
+
+            // Save test cases
+            testCaseRepository.saveAll(testcases);
+
+            log.info("Successfully submitted {} test cases for submission: {}",
+                    testcases.size(), submission.getId());
+
+        } catch (Exception e) {
+            log.error("Error preparing submission {}: {}", submission.getId(), e.getMessage(), e);
+            updateSubmissionState(submission.getId(), SubmissionState.FAILED);
+            throw new RuntimeException("Failed to process submission", e);
         }
     }
 
@@ -210,99 +233,50 @@ public class SubmissionServiceImpl implements SubmissionService {
         return submissions;
     }
 
-    private List<Judge0Response> submitToJudge0(List<Judge0Submission> submissions) {
-        if (submissions == null || submissions.isEmpty()) {
-            throw new IllegalArgumentException("Cannot submit empty submissions list to Judge0");
-        }
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        ObjectMapper mapper = new ObjectMapper();
-        String jsonBody;
-        try {
-            Map<String, Object> requestMap = new HashMap<>();
-            requestMap.put("submissions", submissions);
-            jsonBody = mapper.writeValueAsString(requestMap);
-            log.debug("Submitting to Judge0: {}", jsonBody);
-        } catch (Exception e) {
-            log.error("Failed to serialize request", e);
-            throw new RuntimeException("Failed to serialize request", e);
-        }
-
-        HttpEntity<String> request = new HttpEntity<>(jsonBody, headers);
-        String url = judge0Uri + "/submissions/batch?base64_encoded=false";
-
-        try {
-            log.info("Sending batch submission to Judge0");
-            ResponseEntity<List<Judge0Response>> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.POST,
-                    request,
-                    new ParameterizedTypeReference<List<Judge0Response>>() {}
-            );
-
-            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                log.error("Failed to submit to Judge0: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to submit to Judge0: " + response.getStatusCode());
-            }
-
-            log.info("Successfully submitted batch of {} submissions to Judge0", submissions.size());
-            return response.getBody();
-        } catch (Exception e) {
-            log.error("Judge0 API error: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to submit to Judge0: " + e.getMessage(), e);
-        }
-    }
-
     private List<TestCase> createTestcases(List<Judge0Response> judge0Responses, Submission submission) {
         return judge0Responses.stream()
                 .map(response -> {
                     TestCase testcase = new TestCase();
 
-                    testcase.setSource_code(response.getSource_code());
-                    testcase.setLanguage_id(response.getLanguage_id());
-                    testcase.setCompiler_options(response.getCompiler_options());
-                    testcase.setCommand_line_arguments(response.getCommand_line_arguments());
+                    testcase.setSubmissionId(submission.getId());
                     testcase.setStdin(response.getStdin());
-                    testcase.setExpected_output(response.getExpected_output());
-                    testcase.setCpu_time_limit(response.getCpu_time_limit());
-                    testcase.setCpu_extra_time(response.getCpu_extra_time());
-                    testcase.setWall_time_limit(response.getWall_time_limit());
-                    testcase.setMemory_limit(response.getMemory_limit());
-                    testcase.setStack_limit(response.getStack_limit());
-                    testcase.setMax_processes_and_or_threads(response.getMax_processes_and_or_threads());
-                    testcase.setEnable_per_process_and_thread_time_limit(response.getEnable_per_process_and_thread_time_limit());
-                    testcase.setEnable_per_process_and_thread_memory_limit(response.getEnable_per_process_and_thread_memory_limit());
-                    testcase.setMax_file_size(response.getMax_file_size());
-                    testcase.setRedirect_stderr_to_stdout(response.getRedirect_stderr_to_stdout());
-                    testcase.setEnable_network(response.getEnable_network());
-                    testcase.setNumber_of_runs(response.getNumber_of_runs());
-                    testcase.setAdditional_files(response.getAdditional_files());
-                    testcase.setCallback_url(response.getCallback_url());
                     testcase.setStdout(response.getStdout());
                     testcase.setStderr(response.getStderr());
-                    testcase.setCompile_output(response.getCompile_output());
-                    testcase.setMessage(response.getMessage());
-                    testcase.setExit_code(response.getExit_code());
-                    testcase.setExit_signal(response.getExit_signal());
-
-                    if (response.getStatus() != null) {
-                        testcase.setStatus_id(response.getStatus().getId());
-                    } else {
-                        testcase.setStatus_id(0);
-                    }
-
-                    testcase.setCreated_at(response.getCreated_at());
-                    testcase.setFinished_at(response.getFinished_at());
+                    testcase.setExpectedOutput(response.getExpected_output());
+                    testcase.setStatusId(response.getStatus() != null ? response.getStatus().getId() : 0);
                     testcase.setToken(response.getToken());
-                    testcase.setTime(response.getTime());
-                    testcase.setWall_time(response.getWall_time());
-                    testcase.setMemory(response.getMemory());
-                    testcase.setSubmissionId(submission.getId());
 
                     return testcase;
                 })
                 .collect(Collectors.toList());
+    }
+
+    private void updateSubmissionState(String submissionId, SubmissionState state) {
+        submissionRepository.findById(submissionId).ifPresent(submission -> {
+            submission.setState(state);
+            submissionRepository.save(submission);
+            log.debug("Updated submission {} state to {}", submissionId, state);
+        });
+    }
+
+    private boolean checkRateLimit(String userId) {
+        long currentTime = System.currentTimeMillis();
+        long oneMinuteAgo = currentTime - 60000;
+
+        synchronized (rateLimitLock) {
+            List<Long> timestamps = userSubmissionTimestamps.computeIfAbsent(userId, k -> new ArrayList<>());
+
+            // Remove timestamps older than one minute
+            timestamps.removeIf(timestamp -> timestamp < oneMinuteAgo);
+
+            // Check if user is within limit
+            if (timestamps.size() >= MAX_SUBMISSIONS_PER_MINUTE) {
+                return false;
+            }
+
+            // Add current timestamp
+            timestamps.add(currentTime);
+            return true;
+        }
     }
 }

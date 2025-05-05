@@ -1,7 +1,9 @@
 package com.hust.hustforces.repository;
 
 import com.hust.hustforces.enums.SubmissionResult;
+import com.hust.hustforces.enums.SubmissionState;
 import com.hust.hustforces.model.entity.Submission;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -30,6 +32,10 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
 
     List<Submission> findByActiveContestId(String contestId);
 
+    Optional<Submission> findById(String submissionId);
+
     @Query("SELECT s FROM Submission s LEFT JOIN FETCH s.contestSubmission WHERE s.id = :submissionId")
     Optional<Submission> findByIdWithContestSubmission(@Param("submissionId") String submissionId);
+
+    List<Submission> findByStateAndCreatedAtBefore(SubmissionState submissionState, LocalDateTime cutoffTime, PageRequest of);
 }
