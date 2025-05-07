@@ -9,6 +9,7 @@ import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -27,6 +28,51 @@ public class RedisCacheService {
     private static final String CONTEST_SCORES_PREFIX = "contest:scores:";
     private static final String USER_PROBLEMS_PREFIX = "user:problems:";
     private static final String PROBLEM_ATTEMPTS_PREFIX = "problem:attempts:";
+    private static final String CONTEST_STANDINGS_PREFIX = "contest:standings:";
+    private static final String CONTEST_STATUS_PREFIX = "contest:status:";
+
+    // Constants for pagination
+    private static final int DEFAULT_PAGE_SIZE = 20;
+
+    /**
+     * Check if a contest is completed
+     * @param contestId the contest ID
+     * @return true if completed
+     */
+    public boolean isContestCompleted(String contestId) {
+        String statusKey = CONTEST_STATUS_PREFIX + contestId;
+        String status = (String) redisTemplate.opsForValue().get(statusKey);
+        return "COMPLETED".equals(status);
+    }
+
+    /**
+     * Mark a contest as completed
+     * @param contestId the contest ID
+     */
+    public void markContestCompleted(String contestId) {
+        String statusKey = CONTEST_STATUS_PREFIX + contestId;
+        redisTemplate.opsForValue().set(statusKey, "COMPLETED");
+    }
+
+    /**
+     * Store pre-calculated contest standings
+     * @param contestId the contest ID
+     * @param standings the standings data
+     */
+    public void storeContestStandings(String contestId, String standings) {
+        String standingsKey = CONTEST_STANDINGS_PREFIX + contestId;
+        redisTemplate.opsForValue().set(standingsKey, standings);
+    }
+
+    /**
+     * Get pre-calculated contest standings
+     * @param contestId the contest ID
+     * @return the standings data or null if not found
+     */
+    public String getContestStandings(String contestId) {
+        String standingsKey = CONTEST_STANDINGS_PREFIX + contestId;
+        return (String) redisTemplate.opsForValue().get(standingsKey);
+    }
 
     /**
      * Get a user's score in a contest
@@ -51,6 +97,27 @@ public class RedisCacheService {
     }
 
     /**
+     * Batch update scores in a contest
+     * @param contestId the contest ID
+     * @param userScores map of user IDs to scores
+     */
+    public void batchUpdateScores(String contestId, Map<String, Double> userScores) {
+        if (userScores == null || userScores.isEmpty()) {
+            return;
+        }
+
+        String scoresKey = CONTEST_SCORES_PREFIX + contestId;
+        Set<ZSetOperations.TypedTuple<Object>> tuples = new HashSet<>();
+
+        for (Map.Entry<String, Double> entry : userScores.entrySet()) {
+            tuples.add(new DefaultTypedTuple<>(entry.getKey(), entry.getValue()));
+        }
+
+        redisTemplate.opsForZSet().add(scoresKey, tuples);
+        log.debug("Batch updated {} scores for contest {}", tuples.size(), contestId);
+    }
+
+    /**
      * Get a user's rank in a contest (1-based, higher score = better rank)
      * @param contestId the contest ID
      * @param userId the user ID
@@ -63,6 +130,32 @@ public class RedisCacheService {
 
         Long higherScores = redisTemplate.opsForZSet().reverseRank(scoresKey, userId);
         return higherScores != null ? higherScores.intValue() + 1 : 0;
+    }
+
+    /**
+     * Get leaderboard with pagination
+     * @param contestId the contest ID
+     * @param page the page number (0-based)
+     * @param size the page size
+     * @return set of user-score pairs for the requested page
+     */
+    public Set<ZSetOperations.TypedTuple<Object>> getPaginatedLeaderboard(String contestId, int page, int size) {
+        String scoresKey = CONTEST_SCORES_PREFIX + contestId;
+        long start = (long) page * size;
+        long end = start + size - 1;
+
+        return redisTemplate.opsForZSet().reverseRangeWithScores(scoresKey, start, end);
+    }
+
+    /**
+     * Get total number of entries in leaderboard
+     * @param contestId the contest ID
+     * @return total number of entries
+     */
+    public long getLeaderboardSize(String contestId) {
+        String scoresKey = CONTEST_SCORES_PREFIX + contestId;
+        Long size = redisTemplate.opsForZSet().size(scoresKey);
+        return size != null ? size : 0;
     }
 
     /**
@@ -194,5 +287,42 @@ public class RedisCacheService {
 
         redisTemplate.opsForHash().put(key, hashKey, String.valueOf(newCount));
         return newCount;
+    }
+
+    /**
+     * Custom implementation of TypedTuple for batch updates
+     */
+    private static class DefaultTypedTuple<V> implements ZSetOperations.TypedTuple<V> {
+        private final V value;
+        private final Double score;
+
+        DefaultTypedTuple(V value, Double score) {
+            this.value = value;
+            this.score = score;
+        }
+
+        @Override
+        public V getValue() {
+            return value;
+        }
+
+        @Override
+        public Double getScore() {
+            return score;
+        }
+
+        @Override
+        public int compareTo(ZSetOperations.TypedTuple<V> o) {
+            if (o == null) {
+                return 1;
+            }
+            if (this.getScore() == null) {
+                return o.getScore() == null ? 0 : -1;
+            }
+            if (o.getScore() == null) {
+                return 1;
+            }
+            return this.getScore().compareTo(o.getScore());
+        }
     }
 }
