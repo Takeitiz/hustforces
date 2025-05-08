@@ -1,7 +1,10 @@
 package com.hust.hustforces.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.contest.ContestLeaderboardEntryDto;
+import com.hust.hustforces.model.dto.contest.LeaderboardPageDto;
 import com.hust.hustforces.model.dto.contest.ProblemSubmissionStatusDto;
 import com.hust.hustforces.model.entity.*;
 import com.hust.hustforces.repository.*;
@@ -10,9 +13,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
@@ -26,6 +32,43 @@ public class LeaderboardServiceImpl implements LeaderboardService {
     private final UserRepository userRepository;
     private final ContestSubmissionRepository contestSubmissionRepository;
     private final SubmissionRepository submissionRepository;
+    private final ObjectMapper objectMapper;
+
+    // Cache for pending score updates to be processed in batch
+    private final Map<String, Map<String, Double>> pendingScoreUpdates = new ConcurrentHashMap<>();
+
+    /**
+     * Scheduled task to process pending score updates in batch
+     */
+    @Scheduled(fixedRate = 5000)  // Process every 5 seconds
+    public void processPendingScoreUpdates() {
+        if (pendingScoreUpdates.isEmpty()) {
+            return;
+        }
+
+        log.debug("Processing pending score updates for {} contests", pendingScoreUpdates.size());
+
+        // Process each contest's updates
+        for (Iterator<Map.Entry<String, Map<String, Double>>> it = pendingScoreUpdates.entrySet().iterator(); it.hasNext(); ) {
+            Map.Entry<String, Map<String, Double>> entry = it.next();
+            String contestId = entry.getKey();
+            Map<String, Double> userScores = entry.getValue();
+
+            // Process in batch
+            try {
+                cacheService.batchUpdateScores(contestId, userScores);
+
+                // Publish update (we'll optimize this later to not publish on every batch)
+                publishLeaderboardUpdate(contestId);
+
+                // Remove from pending updates
+                it.remove();
+            } catch (Exception e) {
+                log.error("Error processing batch updates for contest {}: {}", contestId, e.getMessage(), e);
+                // Keep in the queue for retry
+            }
+        }
+    }
 
     @Override
     public int updateUserScore(String contestId, String userId, String problemId, int points, String submissionId) {
@@ -39,6 +82,12 @@ public class LeaderboardServiceImpl implements LeaderboardService {
         // Get user details
         userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        // Check if contest is completed and cached
+        if (cacheService.isContestCompleted(contestId)) {
+            log.debug("Contest {} is completed, skipping score update for finished contest", contestId);
+            return cacheService.getUserRank(contestId, userId);
+        }
 
         // Get current score
         Double currentScore = cacheService.getUserScore(contestId, userId);
@@ -64,38 +113,68 @@ public class LeaderboardServiceImpl implements LeaderboardService {
             }
         }
 
-        // Update the leaderboard score
-        cacheService.updateUserScore(contestId, userId, totalPoints);
+        // Queue the update for batch processing instead of immediate update
+        pendingScoreUpdates
+                .computeIfAbsent(contestId, k -> new ConcurrentHashMap<>())
+                .put(userId, (double) totalPoints);
 
         // Update problem status for this user
         updateProblemStatus(contestId, userId, problemId, points, submissionId);
 
-        // Get the new rank
-        int newRank = cacheService.getUserRank(contestId, userId);
+        // Since we're now batching updates, we'll make a best-effort estimate of the new rank
+        // The exact rank will be updated when the batch is processed
+        int estimatedNewRank = cacheService.getUserRank(contestId, userId);
 
-        // Publish the updated leaderboard to subscribers
-        publishLeaderboardUpdate(contestId);
+        // For immediate UI feedback, publish a user update
+        publishUserUpdate(contestId, userId);
 
-        return newRank;
+        return estimatedNewRank;
     }
 
     @Override
-    public List<ContestLeaderboardEntryDto> getLeaderboard(String contestId) {
-        log.info("Getting leaderboard for contest {}", contestId);
+    public LeaderboardPageDto getLeaderboardPage(String contestId, int page, int size) {
+        log.info("Getting paginated leaderboard for contest {}, page {}, size {}", contestId, page, size);
 
         contestRepository.findById(contestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
 
-        // Get top scores from Redis, ordered by rank (highest score first)
-        Set<ZSetOperations.TypedTuple<Object>> rankedScores = cacheService.getContestLeaderboard(contestId);
+        // Check if contest is completed and has cached standings
+        if (cacheService.isContestCompleted(contestId)) {
+            String cachedStandings = cacheService.getContestStandings(contestId);
+            if (cachedStandings != null) {
+                try {
+                    LeaderboardPageDto standings = objectMapper.readValue(cachedStandings, LeaderboardPageDto.class);
+
+                    // Filter for the requested page
+                    int totalItems = standings.getTotalItems();
+                    List<ContestLeaderboardEntryDto> entries = standings.getEntries();
+                    int startIdx = page * size;
+                    int endIdx = Math.min(startIdx + size, entries.size());
+
+                    if (startIdx < entries.size()) {
+                        List<ContestLeaderboardEntryDto> pageEntries = entries.subList(startIdx, endIdx);
+                        return new LeaderboardPageDto(pageEntries, page, size, totalItems);
+                    }
+                } catch (JsonProcessingException e) {
+                    log.error("Error deserializing cached standings: {}", e.getMessage(), e);
+                    // Fall back to generating from Redis
+                }
+            }
+        }
+
+        // Get top scores for the requested page from Redis
+        Set<ZSetOperations.TypedTuple<Object>> rankedScores = cacheService.getPaginatedLeaderboard(contestId, page, size);
+        long totalItems = cacheService.getLeaderboardSize(contestId);
 
         if (rankedScores == null || rankedScores.isEmpty()) {
-            log.info("No leaderboard data found for contest {}", contestId);
-            return new ArrayList<>();
+            log.info("No leaderboard data found for contest {} on page {}", contestId, page);
+            return new LeaderboardPageDto(new ArrayList<>(), page, size, 0);
         }
 
         List<ContestLeaderboardEntryDto> leaderboard = new ArrayList<>();
-        AtomicInteger rank = new AtomicInteger(1);
+        // Calculate starting rank based on page number
+        int startingRank = page * size + 1;
+        AtomicInteger rank = new AtomicInteger(startingRank);
 
         for (ZSetOperations.TypedTuple<Object> entry : rankedScores) {
             String userId = (String) entry.getValue();
@@ -118,7 +197,30 @@ public class LeaderboardServiceImpl implements LeaderboardService {
             leaderboard.add(leaderboardEntry);
         }
 
-        return leaderboard;
+        return new LeaderboardPageDto(leaderboard, page, size, (int) totalItems);
+    }
+
+    @Override
+    public List<ContestLeaderboardEntryDto> getLeaderboard(String contestId) {
+        log.info("Getting full leaderboard for contest {}", contestId);
+
+        // Check if we have a completed contest with cached standings
+        if (cacheService.isContestCompleted(contestId)) {
+            String cachedStandings = cacheService.getContestStandings(contestId);
+            if (cachedStandings != null) {
+                try {
+                    LeaderboardPageDto standings = objectMapper.readValue(cachedStandings, LeaderboardPageDto.class);
+                    return standings.getEntries();
+                } catch (JsonProcessingException e) {
+                    log.error("Error deserializing cached standings: {}", e.getMessage(), e);
+                    // Fall back to generating from Redis
+                }
+            }
+        }
+
+        // Default to returning the first page for backward compatibility
+        LeaderboardPageDto firstPage = getLeaderboardPage(contestId, 0, 100);
+        return firstPage.getEntries();
     }
 
     @Override
@@ -177,30 +279,111 @@ public class LeaderboardServiceImpl implements LeaderboardService {
     public void rebuildLeaderboard(String contestId) {
         log.info("Rebuilding leaderboard for contest {}", contestId);
 
+        // Check if the contest exists
+        Contest contest = contestRepository.findById(contestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
+
         // Initialize leaderboard (clear existing data)
         initializeLeaderboard(contestId);
 
         // Get all contest submissions
         List<ContestSubmission> submissions = contestSubmissionRepository.findAllByContestId(contestId);
 
-        // Process each submission
+        // Prepare batch updates
+        Map<String, Double> batchScores = new HashMap<>();
+        Map<String, Map<String, Integer>> userProblemPoints = new HashMap<>();
+
+        // Process each submission to build the batch updates
         for (ContestSubmission submission : submissions) {
-            updateUserScore(
-                    submission.getContestId(),
-                    submission.getUserId(),
-                    submission.getProblemId(),
-                    submission.getPoints(),
+            String userId = submission.getUserId();
+            String problemId = submission.getProblemId();
+            int points = submission.getPoints();
+
+            // Track highest points per problem for each user
+            userProblemPoints
+                    .computeIfAbsent(userId, k -> new HashMap<>())
+                    .compute(problemId, (k, v) -> v == null ? points : Math.max(v, points));
+
+            // Also update problem status
+            updateProblemStatus(
+                    contestId,
+                    userId,
+                    problemId,
+                    points,
                     submission.getSubmissionId()
             );
         }
+
+        // Calculate total points for each user
+        for (Map.Entry<String, Map<String, Integer>> userEntry : userProblemPoints.entrySet()) {
+            String userId = userEntry.getKey();
+            int totalPoints = userEntry.getValue().values().stream().mapToInt(Integer::intValue).sum();
+            batchScores.put(userId, (double) totalPoints);
+        }
+
+        // Perform batch update
+        cacheService.batchUpdateScores(contestId, batchScores);
 
         // Add attempt counts
         updateAttemptCounts(contestId);
 
         log.info("Leaderboard rebuilt for contest {}", contestId);
 
+        // Check if contest is completed
+        LocalDateTime now = LocalDateTime.now();
+        if (contest.getEndTime().isBefore(now)) {
+            // Cache the standings for this completed contest
+            cacheCompletedContestStandings(contestId);
+            // Mark as completed in Redis
+            cacheService.markContestCompleted(contestId);
+        }
+
         // Publish the updated leaderboard
         publishLeaderboardUpdate(contestId);
+    }
+
+    /**
+     * Cache the full standings for a completed contest
+     */
+    private void cacheCompletedContestStandings(String contestId) {
+        try {
+            // Generate full leaderboard
+            Set<ZSetOperations.TypedTuple<Object>> allScores = cacheService.getContestLeaderboard(contestId);
+            List<ContestLeaderboardEntryDto> entries = new ArrayList<>();
+            AtomicInteger rank = new AtomicInteger(1);
+
+            for (ZSetOperations.TypedTuple<Object> entry : allScores) {
+                String userId = (String) entry.getValue();
+                if (userId == null) continue;
+
+                User user = userRepository.findById(userId).orElse(null);
+                if (user == null) continue;
+
+                Map<String, ProblemSubmissionStatusDto> problemStatuses = getUserProblemStatuses(contestId, userId);
+
+                ContestLeaderboardEntryDto leaderboardEntry = ContestLeaderboardEntryDto.builder()
+                        .userId(userId)
+                        .username(user.getUsername())
+                        .rank(rank.getAndIncrement())
+                        .totalPoints(Objects.requireNonNull(entry.getScore()).intValue())
+                        .problemStatuses(new ArrayList<>(problemStatuses.values()))
+                        .build();
+
+                entries.add(leaderboardEntry);
+            }
+
+            // Create page DTO with all entries
+            LeaderboardPageDto fullStandings = new LeaderboardPageDto(
+                    entries, 0, entries.size(), entries.size());
+
+            // Serialize and cache
+            String serialized = objectMapper.writeValueAsString(fullStandings);
+            cacheService.storeContestStandings(contestId, serialized);
+
+            log.info("Cached complete standings for contest {} with {} entries", contestId, entries.size());
+        } catch (Exception e) {
+            log.error("Error caching contest standings for {}: {}", contestId, e.getMessage(), e);
+        }
     }
 
     @Override
@@ -237,6 +420,8 @@ public class LeaderboardServiceImpl implements LeaderboardService {
             publishUserUpdate(contestId, userId);
         }
     }
+
+    // Private helper methods
 
     /**
      * Calculate total points across all problems for a user

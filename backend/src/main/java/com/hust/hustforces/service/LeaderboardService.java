@@ -1,6 +1,7 @@
 package com.hust.hustforces.service;
 
 import com.hust.hustforces.model.dto.contest.ContestLeaderboardEntryDto;
+import com.hust.hustforces.model.dto.contest.LeaderboardPageDto;
 import com.hust.hustforces.model.dto.contest.ProblemSubmissionStatusDto;
 
 import java.util.List;
@@ -21,7 +22,17 @@ public interface LeaderboardService {
     int updateUserScore(String contestId, String userId, String problemId, int points, String submissionId);
 
     /**
-     * Gets the current leaderboard for a contest
+     * Gets a paginated leaderboard
+     *
+     * @param contestId The contest ID
+     * @param page The page number (0-based)
+     * @param size The page size
+     * @return Paginated leaderboard entries
+     */
+    LeaderboardPageDto getLeaderboardPage(String contestId, int page, int size);
+
+    /**
+     * Gets the current leaderboard for a contest (legacy method)
      *
      * @param contestId The contest ID
      * @return The sorted list of leaderboard entries

@@ -2,6 +2,7 @@ package com.hust.hustforces.controller;
 
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.contest.ContestLeaderboardEntryDto;
+import com.hust.hustforces.model.dto.contest.LeaderboardPageDto;
 import com.hust.hustforces.model.dto.contest.ProblemSubmissionStatusDto;
 import com.hust.hustforces.model.entity.User;
 import com.hust.hustforces.repository.UserRepository;
@@ -31,9 +32,22 @@ public class LeaderboardController {
     private final SimpMessagingTemplate messagingTemplate;
 
     @GetMapping("/contest/{contestId}")
-    public ResponseEntity<List<ContestLeaderboardEntryDto>> getContestLeaderboard(@PathVariable String contestId) {
+    public ResponseEntity<List<ContestLeaderboardEntryDto>> getContestLeaderboard(
+            @PathVariable String contestId,
+            @RequestParam(required = false, defaultValue = "false") boolean full) {
         log.info("Fetching leaderboard for contest: {}", contestId);
         List<ContestLeaderboardEntryDto> leaderboard = leaderboardService.getLeaderboard(contestId);
+        return ResponseEntity.ok(leaderboard);
+    }
+
+    @GetMapping("/contest/{contestId}/page")
+    public ResponseEntity<LeaderboardPageDto> getPaginatedLeaderboard(
+            @PathVariable String contestId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        log.info("Fetching paginated leaderboard for contest: {}, page: {}, size: {}",
+                contestId, page, size);
+        LeaderboardPageDto leaderboard = leaderboardService.getLeaderboardPage(contestId, page, size);
         return ResponseEntity.ok(leaderboard);
     }
 
