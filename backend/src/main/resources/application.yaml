@@ -25,7 +25,7 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:YourPasswordHere1234}
       username: default
-      timeout: 2000
+      timeout: 5000
       host: localhost
 
   # RabbitMQ configuration
@@ -35,6 +35,12 @@ spring:
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
 
+  cache:
+    type: redis
+    redis:
+      time-to-live: 86400000
+      cache-null-values: false
+    cache-names: problems, allProblems
 
 # Mount path for problems
 mount:
@@ -58,8 +64,23 @@ logging:
     com.hust.hustforces: DEBUG
     org.springframework: INFO
     org.hibernate: INFO
+    com.hust.hustforces.service.impl.ProblemServiceImpl: DEBUG
+    com.hust.hustforces.service.impl.ProblemCacheService: DEBUG
+    com.hust.hustforces.utils.ProblemFileUtil: DEBUG
 
 # JWT configuration
 jwt:
   secret: ${JWT_SECRET:yourSecretKeyHereShouldBeAtLeast32CharactersLong}
   expiration: 86400000  # 24 hours in milliseconds
+
+# Problem configuration
+problem:
+  preloading:
+    enabled: true
+
+# Thread pool configuration
+executor:
+  core-pool-size: 5
+  max-pool-size: 10
+  queue-capacity: 25
+  thread-name-prefix: hustforces-async-
