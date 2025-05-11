@@ -1,22 +1,19 @@
 package com.hust.hustforces.controller;
 
-import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.discussion.CommentDto;
-import com.hust.hustforces.model.entity.User;
-import com.hust.hustforces.repository.UserRepository;
 import com.hust.hustforces.service.CommentService;
 import com.hust.hustforces.utils.CurrentUserUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -48,15 +45,51 @@ public class CommentController {
     }
 
     @GetMapping("/discussion/{discussionId}")
-    public ResponseEntity<List<CommentDto>> getDiscussionComments(@PathVariable String discussionId) {
-        List<CommentDto> comments = commentService.getDiscussionComments(discussionId);
+    public ResponseEntity<Page<CommentDto>> getDiscussionComments(
+            @PathVariable String discussionId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt") String sort,
+            @RequestParam(defaultValue = "desc") String direction) {
+
+        Sort.Direction sortDirection = direction.equalsIgnoreCase("asc") ?
+                Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sort));
+
+        Page<CommentDto> comments = commentService.getDiscussionComments(discussionId, pageable);
         return ResponseEntity.ok(comments);
     }
 
     @GetMapping("/solution/{solutionId}")
-    public ResponseEntity<List<CommentDto>> getSolutionComments(@PathVariable String solutionId) {
-        List<CommentDto> comments = commentService.getSolutionComments(solutionId);
+    public ResponseEntity<Page<CommentDto>> getSolutionComments(
+            @PathVariable String solutionId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt") String sort,
+            @RequestParam(defaultValue = "desc") String direction) {
+
+        Sort.Direction sortDirection = direction.equalsIgnoreCase("asc") ?
+                Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sort));
+
+        Page<CommentDto> comments = commentService.getSolutionComments(solutionId, pageable);
         return ResponseEntity.ok(comments);
+    }
+
+    @GetMapping("/{commentId}/replies")
+    public ResponseEntity<Page<CommentDto>> getCommentReplies(
+            @PathVariable String commentId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt") String sort,
+            @RequestParam(defaultValue = "asc") String direction) {
+
+        Sort.Direction sortDirection = direction.equalsIgnoreCase("asc") ?
+                Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sort));
+
+        Page<CommentDto> replies = commentService.getCommentReplies(commentId, pageable);
+        return ResponseEntity.ok(replies);
     }
 
     @PutMapping("/{id}")

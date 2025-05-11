@@ -2,6 +2,7 @@ package com.hust.hustforces.service.impl;
 
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.mapper.DiscussionMapper;
+import com.hust.hustforces.model.dto.common.PaginationInfo;
 import com.hust.hustforces.model.dto.discussion.CommentDto;
 import com.hust.hustforces.model.dto.discussion.DiscussionDetailDto;
 import com.hust.hustforces.model.dto.discussion.DiscussionDto;
@@ -20,7 +21,9 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -65,12 +68,11 @@ public class DiscussionServiceImpl implements DiscussionService {
     @Override
     @Transactional
     public DiscussionDetailDto getDiscussion(String id, String userId) {
+        // First increment the view count atomically
+        discussionRepository.incrementViewCount(id);
+
         Discussion discussion = discussionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Discussion", "id", id));
-
-        // Increment view count
-        discussion.setViewCount(discussion.getViewCount() + 1);
-        discussionRepository.save(discussion);
 
         User user = userRepository.findById(discussion.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", discussion.getUserId()));
@@ -81,9 +83,22 @@ public class DiscussionServiceImpl implements DiscussionService {
                     .orElse(null);
         }
 
-        List<CommentDto> comments = commentService.getDiscussionComments(id);
+        // Get first page of comments with pagination
+        Pageable firstPage = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<CommentDto> commentPage = commentService.getDiscussionComments(id, firstPage);
 
-        return discussionMapper.toDiscussionDetailDto(discussion, user, problem, comments);
+        DiscussionDetailDto detailDto = discussionMapper.toDiscussionDetailDto(
+                discussion, user, problem, commentPage.getContent());
+
+        // Add pagination info
+        detailDto.setCommentPagination(new PaginationInfo(
+                commentPage.getNumber(),
+                commentPage.getSize(),
+                commentPage.getTotalElements(),
+                commentPage.getTotalPages()
+        ));
+
+        return detailDto;
     }
 
     @Override

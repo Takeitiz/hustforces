@@ -1,6 +1,7 @@
 package com.hust.hustforces.model.dto.discussion;
 
 import com.hust.hustforces.enums.LanguageId;
+import com.hust.hustforces.model.dto.common.PaginationInfo;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,4 +27,5 @@ public class SolutionDetailDto {
     private int upvotes;
     private int downvotes;
     private List<CommentDto> comments;
+    private PaginationInfo commentPagination;
 }

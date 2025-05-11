@@ -15,13 +15,11 @@ import com.hust.hustforces.service.CommentService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +31,7 @@ public class CommentServiceImpl implements CommentService {
     private final SolutionRepository solutionRepository;
     private final UserRepository userRepository;
     private final VoteRepository voteRepository;
+    private final VoteCacheService voteCacheService;
     private final CommentMapper commentMapper;
 
     @Override
@@ -57,13 +56,26 @@ public class CommentServiceImpl implements CommentService {
         }
 
         if (parentId != null) {
-            commentRepository.findById(parentId)
+            // Set up materialized path for the new comment
+            Comment parentComment = commentRepository.findById(parentId)
                     .orElseThrow(() -> new ResourceNotFoundException("Comment", "id", parentId));
             comment.setParentId(parentId);
+
+            // Set materialized path based on parent
+            comment.setPath(parentComment.getPath() + parentId + "/");
+            comment.setLevel(parentComment.getLevel() + 1);
+
+            // Update parent's reply count atomically
+            commentRepository.incrementReplyCount(parentId);
+        } else {
+            // This is a root comment
+            comment.setPath("/");
+            comment.setLevel(0);
         }
 
         Comment savedComment = commentRepository.save(comment);
-        return commentMapper.toCommentDto(savedComment, user, new ArrayList<>());
+
+        return commentMapper.toCommentDto(savedComment, user, Collections.emptyList());
     }
 
     @Override
@@ -82,7 +94,7 @@ public class CommentServiceImpl implements CommentService {
         User user = userRepository.findById(updatedComment.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", updatedComment.getUserId()));
 
-        return commentMapper.toCommentDto(updatedComment, user, new ArrayList<>());
+        return commentMapper.toCommentDto(updatedComment, user, Collections.emptyList());
     }
 
     @Override
@@ -95,19 +107,40 @@ public class CommentServiceImpl implements CommentService {
             throw new IllegalArgumentException("You can only delete your own comments");
         }
 
+        // Update parent comment's reply count atomically if applicable
+        if (comment.getParentId() != null) {
+            commentRepository.decrementReplyCount(comment.getParentId());
+        }
+
         commentRepository.delete(comment);
     }
 
     @Override
-    public List<CommentDto> getDiscussionComments(String discussionId) {
-        List<Comment> rootComments = commentRepository.findByDiscussionIdAndParentIdIsNullOrderByCreatedAtAsc(discussionId);
-        return buildCommentTree(rootComments);
+    public Page<CommentDto> getDiscussionComments(String discussionId, Pageable pageable) {
+        Page<Comment> rootComments = commentRepository.findByDiscussionIdAndParentIdIsNullOrderByCreatedAtDesc(
+                discussionId, pageable);
+
+        return rootComments.map(this::mapCommentToDto);
     }
 
     @Override
-    public List<CommentDto> getSolutionComments(String solutionId) {
-        List<Comment> rootComments = commentRepository.findBySolutionIdAndParentIdIsNullOrderByCreatedAtAsc(solutionId);
-        return buildCommentTree(rootComments);
+    public Page<CommentDto> getSolutionComments(String solutionId, Pageable pageable) {
+        Page<Comment> rootComments = commentRepository.findBySolutionIdAndParentIdIsNullOrderByCreatedAtDesc(
+                solutionId, pageable);
+
+        return rootComments.map(this::mapCommentToDto);
+    }
+
+    @Override
+    public Page<CommentDto> getCommentReplies(String commentId, Pageable pageable) {
+        Comment parentComment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Comment", "id", commentId));
+
+        // Use materialized path to efficiently query child comments
+        String pathPattern = parentComment.getPath() + parentComment.getId() + "/%";
+        Page<Comment> replies = commentRepository.findRepliesByPathPattern(pathPattern, pageable);
+
+        return replies.map(this::mapCommentToDto);
     }
 
     @Override
@@ -131,22 +164,34 @@ public class CommentServiceImpl implements CommentService {
                 voteRepository.delete(vote);
 
                 if (isUpvote) {
-                    comment.setUpvotes(Math.max(0, comment.getUpvotes() - 1));
+                    // Use atomic update for upvotes
+                    commentRepository.updateUpvotes(id, -1);
+                    voteCacheService.updateVoteCache(id, "COMMENT", true, -1);
                 } else {
-                    comment.setDownvotes(Math.max(0, comment.getDownvotes() - 1));
+                    // Use atomic update for downvotes
+                    commentRepository.updateDownvotes(id, -1);
+                    voteCacheService.updateVoteCache(id, "COMMENT", false, -1);
                 }
+
             } else {
                 // User is changing their vote
                 vote.setUpvote(isUpvote);
                 voteRepository.save(vote);
 
                 if (isUpvote) {
-                    comment.setUpvotes(comment.getUpvotes() + 1);
-                    comment.setDownvotes(Math.max(0, comment.getDownvotes() - 1));
+                    // Atomic updates for both counts
+                    commentRepository.updateUpvotes(id, 1);
+                    commentRepository.updateDownvotes(id, -1);
+                    voteCacheService.updateVoteCache(id, "COMMENT", true, 1);
+                    voteCacheService.updateVoteCache(id, "COMMENT", false, -1);
                 } else {
-                    comment.setDownvotes(comment.getDownvotes() + 1);
-                    comment.setUpvotes(Math.max(0, comment.getUpvotes() - 1));
+                    // Atomic updates for both counts
+                    commentRepository.updateDownvotes(id, 1);
+                    commentRepository.updateUpvotes(id, -1);
+                    voteCacheService.updateVoteCache(id, "COMMENT", false, 1);
+                    voteCacheService.updateVoteCache(id, "COMMENT", true, -1);
                 }
+
             }
         } else {
             // New vote
@@ -156,57 +201,36 @@ public class CommentServiceImpl implements CommentService {
                     .entityType("COMMENT")
                     .isUpvote(isUpvote)
                     .build();
-
             voteRepository.save(vote);
 
             if (isUpvote) {
-                comment.setUpvotes(comment.getUpvotes() + 1);
+                commentRepository.updateUpvotes(id, 1);
+                voteCacheService.updateVoteCache(id, "COMMENT", true, 1);
             } else {
-                comment.setDownvotes(comment.getDownvotes() + 1);
+                commentRepository.updateDownvotes(id, 1);
+                voteCacheService.updateVoteCache(id, "COMMENT", false, 1);
             }
+
         }
 
-        Comment updatedComment = commentRepository.save(comment);
-        List<Comment> replies = commentRepository.findByParentIdOrderByCreatedAtAsc(id);
+        // If vote counts changed, invalidate cache to force refresh on next get
+        voteCacheService.invalidateVoteCache(id, "COMMENT");
 
-        return commentMapper.toCommentDto(updatedComment, user, buildCommentTree(replies));
+
+        // After all atomic updates, get the latest version of the comment
+        Comment updatedComment = commentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Comment", "id", id));
+
+        return mapCommentToDto(updatedComment);
     }
 
-    private List<CommentDto> buildCommentTree(List<Comment> comments) {
-        List<CommentDto> result = new ArrayList<>();
-        Map<String, List<Comment>> repliesMap = new HashMap<>();
+    // Helper method to map Comment entity to DTO
+    private CommentDto mapCommentToDto(Comment comment) {
+        User user = userRepository.findById(comment.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", comment.getUserId()));
 
-        // Group all comments by parent ID
-        for (Comment comment : comments) {
-            String parentId = comment.getParentId();
-            if (parentId != null) {
-                if (!repliesMap.containsKey(parentId)) {
-                    repliesMap.put(parentId, new ArrayList<>());
-                }
-                repliesMap.get(parentId).add(comment);
-            }
-        }
-
-        // Process each root comment
-        for (Comment comment : comments) {
-            if (comment.getParentId() == null) {
-                User user = userRepository.findById(comment.getUserId())
-                        .orElseThrow(() -> new ResourceNotFoundException("User", "id", comment.getUserId()));
-
-                List<Comment> replies = repliesMap.getOrDefault(comment.getId(), new ArrayList<>());
-                List<CommentDto> replyDtos = replies.stream()
-                        .map(reply -> {
-                            User replyUser = userRepository.findById(reply.getUserId())
-                                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", reply.getUserId()));
-                            return commentMapper.toCommentDto(reply, replyUser, buildCommentTree(
-                                    repliesMap.getOrDefault(reply.getId(), new ArrayList<>())));
-                        })
-                        .collect(Collectors.toList());
-
-                result.add(commentMapper.toCommentDto(comment, user, replyDtos));
-            }
-        }
-
-        return result;
+        // We don't eagerly load replies here - they'll be loaded with pagination when requested
+        List<CommentDto> emptyReplies = Collections.emptyList();
+        return commentMapper.toCommentDto(comment, user, emptyReplies);
     }
 }

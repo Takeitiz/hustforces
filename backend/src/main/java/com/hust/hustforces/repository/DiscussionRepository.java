@@ -4,6 +4,7 @@ import com.hust.hustforces.model.entity.Discussion;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -25,4 +26,8 @@ public interface DiscussionRepository extends JpaRepository<Discussion, String> 
             "LOWER(d.title) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
             "LOWER(d.content) LIKE LOWER(CONCAT('%', :query, '%'))")
     Page<Discussion> searchDiscussions(@Param("query") String query, Pageable pageable);
+
+    @Modifying
+    @Query("UPDATE Discussion d SET d.viewCount = d.viewCount + 1 WHERE d.id = :discussionId")
+    void incrementViewCount(@Param("discussionId") String discussionId);
 }

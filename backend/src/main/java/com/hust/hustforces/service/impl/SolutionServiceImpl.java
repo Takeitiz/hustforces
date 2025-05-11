@@ -3,6 +3,7 @@ package com.hust.hustforces.service.impl;
 import com.hust.hustforces.enums.LanguageId;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.mapper.SolutionMapper;
+import com.hust.hustforces.model.dto.common.PaginationInfo;
 import com.hust.hustforces.model.dto.discussion.CommentDto;
 import com.hust.hustforces.model.dto.discussion.SolutionDetailDto;
 import com.hust.hustforces.model.dto.discussion.SolutionDto;
@@ -21,7 +22,9 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -73,9 +76,23 @@ public class SolutionServiceImpl implements SolutionService {
         Problem problem = problemRepository.findById(solution.getProblemId())
                 .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", solution.getProblemId()));
 
-        List<CommentDto> comments = commentService.getSolutionComments(id);
+        // Get first page of comments with pagination
+        Pageable firstPage = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<CommentDto> commentPage = commentService.getSolutionComments(id, firstPage);
 
-        return solutionMapper.toSolutionDetailDto(solution, user, problem, comments);
+        SolutionDetailDto detailDto = solutionMapper.toSolutionDetailDto(
+                solution, user, problem, commentPage.getContent()
+        );
+
+        // Add pagination info
+        detailDto.setCommentPagination(new PaginationInfo(
+                commentPage.getNumber(),
+                commentPage.getSize(),
+                commentPage.getTotalElements(),
+                commentPage.getTotalPages()
+        ));
+
+        return detailDto;
     }
 
     @Override

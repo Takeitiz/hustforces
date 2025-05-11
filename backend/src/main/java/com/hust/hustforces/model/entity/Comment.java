@@ -7,10 +7,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.UuidGenerator;
 
-import java.time.LocalDateTime;
-
 @Entity
-@Table(name = "comments")
+@Table(name = "comments", indexes = {
+        @Index(name = "idx_comments_path", columnList = "path"),
+        @Index(name = "idx_comments_parent_id", columnList = "parent_id"),
+        @Index(name = "idx_comments_discussion_id_parent_id", columnList = "discussion_id, parent_id"),
+        @Index(name = "idx_comments_solution_id_parent_id", columnList = "solution_id, parent_id")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -57,4 +60,13 @@ public class Comment extends BaseEntity {
 
     @Column(nullable = false)
     private int downvotes = 0;
+
+    @Column(name = "path", nullable = false, columnDefinition = "VARCHAR(1000) DEFAULT '/'")
+    private String path = "/";
+
+    @Column(name = "level", nullable = false)
+    private int level = 0;
+
+    @Column(name = "reply_count", nullable = false)
+    private int replyCount = 0;
 }

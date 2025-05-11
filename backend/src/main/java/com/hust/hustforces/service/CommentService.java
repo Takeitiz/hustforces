@@ -1,8 +1,8 @@
 package com.hust.hustforces.service;
 
 import com.hust.hustforces.model.dto.discussion.CommentDto;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface CommentService {
     CommentDto createComment(String content, String userId, String discussionId, String solutionId, String parentId);
@@ -11,9 +11,11 @@ public interface CommentService {
 
     void deleteComment(String id, String userId);
 
-    List<CommentDto> getDiscussionComments(String discussionId);
+    Page<CommentDto> getDiscussionComments(String discussionId, Pageable pageable);
 
-    List<CommentDto> getSolutionComments(String solutionId);
+    Page<CommentDto> getSolutionComments(String solutionId, Pageable pageable);
+
+    Page<CommentDto> getCommentReplies(String commentId, Pageable pageable);
 
     CommentDto voteComment(String id, String userId, boolean isUpvote);
 }
