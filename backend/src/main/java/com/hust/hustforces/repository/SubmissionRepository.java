@@ -38,4 +38,33 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
     Optional<Submission> findByIdWithContestSubmission(@Param("submissionId") String submissionId);
 
     List<Submission> findByStateAndCreatedAtBefore(SubmissionState submissionState, LocalDateTime cutoffTime, PageRequest of);
+
+    // Count total submissions by user
+    @Query("SELECT COUNT(s) FROM Submission s WHERE s.userId = :userId")
+    int countByUserId(@Param("userId") String userId);
+
+    // Count accepted submissions by user
+    @Query("SELECT COUNT(s) FROM Submission s WHERE s.userId = :userId AND s.status = 'AC'")
+    int countByUserIdAndStatusAC(@Param("userId") String userId);
+
+    // Count distinct problems solved by user
+    @Query("SELECT COUNT(DISTINCT s.problemId) FROM Submission s WHERE s.userId = :userId AND s.status = 'AC'")
+    int countDistinctProblemsByUserIdAndStatusAC(@Param("userId") String userId);
+
+    // Count problems solved by difficulty
+    @Query("SELECT p.difficulty, COUNT(DISTINCT s.problemId) FROM Submission s " +
+            "JOIN Problem p ON s.problemId = p.id " +
+            "WHERE s.userId = :userId AND s.status = 'AC' " +
+            "GROUP BY p.difficulty")
+    List<Object[]> countProblemsByDifficultyForUser(@Param("userId") String userId);
+
+    // Group submissions by date for calendar heatmap
+    @Query("SELECT FUNCTION('DATE_FORMAT', s.createdAt, '%Y-%m-%d'), COUNT(s) " +
+            "FROM Submission s WHERE s.userId = :userId " +
+            "GROUP BY FUNCTION('DATE_FORMAT', s.createdAt, '%Y-%m-%d')")
+    List<Object[]> countSubmissionsByDateForUser(@Param("userId") String userId);
+
+    // Get recent submissions efficiently
+    @Query("SELECT s FROM Submission s WHERE s.userId = :userId ORDER BY s.createdAt DESC")
+    List<Submission> findRecentSubmissionsByUserId(@Param("userId") String userId, Pageable pageable);
 }
