@@ -1,6 +1,7 @@
 package com.hust.hustforces.service.impl;
 
 import com.hust.hustforces.enums.UserRole;
+import com.hust.hustforces.event.ContestCompletedEvent;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.mapper.ContestMapper;
 import com.hust.hustforces.model.dto.contest.*;
@@ -11,6 +12,7 @@ import com.hust.hustforces.service.LeaderboardService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -27,10 +29,13 @@ public class ContestServiceImpl implements ContestService {
     private final ContestRepository contestRepository;
     private final ContestProblemRepository contestProblemRepository;
     private final ContestPointsRepository contestPointsRepository;
+    private final UserStatsRepository userStatsRepository;
     private final ProblemRepository problemRepository;
     private final UserRepository userRepository;
     private final LeaderboardService leaderboardService;
     private final ContestMapper contestMapper;
+    private final ApplicationEventPublisher eventPublisher;
+    private final ContestSubmissionRepository contestSubmissionRepository;
 
     /**
      * Create a new contest
@@ -206,8 +211,22 @@ public class ContestServiceImpl implements ContestService {
      * Update contest leaderboard
      */
     @Override
+    @Transactional
     public void updateLeaderboard(String contestId) {
+        Contest contest = findContestById(contestId);
+
+        // Rebuild the leaderboard
         leaderboardService.rebuildLeaderboard(contestId);
+
+        // Get the updated leaderboard
+        List<ContestLeaderboardEntryDto> leaderboard = leaderboardService.getLeaderboard(contestId);
+
+        // Check if the contest has ended - if so, finalize the results
+        LocalDateTime now = LocalDateTime.now();
+        if (contest.getEndTime().isBefore(now)) {
+            finalizeContest(contest, leaderboard);
+            log.info("Contest {} has ended. Results finalized.", contestId);
+        }
     }
 
     /**
@@ -283,6 +302,84 @@ public class ContestServiceImpl implements ContestService {
         }
 
         return contest.getEndTime().isBefore(LocalDateTime.now());
+    }
+
+    /**
+     * Finalize contest results and update user ratings
+     */
+    @Transactional
+    protected void finalizeContest(Contest contest, List<ContestLeaderboardEntryDto> leaderboard) {
+        log.info("Finalizing contest results for contest: {}", contest.getId());
+
+        // Calculate ratings and publish event
+        Map<String, ContestCompletedEvent.RankData> rankings = new HashMap<>();
+
+        // Process each participant and calculate new ratings
+        for (ContestLeaderboardEntryDto entry : leaderboard) {
+            int oldRating = getUserCurrentRating(entry.getUserId());
+            int ratingChange = calculateRatingChange(entry.getRank(), entry.getTotalPoints(), oldRating);
+            int newRating = oldRating + ratingChange;
+
+            rankings.put(entry.getUserId(), new ContestCompletedEvent.RankData(
+                    entry.getRank(),
+                    oldRating,
+                    newRating,
+                    ratingChange
+            ));
+
+            // Also update ContestPoints entity with the final rank
+            contestPointsRepository.findByContestIdAndUserId(contest.getId(), entry.getUserId())
+                    .ifPresent(points -> {
+                        points.setRank(entry.getRank());
+                        points.setPoints(entry.getTotalPoints());
+                        contestPointsRepository.save(points);
+                    });
+        }
+
+        // Publish event for other components to react
+        eventPublisher.publishEvent(new ContestCompletedEvent(
+                contest.getId(),
+                contest.getTitle(),
+                rankings
+        ));
+
+        log.info("Contest finalization completed for contest: {}, with {} participants",
+                contest.getId(), rankings.size());
+    }
+
+    /**
+     * Calculate rating change based on rank and score
+     */
+    private int calculateRatingChange(int rank, int score, int currentRating) {
+        // Simple algorithm - for a real implementation consider Elo, Glicko-2, or Trueskill
+        // Good starting point: https://en.wikipedia.org/wiki/Elo_rating_system
+
+        // Expected rank based on rating (higher rating = expected lower rank)
+        double expectedPerformance = Math.max(1, 50 - (currentRating / 50.0));
+
+        // Actual vs expected performance
+        double performanceDiff = expectedPerformance - rank;
+
+        // Base change from performance difference
+        int baseChange = (int)(performanceDiff * 10);
+
+        // Additional points from score
+        int scoreBonus = (int)(score * 0.5);
+
+        // Cap rating changes to avoid wild swings
+        int totalChange = baseChange + scoreBonus;
+        totalChange = Math.min(100, Math.max(-100, totalChange));
+
+        return totalChange;
+    }
+
+    /**
+     * Get user's current rating
+     */
+    private int getUserCurrentRating(String userId) {
+        return userStatsRepository.findById(userId)
+                .map(UserStats::getCurrentRank)
+                .orElse(1500); // Default starting rating
     }
 
     /**

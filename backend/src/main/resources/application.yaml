@@ -18,6 +18,9 @@ spring:
       hibernate:
         format_sql: false
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        # Add batch size for better performance with large updates
+        jdbc:
+          batch_size: 50
 
   # Redis configuration (for leaderboard)
   data:
@@ -35,12 +38,32 @@ spring:
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
 
+  # Cache configuration
   cache:
     type: redis
     redis:
       time-to-live: 86400000
       cache-null-values: false
     cache-names: problems, allProblems
+
+  # Task execution config for async tasks
+  task:
+    execution:
+      pool:
+        core-size: 4
+        max-size: 10
+        queue-capacity: 100
+        keep-alive: 60s
+
+    # Scheduling config for background tasks
+    scheduling:
+      pool:
+        size: 5
+      thread-name-prefix: hustforces-scheduler-
+
+  # Allow overriding bean definitions (needed for some configurations)
+  main:
+    allow-bean-definition-overriding: true
 
 # Mount path for problems
 mount:
@@ -67,6 +90,8 @@ logging:
     com.hust.hustforces.service.impl.ProblemServiceImpl: DEBUG
     com.hust.hustforces.service.impl.ProblemCacheService: DEBUG
     com.hust.hustforces.utils.ProblemFileUtil: DEBUG
+    # Add logging for scheduling and async operations
+    org.springframework.scheduling: INFO
 
 # JWT configuration
 jwt:
@@ -78,7 +103,7 @@ problem:
   preloading:
     enabled: true
 
-# Thread pool configuration
+# Thread pool configuration for other executor services
 executor:
   core-pool-size: 5
   max-pool-size: 10

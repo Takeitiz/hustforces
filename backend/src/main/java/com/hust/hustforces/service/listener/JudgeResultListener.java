@@ -4,6 +4,7 @@ import com.hust.hustforces.config.RabbitMQConfig;
 import com.hust.hustforces.enums.SubmissionResult;
 import com.hust.hustforces.enums.SubmissionState;
 import com.hust.hustforces.enums.TestCaseProcessingState;
+import com.hust.hustforces.event.SubmissionCompletedEvent;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.SubmissionCallback;
 import com.hust.hustforces.model.entity.Submission;
@@ -17,11 +18,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,6 +39,7 @@ public class JudgeResultListener {
     private final LeaderboardService leaderboardService;
     private final RabbitTemplate rabbitTemplate;
     private final RetryTemplate retryTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     @RabbitListener(queues = RabbitMQConfig.JUDGE_RESULT_QUEUE_NAME)
     @Transactional
@@ -166,6 +169,13 @@ public class JudgeResultListener {
     private void processCompletedSubmission(Submission submission) {
         submissionProcessingService.updateSubmission(submission);
         updateSubmissionState(submission, SubmissionState.COMPLETED);
+
+        // Publish event for stat updates
+        eventPublisher.publishEvent(new SubmissionCompletedEvent(
+                submission.getId(),
+                submission.getUserId(),
+                submission.getStatus()
+        ));
 
         log.info("All testcases processed for submission: {}, final status: {}",
                 submission.getId(), submission.getStatus());
