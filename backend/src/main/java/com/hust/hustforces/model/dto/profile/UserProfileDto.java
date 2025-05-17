@@ -17,4 +17,6 @@ public class UserProfileDto {
     private List<RankingHistoryDto> rankingHistory;
     private Map<String, Integer> submissionCalendar;
     private Map<Difficulty, Integer> problemsSolvedByDifficulty;
+    private String ratingTitle;
+    private String ratingColor;
 }

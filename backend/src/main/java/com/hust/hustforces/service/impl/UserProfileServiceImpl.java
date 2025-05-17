@@ -19,6 +19,7 @@ import com.hust.hustforces.repository.SubmissionRepository;
 import com.hust.hustforces.repository.UserRepository;
 import com.hust.hustforces.repository.UserStatsRepository;
 import com.hust.hustforces.service.UserProfileService;
+import com.hust.hustforces.utils.RatingUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -103,6 +104,9 @@ public class UserProfileServiceImpl implements UserProfileService {
                 .maxRank(stats.getMaxRank())
                 .build();
 
+        // Get rating title
+        RatingUtils.RatingTitle ratingTitle = RatingUtils.getTitleForRating(stats.getCurrentRank());
+
         // Get recent submissions (need fresh data)
         List<SubmissionHistoryDto> recentSubmissions = getRecentSubmissions(user.getId());
 
@@ -118,6 +122,8 @@ public class UserProfileServiceImpl implements UserProfileService {
                 .rankingHistory(rankingHistory)
                 .submissionCalendar(submissionCalendar)
                 .problemsSolvedByDifficulty(problemsByDifficulty)
+                .ratingTitle(ratingTitle.getTitle())
+                .ratingColor(ratingTitle.getColor())
                 .build();
     }
 

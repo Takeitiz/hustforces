@@ -36,6 +36,7 @@ public class ContestServiceImpl implements ContestService {
     private final ContestMapper contestMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final ContestSubmissionRepository contestSubmissionRepository;
+    private final RatingCalculationService ratingCalculationService;
 
     /**
      * Create a new contest
@@ -311,24 +312,27 @@ public class ContestServiceImpl implements ContestService {
     protected void finalizeContest(Contest contest, List<ContestLeaderboardEntryDto> leaderboard) {
         log.info("Finalizing contest results for contest: {}", contest.getId());
 
-        // Calculate ratings and publish event
+        // Calculate ratings using the dedicated service
+        Map<String, RatingCalculationService.RatingChange> ratingChanges =
+                ratingCalculationService.calculateRatingChanges(contest, leaderboard);
+
+        // Convert to event data format
         Map<String, ContestCompletedEvent.RankData> rankings = new HashMap<>();
 
-        // Process each participant and calculate new ratings
+        // Process each participant and update data
         for (ContestLeaderboardEntryDto entry : leaderboard) {
-            int oldRating = getUserCurrentRating(entry.getUserId());
-            int ratingChange = calculateRatingChange(entry.getRank(), entry.getTotalPoints(), oldRating);
-            int newRating = oldRating + ratingChange;
+            String userId = entry.getUserId();
+            RatingCalculationService.RatingChange ratingChange = ratingChanges.get(userId);
 
-            rankings.put(entry.getUserId(), new ContestCompletedEvent.RankData(
+            rankings.put(userId, new ContestCompletedEvent.RankData(
                     entry.getRank(),
-                    oldRating,
-                    newRating,
-                    ratingChange
+                    ratingChange.oldRating(),
+                    ratingChange.newRating(),
+                    ratingChange.change()
             ));
 
             // Also update ContestPoints entity with the final rank
-            contestPointsRepository.findByContestIdAndUserId(contest.getId(), entry.getUserId())
+            contestPointsRepository.findByContestIdAndUserId(contest.getId(), userId)
                     .ifPresent(points -> {
                         points.setRank(entry.getRank());
                         points.setPoints(entry.getTotalPoints());
@@ -345,41 +349,6 @@ public class ContestServiceImpl implements ContestService {
 
         log.info("Contest finalization completed for contest: {}, with {} participants",
                 contest.getId(), rankings.size());
-    }
-
-    /**
-     * Calculate rating change based on rank and score
-     */
-    private int calculateRatingChange(int rank, int score, int currentRating) {
-        // Simple algorithm - for a real implementation consider Elo, Glicko-2, or Trueskill
-        // Good starting point: https://en.wikipedia.org/wiki/Elo_rating_system
-
-        // Expected rank based on rating (higher rating = expected lower rank)
-        double expectedPerformance = Math.max(1, 50 - (currentRating / 50.0));
-
-        // Actual vs expected performance
-        double performanceDiff = expectedPerformance - rank;
-
-        // Base change from performance difference
-        int baseChange = (int)(performanceDiff * 10);
-
-        // Additional points from score
-        int scoreBonus = (int)(score * 0.5);
-
-        // Cap rating changes to avoid wild swings
-        int totalChange = baseChange + scoreBonus;
-        totalChange = Math.min(100, Math.max(-100, totalChange));
-
-        return totalChange;
-    }
-
-    /**
-     * Get user's current rating
-     */
-    private int getUserCurrentRating(String userId) {
-        return userStatsRepository.findById(userId)
-                .map(UserStats::getCurrentRank)
-                .orElse(1500); // Default starting rating
     }
 
     /**
