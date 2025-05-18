@@ -32,7 +32,7 @@ public class SubmissionProcessingServiceImpl implements SubmissionProcessingServ
 
         if (submission.getTestcases() != null) {
             for (TestCase testcase : submission.getTestcases()) {
-                switch (testcase.getStatus_id()) {
+                switch (testcase.getStatusId()) {
                     case 0:
                     case 1:
                     case 2:
@@ -66,12 +66,12 @@ public class SubmissionProcessingServiceImpl implements SubmissionProcessingServ
         List<TestCase> testcases = submission.getTestcases();
 
         double maxTime = testcases.stream()
-                .mapToDouble(t -> t.getTime() != null ? t.getTime().doubleValue() : 0)
+                .mapToDouble(t -> t.getExecutionTime() != null ? t.getExecutionTime().doubleValue() : 0)
                 .max()
                 .orElse(0);
 
         int maxMemory = testcases.stream()
-                .mapToInt(t -> t.getMemory() != null ? t.getMemory() : 0)
+                .mapToInt(t -> t.getMemoryUsed() != null ? t.getMemoryUsed() : 0)
                 .max()
                 .orElse(0);
 
