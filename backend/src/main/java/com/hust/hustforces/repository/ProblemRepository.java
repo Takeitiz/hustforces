@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface ProblemRepository extends JpaRepository<Problem, String> {
     Optional<Problem> findBySlug(String slug);
 
+    boolean existsBySlug(String slug);
+
     @Query("SELECT p FROM Problem p " +
             "LEFT JOIN FETCH p.defaultCode " +
             "WHERE p.id = :problemId " +

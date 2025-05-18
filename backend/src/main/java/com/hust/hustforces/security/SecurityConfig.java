@@ -32,6 +32,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/problems/**").permitAll()
                         .requestMatchers("/api/import/**").permitAll()
                         .requestMatchers("/api/callback/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 );
 
