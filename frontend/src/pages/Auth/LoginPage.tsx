@@ -1,8 +1,10 @@
+"use client"
+
 import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useAuth } from "../../contexts/AuthContext.tsx"
-import { Link, useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { toast } from "react-toastify"
 import { Button } from "../../components/ui/Button.tsx"
 import { Logo } from "../../components/ui/Logo.tsx"
@@ -14,7 +16,6 @@ export function LoginPage() {
     const [loading, setLoading] = useState(false)
     const [isVisible, setIsVisible] = useState(false)
     const { login } = useAuth()
-    const navigate = useNavigate()
 
     useEffect(() => {
         setIsVisible(true)
@@ -32,10 +33,9 @@ export function LoginPage() {
 
         try {
             await login({ username, password })
-            navigate("/problems")
+            // No need to navigate here - the login function in AuthContext now handles redirection
         } catch (error) {
             console.error("Login error:", error)
-        } finally {
             setLoading(false)
         }
     }
@@ -166,3 +166,4 @@ export function LoginPage() {
     )
 }
 
+export default LoginPage

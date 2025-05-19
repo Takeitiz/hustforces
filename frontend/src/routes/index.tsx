@@ -1,131 +1,172 @@
-// src/routes/index.tsx - Modified to include the new contest routes
+import { createBrowserRouter, Navigate } from "react-router-dom"
+import App from "../App"
+import {HomePage} from "../pages/Home/HomePage"
+import LoginPage from "../pages/Auth/LoginPage"
+import {RegisterPage} from "../pages/Auth/RegisterPage"
+import {ForgotPasswordPage} from "../pages/Auth/ForgotPasswordPage"
+import {ProblemPage} from "../pages/Problem/ProblemPage"
+import {ProfilePage} from "../pages/Profile/ProfilePage"
+import {ContestsPage} from "../pages/Contest/ContestsPage"
+import {ContestDetailPage} from "../pages/Contest/ContestDetailPage"
+import {ContestLeaderboardPage} from "../pages/Contest/ContestLeaderboardPage"
+import {DiscussionForumPage} from "../pages/Discussion/DiscussionForumPage"
+import {DiscussionDetailPage} from "../pages/Discussion/DiscussionDetailPage"
+import {CreateDiscussionPage} from "../pages/Discussion/CreateDiscussionPage"
+import {EditDiscussionPage} from "../pages/Discussion/EditDiscussionPage"
+import {SolutionsPage} from "../pages/Solution/SolutionsPage"
+import {SolutionDetailPage} from "../pages/Solution/SolutionDetailPage"
+import {CreateSolutionPage} from "../pages/Solution/CreateSolutionPage"
+import {EditSolutionPage} from "../pages/Solution/EditSolutionPage"
+import {SettingsPage} from "../pages/User/SettingsPage"
+import {PrivacyPolicyPage} from "../pages/Legal/PrivacyPolicyPage"
+import {TermsPage} from "../pages/Legal/TermsPage"
+import ErrorPages from "../pages/Error/ErrorPages"
+import UnauthorizedPage from "../pages/Error/UnauthorizedPage"
+import AdminDashboardPage from "../pages/Admin/AdminDashboardPage"
+import AdminHomePage from "../pages/Admin/AdminHomePage"
+import { AdminUsersPage } from "../pages/Admin/Users/AdminUsersPage"
+import { AdminProblemsPage } from "../pages/Admin/Problems/AdminProblemsPage"
+import { CreateProblemPage } from "../pages/Admin/Problems/CreateProblemPage"
+import { ProblemDetailPage } from "../pages/Admin/Problems/ProblemDetailPage"
+import { AdminContestsPage } from "../pages/Admin/Contests/AdminContestsPage"
+import { CreateContestPage } from "../pages/Admin/Contests/CreateContestPage"
+import { AdminImportPage } from "../pages/Admin/Import/AdminImportPage"
 
-import { Navigate, Route, Routes } from "react-router-dom";
-import { HomePage } from "../pages/Home/HomePage.tsx";
-import { ProblemPage } from "../pages/Problem/ProblemPage.tsx";
-import { useAuth } from "../contexts/AuthContext.tsx";
-import { LoginPage } from "../pages/Auth/LoginPage.tsx";
-import { RegisterPage } from "../pages/Auth/RegisterPage.tsx";
-import { ForgotPasswordPage } from "../pages/Auth/ForgotPasswordPage.tsx";
-import { JSX } from "react";
-import { ProfilePage } from "../pages/Profile/ProfilePage.tsx";
-import { DiscussionForumPage } from "../pages/Discussion/DiscussionForumPage.tsx";
-import { DiscussionDetailPage } from "../pages/Discussion/DiscussionDetailPage.tsx";
-import { CreateDiscussionPage } from "../pages/Discussion/CreateDiscussionPage.tsx";
-import { EditDiscussionPage } from "../pages/Discussion/EditDiscussionPage.tsx";
-import { SolutionsPage } from "../pages/Solution/SolutionsPage.tsx";
-import { SolutionDetailPage } from "../pages/Solution/SolutionDetailPage.tsx";
-import { CreateSolutionPage } from "../pages/Solution/CreateSolutionPage.tsx";
-import { EditSolutionPage } from "../pages/Solution/EditSolutionPage.tsx";
-import { SettingsPage } from "../pages/User/SettingsPage.tsx";
-import { TermsPage } from "../pages/Legal/TermsPage.tsx";
-import { PrivacyPolicyPage } from "../pages/Legal/PrivacyPolicyPage.tsx";
-import { NotFoundPage, UnauthorizedPage, ForbiddenPage } from "../pages/Error/ErrorPages.tsx";
-import { ContestsPage } from "../pages/Contest/ContestsPage.tsx";
-import { ContestDetailPage } from "../pages/Contest/ContestDetailPage.tsx";
-import { ContestLeaderboardPage } from "../pages/Contest/ContestLeaderboardPage.tsx";
+const router = createBrowserRouter([
+    {
+        path: "/",
+        element: <App />,
+        errorElement: <ErrorPages />,
+        children: [
+            {
+                index: true,
+                element: <HomePage />,
+            },
+            {
+                path: "login",
+                element: <LoginPage />,
+            },
+            {
+                path: "register",
+                element: <RegisterPage />,
+            },
+            {
+                path: "forgot-password",
+                element: <ForgotPasswordPage />,
+            },
+            {
+                path: "problem/:slug",
+                element: <ProblemPage />,
+            },
+            {
+                path: "profile/:username",
+                element: <ProfilePage />,
+            },
+            {
+                path: "contests",
+                element: <ContestsPage />,
+            },
+            {
+                path: "contests/:id",
+                element: <ContestDetailPage />,
+            },
+            {
+                path: "contests/:id/leaderboard",
+                element: <ContestLeaderboardPage />,
+            },
+            {
+                path: "discussions",
+                element: <DiscussionForumPage />,
+            },
+            {
+                path: "discussions/:id",
+                element: <DiscussionDetailPage />,
+            },
+            {
+                path: "discussions/create",
+                element: <CreateDiscussionPage />,
+            },
+            {
+                path: "discussions/:id/edit",
+                element: <EditDiscussionPage />,
+            },
+            {
+                path: "solutions",
+                element: <SolutionsPage />,
+            },
+            {
+                path: "solutions/:id",
+                element: <SolutionDetailPage />,
+            },
+            {
+                path: "solutions/create",
+                element: <CreateSolutionPage />,
+            },
+            {
+                path: "solutions/:id/edit",
+                element: <EditSolutionPage />,
+            },
+            {
+                path: "settings",
+                element: <SettingsPage />,
+            },
+            {
+                path: "privacy-policy",
+                element: <PrivacyPolicyPage />,
+            },
+            {
+                path: "terms",
+                element: <TermsPage />,
+            },
+            {
+                path: "unauthorized",
+                element: <UnauthorizedPage />,
+            },
+            // Admin routes
+            {
+                path: "admin",
+                element: <AdminDashboardPage />,
+                children: [
+                    {
+                        index: true,
+                        element: <AdminHomePage />,
+                    },
+                    {
+                        path: "users",
+                        element: <AdminUsersPage />,
+                    },
+                    {
+                        path: "problems",
+                        element: <AdminProblemsPage />,
+                    },
+                    {
+                        path: "problems/create",
+                        element: <CreateProblemPage />,
+                    },
+                    {
+                        path: "problems/:slug",
+                        element: <ProblemDetailPage />,
+                    },
+                    {
+                        path: "contests",
+                        element: <AdminContestsPage />,
+                    },
+                    {
+                        path: "contests/create",
+                        element: <CreateContestPage />,
+                    },
+                    {
+                        path: "import",
+                        element: <AdminImportPage />,
+                    },
+                ],
+            },
+            {
+                path: "*",
+                element: <Navigate to="/" replace />,
+            },
+        ],
+    },
+])
 
-const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
-    const { isLoggedIn, loading } = useAuth();
-
-    if (loading) {
-        return <div className="flex justify-center items-center h-screen">Loading...</div>;
-    }
-
-    if (!isLoggedIn) {
-        return <Navigate to="/login" replace />;
-    }
-
-    return children;
-};
-
-export function AppRoutes() {
-    return (
-        <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<HomePage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-
-            {/* Error Pages */}
-            <Route path="/unauthorized" element={<UnauthorizedPage />} />
-            <Route path="/forbidden" element={<ForbiddenPage />} />
-
-            {/* Problem routes */}
-            <Route path="/problem/:problemId" element={<ProblemPage />} />
-
-            {/* Discussion routes */}
-            <Route path="/discussions" element={<DiscussionForumPage />} />
-            <Route path="/discussions/:discussionId" element={<DiscussionDetailPage />} />
-            <Route path="/problem/:problemId/discussions" element={<DiscussionForumPage />} />
-
-            {/* Solution routes */}
-            <Route path="/solutions/:solutionId" element={<SolutionDetailPage />} />
-            <Route path="/problem/:problemId/solutions" element={<SolutionsPage />} />
-
-            {/* Profile routes */}
-            <Route path="/profile/:username?" element={<ProfilePage />} />
-
-            {/* Contest routes */}
-            <Route path="/contests" element={<ContestsPage />} />
-            <Route path="/contests/:contestId" element={<ContestDetailPage />} />
-            <Route path="/contests/:contestId/leaderboard" element={<ContestLeaderboardPage />} />
-
-            {/* Protected routes */}
-            <Route
-                path="/settings"
-                element={
-                    <ProtectedRoute>
-                        <SettingsPage />
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/discussions/create"
-                element={
-                    <ProtectedRoute>
-                        <CreateDiscussionPage />
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/problem/:problemId/discussions/create"
-                element={
-                    <ProtectedRoute>
-                        <CreateDiscussionPage />
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/discussions/:discussionId/edit"
-                element={
-                    <ProtectedRoute>
-                        <EditDiscussionPage />
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/problem/:problemId/solutions/create"
-                element={
-                    <ProtectedRoute>
-                        <CreateSolutionPage />
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/solutions/:solutionId/edit"
-                element={
-                    <ProtectedRoute>
-                        <EditSolutionPage />
-                    </ProtectedRoute>
-                }
-            />
-
-            {/* 404 route */}
-            <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-    );
-}
+export default router
