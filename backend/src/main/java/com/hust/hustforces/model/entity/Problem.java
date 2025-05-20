@@ -1,6 +1,5 @@
 package com.hust.hustforces.model.entity;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.hust.hustforces.enums.Difficulty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -9,7 +8,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.UuidGenerator;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 

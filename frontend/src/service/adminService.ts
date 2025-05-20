@@ -39,6 +39,33 @@ export interface ProblemCreateDto {
     hidden: boolean
 }
 
+export interface TestCase {
+    id: string
+    input: string
+    output: string
+    explanation?: string
+}
+
+// Modified ProblemDetailDto to remove hiddenTestCases and status fields
+// and rename sampleTestCases to testcases
+export interface ProblemDetailDto {
+    id: string
+    title: string
+    description: string
+    structure: string
+    difficulty: "EASY" | "MEDIUM" | "HARD"
+    timeLimit: number
+    memoryLimit: number
+    tags: string[]
+    testcases: TestCase[] // Renamed from sampleTestCases
+    createdAt: string
+    updatedAt: string
+    slug: string
+    submissionCount: number
+    acceptedCount?: number
+    hidden?: boolean
+}
+
 // Contest management
 export interface AdminContestDto {
     id: string
@@ -71,6 +98,15 @@ export interface PageResponse<T> {
     totalElements: number
     size: number
     number: number
+}
+
+// Test case pagination response
+export interface TestCasesPageResponse {
+    testcases: TestCase[]
+    totalPages: number
+    totalElements: number
+    page: number
+    size: number
 }
 
 /**
@@ -138,12 +174,28 @@ const adminService = {
         }
     },
 
-    getProblem: async (slug: string): Promise<AdminProblemDto> => {
+    getProblem: async (slug: string): Promise<ProblemDetailDto> => {
         try {
-            const response = await apiClient.get<AdminProblemDto>(`/admin/problems/${slug}`)
+            const response = await apiClient.get<ProblemDetailDto>(`/admin/problems/${slug}`)
             return response.data
         } catch (error) {
             console.error("Failed to fetch problem:", error)
+            throw error
+        }
+    },
+
+    // New method to fetch paginated test cases for a problem
+    getProblemTestCases: async (slug: string, page = 0, size = 10): Promise<TestCasesPageResponse> => {
+        try {
+            const query = new URLSearchParams({
+                page: page.toString(),
+                size: size.toString(),
+            }).toString()
+
+            const response = await apiClient.get<TestCasesPageResponse>(`/admin/problems/${slug}/testcases?${query}`)
+            return response.data
+        } catch (error) {
+            console.error("Failed to fetch problem test cases:", error)
             throw error
         }
     },
@@ -280,6 +332,18 @@ const adminService = {
             throw error
         }
     },
+
+    // New method to generate boilerplate code for a problem
+    generateBoilerplate: async (slug: string): Promise<string> => {
+        try {
+            const response = await apiClient.post<string>(`/admin/problems/${slug}/generate-boilerplate`)
+            return response.data
+        } catch (error) {
+            console.error("Failed to generate boilerplate:", error)
+            throw error
+        }
+    },
+
 
     // Dashboard statistics
     getDashboardStats: async (): Promise<{

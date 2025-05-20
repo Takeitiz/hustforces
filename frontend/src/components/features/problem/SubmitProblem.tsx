@@ -3,13 +3,11 @@ import type { Problem } from "../../../types/problem.ts"
 import { LANGUAGE_MAPPING } from "../../../constants/languageMapping.ts"
 import { useEffect, useState } from "react"
 import { SubmitStatus } from "../../../constants/submitStatus.ts"
-import type { Testcase } from "../../../types/submission.ts"
 import { toast } from "react-toastify"
 import { Label } from "../../ui/Label.tsx"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/Select.tsx"
 import { Button } from "../../ui/Button.tsx"
 import MonacoEditor from "react-monaco-editor"
-import RenderTestcase from "./RenderTestcase.tsx"
 import submissionService from "../../../service/submissionService.ts"
 import { useAuth } from "../../../contexts/AuthContext.tsx"
 import { useNavigate } from "react-router-dom"
@@ -33,7 +31,7 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
     const [language, setLanguage] = useState<string>(Object.keys(LANGUAGE_MAPPING)[0])
     const [code, setCode] = useState<Record<string, string>>({})
     const [status, setStatus] = useState<string>(SubmitStatus.SUBMIT)
-    const [testcases, setTestcases] = useState<Testcase[]>([])
+    const [testcases, setTestcases] = useState<any[]>([])
     const [isEditorReady, setIsEditorReady] = useState(false)
     const { isLoggedIn } = useAuth()
     const navigate = useNavigate()
@@ -225,12 +223,12 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
                 </Button>
             </div>
 
-            {testcases.length > 0 && (
-                <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Test Results</h3>
-                    <RenderTestcase testcases={testcases} />
-                </div>
-            )}
+            {/*{testcases.length > 0 && (*/}
+            {/*    <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">*/}
+            {/*        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Test Results</h3>*/}
+            {/*        <RenderTestcase testcases={testcases} />*/}
+            {/*    </div>*/}
+            {/*)}*/}
         </div>
     )
 }

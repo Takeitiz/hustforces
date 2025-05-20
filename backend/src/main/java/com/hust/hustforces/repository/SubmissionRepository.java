@@ -67,4 +67,9 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
     // Get recent submissions efficiently
     @Query("SELECT s FROM Submission s WHERE s.userId = :userId ORDER BY s.createdAt DESC")
     List<Submission> findRecentSubmissionsByUserId(@Param("userId") String userId, Pageable pageable);
+
+    int countByProblemId(String problemId);
+
+    @Query("SELECT COUNT(DISTINCT s.id) FROM Submission s WHERE s.problemId = :problemId AND s.status = 'AC'")
+    int countByProblemIdAndStatusAC(@Param("problemId") String problemId);
 }

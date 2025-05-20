@@ -45,13 +45,13 @@ public interface SubmissionMapper {
     SubmissionResponseDto toSubmissionResponseDto(Submission submission, Problem problem, int passedTestCases, int totalTestCases);
 
     @Mapping(source = "testCase.id", target = "id")
-    @Mapping(source = "testCase.status_id", target = "status_id")
+    @Mapping(source = "testCase.statusId", target = "status_id")
     @Mapping(source = "testCase.stdin", target = "stdin")
     @Mapping(source = "testCase.stdout", target = "stdout")
-    @Mapping(source = "testCase.expected_output", target = "expected_output")
+    @Mapping(source = "testCase.expectedOutput", target = "expected_output")
     @Mapping(source = "testCase.stderr", target = "stderr")
-    @Mapping(source = "testCase.time", target = "time", qualifiedByName = "bigDecimalToDouble")
-    @Mapping(source = "testCase.memory", target = "memory")
+    @Mapping(source = "testCase.executionTime", target = "time", qualifiedByName = "bigDecimalToDouble")
+    @Mapping(source = "testCase.memoryUsed", target = "memory")
     TestCaseDto toTestCaseDto(TestCase testCase);
 
     @Named("bigDecimalToDouble")

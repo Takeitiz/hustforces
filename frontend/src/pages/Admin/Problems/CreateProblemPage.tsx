@@ -2,113 +2,100 @@
 
 import type React from "react"
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { toast } from "react-toastify"
-import { Button } from "../../../components/ui/Button"
-import adminService from "../../../service/adminService"
+import { Link, useNavigate } from "react-router-dom"
 import { ArrowLeft, Save } from "lucide-react"
+import adminService, { type ProblemCreateDto } from "../../../service/adminService"
+import { toast } from "react-hot-toast"
 
-export function CreateProblemPage() {
+export const CreateProblemPage: React.FC = () => {
     const navigate = useNavigate()
-    const [formData, setFormData] = useState({
+    const [saving, setSaving] = useState(false)
+    const [formData, setFormData] = useState<ProblemCreateDto>({
         title: "",
         slug: "",
         difficulty: "MEDIUM",
         hidden: true,
     })
-    const [loading, setLoading] = useState(false)
-    const [errors, setErrors] = useState<Record<string, string>>({})
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-        const { name, value, type } = e.target
-        const newValue = type === "checkbox" ? (e.target as HTMLInputElement).checked : value
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target
 
-        setFormData((prev) => ({
-            ...prev,
-            [name]: newValue,
-        }))
-
-        // Auto-generate slug from title if slug is empty
-        if (name === "title" && !formData.slug) {
-            const generatedSlug = value
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, "-")
-                .replace(/^-|-$/g, "")
-            setFormData((prev) => ({
-                ...prev,
-                slug: generatedSlug,
-            }))
-        }
-
-        // Clear error for this field
-        if (errors[name]) {
-            setErrors((prev) => {
-                const newErrors = { ...prev }
-                delete newErrors[name]
-                return newErrors
+        if (name === "difficulty") {
+            setFormData({
+                ...formData,
+                difficulty: value as "EASY" | "MEDIUM" | "HARD",
+            })
+        } else {
+            setFormData({
+                ...formData,
+                [name]: value,
             })
         }
     }
 
-    const validateForm = () => {
-        const newErrors: Record<string, string> = {}
-
-        if (!formData.title.trim()) {
-            newErrors.title = "Title is required"
-        }
-
-        if (!formData.slug.trim()) {
-            newErrors.slug = "Slug is required"
-        } else if (!/^[a-z0-9-]+$/.test(formData.slug)) {
-            newErrors.slug = "Slug can only contain lowercase letters, numbers, and hyphens"
-        }
-
-        if (!formData.difficulty) {
-            newErrors.difficulty = "Difficulty is required"
-        }
-
-        setErrors(newErrors)
-        return Object.keys(newErrors).length === 0
+    const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, checked } = e.target
+        setFormData({
+            ...formData,
+            [name]: checked,
+        })
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        if (!validateForm()) {
-            toast.error("Please fix the errors in the form")
+        if (!formData.title.trim()) {
+            toast.error("Title is required")
             return
         }
 
-        setLoading(true)
+        if (!formData.slug.trim()) {
+            toast.error("Slug is required")
+            return
+        }
+
+        setSaving(true)
+
         try {
-            const response = // When calling createProblem
-                await adminService.createProblem({
-                    ...formData,
-                    difficulty: formData.difficulty as "EASY" | "MEDIUM" | "HARD"
-                });
+            const response = await adminService.createProblem(formData)
             toast.success("Problem created successfully")
-            navigate(`/admin/problems/${response.slug}`)
+            navigate(`/admin/problems/${response.slug}/edit`)
         } catch (error) {
             console.error("Failed to create problem:", error)
             toast.error("Failed to create problem")
         } finally {
-            setLoading(false)
+            setSaving(false)
         }
     }
 
     return (
         <div>
-            <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create New Problem</h1>
-                <Button variant="outline" onClick={() => navigate("/admin/problems")} className="flex items-center gap-2">
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to Problems
-                </Button>
+            <div className="flex items-center mb-6">
+                <Link
+                    to="/admin/problems"
+                    className="flex items-center gap-1 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 mr-4"
+                >
+                    <ArrowLeft size={18} />
+                    <span>Back to Problems</span>
+                </Link>
+                <h1 className="text-2xl font-bold">Create New Problem</h1>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-                <form onSubmit={handleSubmit}>
-                    <div className="grid grid-cols-1 gap-6">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                <h2 className="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">Getting Started</h2>
+                <p className="text-blue-700 dark:text-blue-400 mb-2">Creating a problem is a two-step process:</p>
+                <ol className="list-decimal list-inside text-blue-700 dark:text-blue-400 space-y-1 ml-2">
+                    <li>First, provide the basic information (title, slug, difficulty)</li>
+                    <li>
+                        Then, you'll be redirected to the edit page to add the problem description, test cases, and other details
+                    </li>
+                </ol>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                    <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
+                    <div className="space-y-4">
                         <div>
                             <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 Title <span className="text-red-500">*</span>
@@ -119,12 +106,13 @@ export function CreateProblemPage() {
                                 name="title"
                                 value={formData.title}
                                 onChange={handleChange}
-                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                                    errors.title ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                                }`}
-                                placeholder="Enter problem title"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                required
+                                placeholder="e.g., Two Sum"
                             />
-                            {errors.title && <p className="mt-1 text-sm text-red-500">{errors.title}</p>}
+                            <p className="text-xs text-gray-500 mt-1">
+                                Choose a clear, descriptive title that indicates what the problem is about
+                            </p>
                         </div>
 
                         <div>
@@ -137,14 +125,12 @@ export function CreateProblemPage() {
                                 name="slug"
                                 value={formData.slug}
                                 onChange={handleChange}
-                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                                    errors.slug ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                                }`}
-                                placeholder="enter-problem-slug"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                required
+                                placeholder="e.g., two-sum"
                             />
-                            {errors.slug && <p className="mt-1 text-sm text-red-500">{errors.slug}</p>}
-                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                Used in the URL. Only lowercase letters, numbers, and hyphens.
+                            <p className="text-xs text-gray-500 mt-1">
+                                The slug is used in the URL and should be unique, lowercase, and use hyphens instead of spaces
                             </p>
                         </div>
 
@@ -157,55 +143,64 @@ export function CreateProblemPage() {
                                 name="difficulty"
                                 value={formData.difficulty}
                                 onChange={handleChange}
-                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                                    errors.difficulty ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                                }`}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             >
                                 <option value="EASY">Easy</option>
                                 <option value="MEDIUM">Medium</option>
                                 <option value="HARD">Hard</option>
                             </select>
-                            {errors.difficulty && <p className="mt-1 text-sm text-red-500">{errors.difficulty}</p>}
+                            <p className="text-xs text-gray-500 mt-1">Select the appropriate difficulty level for this problem</p>
                         </div>
 
-                        <div className="flex items-center">
-                            <input
-                                type="checkbox"
-                                id="hidden"
-                                name="hidden"
-                                checked={formData.hidden}
-                                onChange={(e) => setFormData((prev) => ({ ...prev, hidden: e.target.checked }))}
-                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                            <label htmlFor="hidden" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                                Hide problem (only visible to admins until published)
-                            </label>
-                        </div>
-
-                        <div className="flex justify-end mt-4">
-                            <Button
-                                type="submit"
-                                disabled={loading}
-                                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
-                            >
-                                <Save className="h-4 w-4" />
-                                {loading ? "Creating..." : "Create Problem"}
-                            </Button>
+                        <div>
+                            <div className="flex items-center mb-1">
+                                <input
+                                    type="checkbox"
+                                    id="hidden"
+                                    name="hidden"
+                                    checked={formData.hidden}
+                                    onChange={handleCheckboxChange}
+                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                />
+                                <label htmlFor="hidden" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                                    Hidden (not visible to users)
+                                </label>
+                            </div>
+                            <p className="text-xs text-gray-500 ml-6">
+                                Keep the problem hidden until you've completed all details in the next step
+                            </p>
                         </div>
                     </div>
-                </form>
-            </div>
+                </div>
 
-            <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <h2 className="text-lg font-medium text-blue-800 dark:text-blue-300 mb-2">What's Next?</h2>
-                <p className="text-blue-700 dark:text-blue-400 mb-2">After creating the problem, you'll be able to:</p>
-                <ul className="list-disc list-inside text-blue-700 dark:text-blue-400 space-y-1">
-                    <li>Add a detailed problem description</li>
-                    <li>Define test cases</li>
-                    <li>Set up boilerplate code for different languages</li>
-                    <li>Configure time and memory limits</li>
-                </ul>
-            </div>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                        <div className="mb-4 md:mb-0">
+                            <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300">Ready to create this problem?</h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                After creating the problem, you'll be redirected to the edit page to add the description and test cases.
+                            </p>
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={saving}
+                            className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-blue-400 min-w-[180px]"
+                        >
+                            {saving ? (
+                                <>
+                                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                                    <span>Creating...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={18} />
+                                    <span>Create & Continue</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
     )
 }

@@ -16,13 +16,16 @@ import java.util.List;
 public class AdminProblemDetailDto {
     private String id;
     private String title;
-    private String slug;
-    private Difficulty difficulty;
-    private boolean hidden;
     private String description;
-    private String structure;
-    private List<TestCaseInfo> testCases;
-    private boolean boilerplateGenerated;
+    private Difficulty difficulty;
+    private int timeLimit;
+    private int memoryLimit;
+    private List<String> tags;
+    private List<TestcaseDto> testcases;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String slug;
+    private int submissionCount;
+    private int acceptedCount;
+    private boolean hidden;
 }

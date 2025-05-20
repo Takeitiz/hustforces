@@ -5,6 +5,7 @@ import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.admin.*;
 import com.hust.hustforces.model.entity.Problem;
 import com.hust.hustforces.repository.ProblemRepository;
+import com.hust.hustforces.repository.SubmissionRepository;
 import com.hust.hustforces.service.AdminProblemService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +34,7 @@ public class AdminProblemServiceImpl implements AdminProblemService {
     private final ProblemRepository problemRepository;
     private final FileStorageService fileStorageService;
     private final BoilerplateGeneratorService boilerplateGeneratorService;
+    private final SubmissionRepository submissionRepository;
 
     @Value("${mount.path}")
     private String mountPath;
@@ -73,6 +76,29 @@ public class AdminProblemServiceImpl implements AdminProblemService {
                 .createdAt(savedProblem.getCreatedAt())
                 .updatedAt(savedProblem.getUpdatedAt())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public AdminProblemResponseDto updateProblem(String slug, UpdateProblemRequest request) {
+        log.info("Processing update for problem with slug: {}", slug);
+
+        // Get the problem entity
+        Problem problem = getProblemBySlugOrThrow(slug);
+
+        // Update problem entity properties
+        problem.setTitle(request.getTitle());
+        problem.setDifficulty(request.getDifficulty());
+        problem.setHidden(request.isHidden());
+
+        // Save the updated problem
+        Problem updatedProblem = problemRepository.save(problem);
+
+        // Update files
+        updateProblemFiles(slug, request);
+
+        log.info("Successfully updated problem: {}", slug);
+        return mapToAdminProblemResponse(updatedProblem);
     }
 
     @Override
@@ -237,6 +263,60 @@ public class AdminProblemServiceImpl implements AdminProblemService {
                 .map(this::mapToAdminProblemSummary);
     }
 
+    private void updateProblemFiles(String slug, UpdateProblemRequest request) {
+        try {
+            // Create problem directory structure if it doesn't exist
+            String problemPath = mountPath + "/" + slug;
+            Files.createDirectories(Paths.get(problemPath));
+            Files.createDirectories(Paths.get(problemPath, "tests", "inputs"));
+            Files.createDirectories(Paths.get(problemPath, "tests", "outputs"));
+
+            log.debug("Writing problem description file");
+            // Write description file
+            Files.writeString(Paths.get(problemPath, "Problem.md"), request.getDescription());
+
+            log.debug("Writing problem structure file");
+            // Write structure file
+            Files.writeString(Paths.get(problemPath, "Structure.md"), request.getStructure());
+
+            // Write testcase files
+            if (request.getTestcases() != null && !request.getTestcases().isEmpty()) {
+                log.debug("Writing {} test case files", request.getTestcases().size());
+
+                // Clear existing test files to avoid orphaned files
+                try (Stream<Path> inputFiles = Files.list(Paths.get(problemPath, "tests", "inputs"))) {
+                    inputFiles.forEach(file -> {
+                        try {
+                            Files.delete(file);
+                        } catch (IOException e) {
+                            log.warn("Failed to delete input file: {}", file, e);
+                        }
+                    });
+                }
+
+                try (Stream<Path> outputFiles = Files.list(Paths.get(problemPath, "tests", "outputs"))) {
+                    outputFiles.forEach(file -> {
+                        try {
+                            Files.delete(file);
+                        } catch (IOException e) {
+                            log.warn("Failed to delete output file: {}", file, e);
+                        }
+                    });
+                }
+
+                for (int i = 0; i < request.getTestcases().size(); i++) {
+                    TestcaseUpdateDto testcase = request.getTestcases().get(i);
+                    // Use the index position (i) for the filenames
+                    Files.writeString(Paths.get(problemPath, "tests", "inputs", i + ".txt"), testcase.getInput());
+                    Files.writeString(Paths.get(problemPath, "tests", "outputs", i + ".txt"), testcase.getOutput());
+                }
+            }
+        } catch (IOException e) {
+            log.error("Error updating problem files for slug: {}", slug, e);
+            throw new RuntimeException("Failed to update problem files: " + e.getMessage(), e);
+        }
+    }
+
     private Problem getProblemBySlugOrThrow(String slug) {
         return problemRepository.findBySlug(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Problem", "slug", slug));
@@ -290,21 +370,15 @@ public class AdminProblemServiceImpl implements AdminProblemService {
         String problemPath = mountPath + "/" + problem.getSlug();
 
         String description = "";
-        String structure = "";
-        List<TestCaseInfo> testCases = new ArrayList<>();
-        boolean boilerplateGenerated = false;
+        List<TestcaseDto> testcases = new ArrayList<>();
+        int submissionCount = 0;
+        int acceptedCount = 0;
+        List<String> tags = new ArrayList<>(); // Default empty list, replace with actual tags if available
 
         try {
+            // Read problem description
             if (Files.exists(Paths.get(problemPath, "Problem.md"))) {
                 description = new String(Files.readAllBytes(Paths.get(problemPath, "Problem.md")));
-            }
-
-            if (Files.exists(Paths.get(problemPath, "Structure.md"))) {
-                structure = new String(Files.readAllBytes(Paths.get(problemPath, "Structure.md")));
-            }
-
-            if (Files.exists(Paths.get(problemPath, "boilerplate", "function.java"))) {
-                boilerplateGenerated = true;
             }
 
             // Load test cases
@@ -313,7 +387,7 @@ public class AdminProblemServiceImpl implements AdminProblemService {
 
                 for (Path inputFile : inputFiles) {
                     String fileName = inputFile.getFileName().toString();
-                    int index = Integer.parseInt(fileName.replace(".txt", ""));
+                    String testId = fileName.replace(".txt", "");
 
                     String input = new String(Files.readAllBytes(inputFile));
 
@@ -323,19 +397,35 @@ public class AdminProblemServiceImpl implements AdminProblemService {
                         output = new String(Files.readAllBytes(outputFile));
                     }
 
-                    testCases.add(TestCaseInfo.builder()
-                            .index(index)
+                    String explanation = "";
+                    Path explanationFile = Paths.get(problemPath, "tests", "explanations", fileName);
+                    if (Files.exists(explanationFile)) {
+                        explanation = new String(Files.readAllBytes(explanationFile));
+                    }
+
+                    testcases.add(TestcaseDto.builder()
+                            .id(testId)
                             .input(input)
                             .output(output)
+                            .explanation(explanation)
                             .build());
                 }
 
-                // Sort test cases by index
-                testCases.sort(Comparator.comparingInt(TestCaseInfo::getIndex));
+                // Sort testcases by id
+                testcases.sort(Comparator.comparing(TestcaseDto::getId));
             }
+
+            // Count submissions and accepted solutions
+            submissionCount = (int) submissionRepository.countByProblemId(problem.getId());
+            acceptedCount = (int) submissionRepository.countByProblemIdAndStatusAC(problem.getId());
+
         } catch (IOException e) {
             log.error("Error loading problem details", e);
         }
+
+        // Default time and memory limits if not specified elsewhere
+        int timeLimit = 1; // 1 seconds in milliseconds
+        int memoryLimit = 256; // 256 MB
 
         return AdminProblemDetailDto.builder()
                 .id(problem.getId())
@@ -344,9 +434,12 @@ public class AdminProblemServiceImpl implements AdminProblemService {
                 .difficulty(problem.getDifficulty())
                 .hidden(problem.isHidden())
                 .description(description)
-                .structure(structure)
-                .testCases(testCases)
-                .boilerplateGenerated(boilerplateGenerated)
+                .timeLimit(timeLimit)
+                .memoryLimit(memoryLimit)
+                .tags(tags)
+                .testcases(testcases)
+                .submissionCount(submissionCount)
+                .acceptedCount(acceptedCount)
                 .createdAt(problem.getCreatedAt())
                 .updatedAt(problem.getUpdatedAt())
                 .build();

@@ -33,6 +33,15 @@ public class AdminProblemController {
         return ResponseEntity.status(HttpStatus.CREATED).body(problem);
     }
 
+    @PutMapping("/{slug}")
+    public ResponseEntity<AdminProblemResponseDto> updateProblem(
+            @PathVariable String slug,
+            @Valid @RequestBody UpdateProblemRequest request) {
+        log.info("Updating problem with slug: {}", slug);
+        AdminProblemResponseDto problem = adminProblemService.updateProblem(slug, request);
+        return ResponseEntity.ok(problem);
+    }
+
     @PostMapping("/{slug}/files/description")
     public ResponseEntity<FileUploadResponseDto> uploadProblemDescription(
             @PathVariable String slug,

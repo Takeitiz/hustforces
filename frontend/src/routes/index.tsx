@@ -31,6 +31,7 @@ import { ProblemDetailPage } from "../pages/Admin/Problems/ProblemDetailPage"
 import { AdminContestsPage } from "../pages/Admin/Contests/AdminContestsPage"
 import { CreateContestPage } from "../pages/Admin/Contests/CreateContestPage"
 import { AdminImportPage } from "../pages/Admin/Import/AdminImportPage"
+import {EditProblemPage} from "../pages/Admin/Problems/EditProblemPage.tsx";
 
 const router = createBrowserRouter([
     {
@@ -146,6 +147,10 @@ const router = createBrowserRouter([
                     {
                         path: "problems/:slug",
                         element: <ProblemDetailPage />,
+                    },
+                    {
+                        path: "problems/:slug/edit",
+                        element: <EditProblemPage />,
                     },
                     {
                         path: "contests",

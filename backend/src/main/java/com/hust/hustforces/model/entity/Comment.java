@@ -61,7 +61,7 @@ public class Comment extends BaseEntity {
     @Column(nullable = false)
     private int downvotes = 0;
 
-    @Column(name = "path", nullable = false, columnDefinition = "VARCHAR(1000) DEFAULT '/'")
+    @Column(name = "path", nullable = false, columnDefinition = "VARCHAR(1000)")
     private String path = "/";
 
     @Column(name = "level", nullable = false)

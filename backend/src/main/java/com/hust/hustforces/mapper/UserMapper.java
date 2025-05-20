@@ -10,6 +10,7 @@ import org.mapstruct.Mapping;
 public interface UserMapper {
 
     @Mapping(target = "profilePicture", ignore = true)
+    @Mapping(source = "role", target = "role")
     UserDto toUserDto(User user);
 
     @Mapping(target = "profilePicture", ignore = true)

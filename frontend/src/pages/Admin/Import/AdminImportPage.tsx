@@ -3,13 +3,15 @@ import { useState } from "react"
 import { toast } from "react-toastify"
 import { Button } from "../../../components/ui/Button"
 import adminService from "../../../service/adminService"
-import { Download, Database, Code, AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
+import { Download, Database, Code, AlertTriangle, CheckCircle, Loader2, FileCode } from "lucide-react"
 
 export function AdminImportPage() {
     const [importSlug, setImportSlug] = useState("")
+    const [boilerplateSlug, setBoilerplateSlug] = useState("")
     const [importLoading, setImportLoading] = useState(false)
     const [importAllLoading, setImportAllLoading] = useState(false)
     const [seedLanguagesLoading, setSeedLanguagesLoading] = useState(false)
+    const [boilerplateLoading, setBoilerplateLoading] = useState(false)
     const [importResult, setImportResult] = useState<{
         success: boolean
         message: string
@@ -86,6 +88,33 @@ export function AdminImportPage() {
         }
     }
 
+    const handleGenerateBoilerplate = async () => {
+        if (!boilerplateSlug.trim()) {
+            toast.error("Please enter a problem slug")
+            return
+        }
+
+        setBoilerplateLoading(true)
+        setImportResult(null)
+        try {
+            const result = await adminService.generateBoilerplate(boilerplateSlug.trim())
+            setImportResult({
+                success: true,
+                message: result || "Boilerplate code generated successfully",
+            })
+            toast.success("Boilerplate code generated successfully")
+        } catch (error) {
+            console.error("Failed to generate boilerplate:", error)
+            setImportResult({
+                success: false,
+                message: "Failed to generate boilerplate code. Please check the slug and try again.",
+            })
+            toast.error("Failed to generate boilerplate code")
+        } finally {
+            setBoilerplateLoading(false)
+        }
+    }
+
     return (
         <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Import Data</h1>
@@ -150,6 +179,35 @@ export function AdminImportPage() {
                     </div>
                 </div>
 
+                {/* New section for generating boilerplate code */}
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                    <div className="flex items-center mb-4">
+                        <FileCode className="h-6 w-6 text-orange-600 dark:text-orange-400 mr-2" />
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Generate Boilerplate</h2>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                        Generate boilerplate code for a specific problem. This creates starter code templates for all supported
+                        languages.
+                    </p>
+                    <div className="flex gap-2 mb-4">
+                        <input
+                            type="text"
+                            value={boilerplateSlug}
+                            onChange={(e) => setBoilerplateSlug(e.target.value)}
+                            placeholder="Enter problem slug"
+                            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                        />
+                        <Button
+                            onClick={handleGenerateBoilerplate}
+                            disabled={boilerplateLoading || !boilerplateSlug.trim()}
+                            className="flex items-center gap-2"
+                        >
+                            {boilerplateLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileCode className="h-4 w-4" />}
+                            {boilerplateLoading ? "Generating..." : "Generate"}
+                        </Button>
+                    </div>
+                </div>
+
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
                     <div className="flex items-center mb-4">
                         <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-400 mr-2" />
@@ -168,6 +226,12 @@ export function AdminImportPage() {
                             <span className="mr-2">•</span>
                             <span>
                 Imported problems will be hidden by default. You can make them visible from the Problems page.
+              </span>
+                        </li>
+                        <li className="flex items-start">
+                            <span className="mr-2">•</span>
+                            <span>
+                Generate boilerplate code after importing problems to create starter templates for all languages.
               </span>
                         </li>
                     </ul>

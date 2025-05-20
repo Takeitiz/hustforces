@@ -17,4 +17,5 @@ public interface AdminProblemService {
     public void deleteProblem(String slug);
     public AdminProblemResponseDto toggleProblemVisibility(String slug, boolean hidden);
     public AdminProblemResponseDto updateProblemDifficulty(String slug, Difficulty difficulty);
+    AdminProblemResponseDto updateProblem(String slug, UpdateProblemRequest request);
 }
