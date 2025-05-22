@@ -1,7 +1,9 @@
 package com.hust.hustforces.controller;
 
 import com.hust.hustforces.enums.UserRole;
+import com.hust.hustforces.enums.UserStatus;
 import com.hust.hustforces.exception.ResourceNotFoundException;
+import com.hust.hustforces.mapper.UserMapper;
 import com.hust.hustforces.model.dto.UserDto;
 import com.hust.hustforces.model.entity.User;
 import com.hust.hustforces.repository.UserRepository;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 public class AdminUserController {
     private final UserRepository userRepository;
+    private final UserMapper userMapper;
 
     @GetMapping
     public ResponseEntity<Page<UserDto>> getAllUsers(
@@ -49,6 +52,26 @@ public class AdminUserController {
                 .username(savedUser.getUsername())
                 .email(savedUser.getEmail())
                 .build();
+
+        return ResponseEntity.ok(userDto);
+    }
+
+    @PutMapping("/{userId}/status")
+    public ResponseEntity<UserDto> updateUserStatus(
+            @PathVariable String userId,
+            @RequestParam UserStatus status) {
+        log.info("Updating status for user {} to {}", userId, status);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        user.setStatus(status);
+
+        User updatedUser = userRepository.save(user);
+
+        log.info("Successfully updated status for user {} to {}", userId, status);
+
+        UserDto userDto = userMapper.toUserDto(updatedUser);
 
         return ResponseEntity.ok(userDto);
     }

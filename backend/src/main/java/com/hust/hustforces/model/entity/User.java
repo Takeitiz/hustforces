@@ -1,6 +1,7 @@
 package com.hust.hustforces.model.entity;
 
 import com.hust.hustforces.enums.UserRole;
+import com.hust.hustforces.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -49,4 +50,7 @@ public class User extends BaseEntity {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<ContestPoints> contestPoints = new ArrayList<>();
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserStatus status = UserStatus.ACTIVE;
 }

@@ -46,8 +46,6 @@ export interface TestCase {
     explanation?: string
 }
 
-// Modified ProblemDetailDto to remove hiddenTestCases and status fields
-// and rename sampleTestCases to testcases
 export interface ProblemDetailDto {
     id: string
     title: string
@@ -57,7 +55,7 @@ export interface ProblemDetailDto {
     timeLimit: number
     memoryLimit: number
     tags: string[]
-    testcases: TestCase[] // Renamed from sampleTestCases
+    testcases: TestCase[]
     createdAt: string
     updatedAt: string
     slug: string
@@ -333,7 +331,7 @@ const adminService = {
         }
     },
 
-    // New method to generate boilerplate code for a problem
+
     generateBoilerplate: async (slug: string): Promise<string> => {
         try {
             const response = await apiClient.post<string>(`/admin/problems/${slug}/generate-boilerplate`)
@@ -343,7 +341,6 @@ const adminService = {
             throw error
         }
     },
-
 
     // Dashboard statistics
     getDashboardStats: async (): Promise<{
