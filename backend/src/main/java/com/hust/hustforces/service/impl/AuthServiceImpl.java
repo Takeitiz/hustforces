@@ -1,6 +1,7 @@
 package com.hust.hustforces.service.impl;
 
 import com.hust.hustforces.enums.UserRole;
+import com.hust.hustforces.enums.UserStatus;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.mapper.UserMapper;
 import com.hust.hustforces.model.dto.UserDto;
@@ -54,6 +55,7 @@ public class AuthServiceImpl implements AuthService {
                 .email(registerRequest.getEmail())
                 .password(passwordEncoder.encode(registerRequest.getPassword()))
                 .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
                 .build();
 
         User savedUser = userRepository.save(user);
