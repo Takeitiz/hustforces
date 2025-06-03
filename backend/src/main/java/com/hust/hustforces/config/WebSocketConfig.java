@@ -1,6 +1,7 @@
 package com.hust.hustforces.config;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -12,14 +13,44 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic");
+        // Enable simple broker for topic and queue destinations
+        config.enableSimpleBroker("/topic", "/queue");
+
+        // Set application destination prefix
         config.setApplicationDestinationPrefixes("/app");
+
+        // Set user destination prefix for sending messages to specific users
+        config.setUserDestinationPrefix("/user");
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // Main WebSocket endpoint
         registry.addEndpoint("/ws")
                 .setAllowedOrigins("*")
                 .withSockJS();
+
+        // Additional endpoint specifically for code rooms (optional)
+        registry.addEndpoint("/ws-coderoom")
+                .setAllowedOrigins("*")
+                .withSockJS();
+    }
+
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        // Configure thread pool for handling incoming messages
+        registration.taskExecutor()
+                .corePoolSize(8)
+                .maxPoolSize(16)
+                .queueCapacity(100);
+    }
+
+    @Override
+    public void configureClientOutboundChannel(ChannelRegistration registration) {
+        // Configure thread pool for sending messages to clients
+        registration.taskExecutor()
+                .corePoolSize(8)
+                .maxPoolSize(16)
+                .queueCapacity(100);
     }
 }

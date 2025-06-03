@@ -30,6 +30,12 @@ spring:
       username: default
       timeout: 5000
       host: localhost
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: -1ms
 
   # RabbitMQ configuration
   rabbitmq:
@@ -109,4 +115,57 @@ executor:
   max-pool-size: 10
   queue-capacity: 25
   thread-name-prefix: hustforces-async-
+
+# CodeRoom configuration
+coderoom:
+  # Maximum number of participants per room
+  max-participants-default: 4
+  max-participants-limit: 10
+
+  # Room timeout settings
+  inactive-timeout-minutes: 30
+  abandoned-timeout-hours: 2
+
+  # Redis key expiry for room data
+  room-expiry-hours: 24
+
+  # WebRTC configuration
+  stun:
+    server: stun:stun.l.google.com:19302
+
+  # TURN server configuration (optional, for better connectivity)
+  turn:
+    server: ${TURN_SERVER:}
+    username: ${TURN_USERNAME:}
+    credential: ${TURN_CREDENTIAL:}
+
+  # Code synchronization settings
+  sync:
+    max-history-size: 1000
+    compression-enabled: true
+
+  # Session recording (optional)
+  recording:
+    enabled: false
+    storage-path: ${RECORDING_PATH:/var/hustforces/recordings}
+
+# WebSocket configuration
+websocket:
+  # Message size limits
+  message-size-limit: 65536  # 64KB
+  send-buffer-size-limit: 524288  # 512KB
+
+  # Timeout settings
+  send-timeout: 20000  # 20 seconds
+
+  # Thread pool settings
+  client-inbound-thread-pool:
+    core-size: 8
+    max-size: 16
+    queue-capacity: 100
+
+  client-outbound-thread-pool:
+    core-size: 8
+    max-size: 16
+    queue-capacity: 100
 
