@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Settings, Users, Code, Video, LogOut, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -10,7 +10,6 @@ import useCodeRoomStore from '../../store/useCodeRoomStore';
 import { useCodeRoom } from '../../hooks/useCodeRoom';
 import { useWebRTCIntegration } from '../../hooks/useWebRTCIntegration';
 import codeRoomWebSocketService from '../../service/codeRoomWebSocketService';
-import { toast } from 'react-toastify';
 
 export function CodeRoomInterface() {
     const { roomCode } = useParams<{ roomCode: string }>();
@@ -57,6 +56,7 @@ export function CodeRoomInterface() {
 
         const initRoom = async () => {
             try {
+                setIsInitializing(true);
                 // Join the room
                 const roomDetails = await joinRoom(roomCode);
 
@@ -65,16 +65,14 @@ export function CodeRoomInterface() {
                     await initializeWebRTC(roomDetails.room.id);
                     setIsWebRTCReady(true);
 
-                    // Connect to existing participants
-                    roomDetails.participants.forEach(participant => {
-                        if (participant.userId !== currentUser?.userId) {
-                            connectToUser(participant.userId);
-                        }
-                    });
+                    // We'll connect to participants in the next useEffect
+                    // after WebSocket listeners are fully set up
                 }
             } catch (error) {
                 console.error('Failed to join room:', error);
                 navigate('/code-rooms');
+            } finally {
+                setIsInitializing(false);
             }
         };
 
@@ -82,22 +80,28 @@ export function CodeRoomInterface() {
 
         // Cleanup on unmount
         return () => {
-            if (isConnected) {
-                codeRoomWebSocketService.disconnect();
-                cleanupWebRTC();
-                reset();
-            }
+            // Always clean up regardless of connection state
+            codeRoomWebSocketService.disconnect();
+            cleanupWebRTC();
+            reset();
         };
     }, [roomCode]);
 
     // Handle new participants joining (for WebRTC)
     useEffect(() => {
-        if (!isWebRTCReady) return;
+        if (!isWebRTCReady || !currentUser) return;
+
+        // Connect to existing participants
+        participants.forEach(participant => {
+            if (participant.userId !== currentUser.userId) {
+                connectToUser(participant.userId);
+            }
+        });
 
         const handleNewParticipant = async () => {
             await codeRoomWebSocketService.onParticipantEvents({
                 onJoined: (event) => {
-                    if (event.participant.userId !== currentUser?.userId) {
+                    if (event.participant.userId !== currentUser.userId) {
                         // Only the existing participants initiate connection to new participant
                         connectToUser(event.participant.userId);
                     }
@@ -106,7 +110,7 @@ export function CodeRoomInterface() {
         };
 
         handleNewParticipant();
-    }, [isWebRTCReady, currentUser, connectToUser]);
+    }, [isWebRTCReady, currentUser, participants, connectToUser]);
 
     // Handle leave room
     const handleLeaveRoom = async () => {

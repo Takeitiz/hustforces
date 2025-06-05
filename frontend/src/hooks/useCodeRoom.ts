@@ -81,7 +81,7 @@ export function useCodeRoom() {
             setIsInitializing(true);
 
             // First, join the room via REST API
-            const participant = await codeRoomService.joinRoom({ roomCode });
+            await codeRoomService.joinRoom({ roomCode });
 
             // Get full room details
             const roomDetails = await codeRoomService.getRoomByCode(roomCode);
@@ -179,6 +179,25 @@ export function useCodeRoom() {
             console.error('Failed to delete room:', error);
             const errorMessage = error.response?.data?.errorMessage || error.message || 'Failed to delete room';
             toast.error(errorMessage);
+        }
+    }, [room, isHost, navigate]);
+
+    // End session (host only)
+    const endSession = useCallback(async () => {
+        if (!room || !isHost()) {
+            toast.error('Only the host can end the session');
+            return;
+        }
+
+        try {
+            await codeRoomService.endSession(room.id);
+            toast.success('Session ended successfully');
+            navigate('/code-rooms');
+        } catch (error: any) {
+            console.error('Failed to end session:', error);
+            const errorMessage = error.response?.data?.errorMessage || error.message || 'Failed to end session';
+            toast.error(errorMessage);
+            throw error;
         }
     }, [room, isHost, navigate]);
 

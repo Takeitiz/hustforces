@@ -1,9 +1,8 @@
 import React from 'react';
-import { Crown, UserCheck, Eye, MoreVertical, Mic, MicOff, Video, VideoOff, Monitor, Wifi, WifiOff } from 'lucide-react';
-import { Button } from '../ui/Button';
+import { Crown, UserCheck, Eye, MoreVertical, Mic, MicOff, Video, VideoOff, Monitor, WifiOff } from 'lucide-react';
 import useCodeRoomStore from '../../store/useCodeRoomStore';
 import { useCodeRoom } from '../../hooks/useCodeRoom';
-import { ParticipantDto, ParticipantRole, ParticipantStatus } from '../../types/codeRoom';
+import { ParticipantRole, ParticipantStatus } from '../../types/codeRoom';
 
 export function ParticipantsSidebar() {
     const {

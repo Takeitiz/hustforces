@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     Mic, MicOff, Video, VideoOff, Monitor, MonitorOff,
-    PhoneOff, Maximize2, Minimize2, Volume2, VolumeX,
+    PhoneOff, Maximize2, Minimize2,
     Settings, Users
 } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -55,11 +55,13 @@ export function MediaPanel({ isFullscreen = false, onToggleFullscreen }: MediaPa
 
     // Initialize media on mount
     useEffect(() => {
+        let isMounted = true; // Flag to track component mount state
+
         const initMedia = async () => {
             if (!room) return;
 
             try {
-                setIsConnecting(true);
+                if (isMounted) setIsConnecting(true);
 
                 // Get media stream if voice/video is allowed
                 if (room.allowVoiceChat || room.allowVideoChat) {
@@ -68,7 +70,7 @@ export function MediaPanel({ isFullscreen = false, onToggleFullscreen }: MediaPa
                         room.allowVideoChat && localMediaState.isVideoOn
                     );
 
-                    if (stream) {
+                    if (stream && isMounted) {
                         setLocalStream(stream);
 
                         // Set initial media state
@@ -82,13 +84,15 @@ export function MediaPanel({ isFullscreen = false, onToggleFullscreen }: MediaPa
             } catch (error) {
                 console.error('Failed to initialize media:', error);
             } finally {
-                setIsConnecting(false);
+                if (isMounted) setIsConnecting(false);
             }
         };
 
         initMedia();
 
+        // Cleanup function
         return () => {
+            isMounted = false; // Update flag when component unmounts
             stopAllMedia();
         };
     }, [room]);

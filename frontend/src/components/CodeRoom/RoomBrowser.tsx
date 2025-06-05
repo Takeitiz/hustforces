@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Users, Globe, Lock, Code, Clock, ArrowRight, Plus, Hash } from 'lucide-react';
+import { Search, Users, Globe, Lock, Clock, ArrowRight, Plus, Hash } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { CreateRoomModal } from './CreateRoomModal';
 import { JoinRoomModal } from './JoinRoomModal';

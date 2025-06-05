@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Users, Plus, Hash } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { CreateRoomModal } from './CreateRoomModal';
 import { JoinRoomModal } from './JoinRoomModal';
-import useCodeRoomStore from '../../store/useCodeRoomStore';
 
 interface CodeRoomEntryButtonProps {
     problemId?: string;

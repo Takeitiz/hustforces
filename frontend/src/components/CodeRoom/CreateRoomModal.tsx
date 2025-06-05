@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Code, Users, Globe, Lock, Video, Mic, Monitor } from 'lucide-react';
+import { Code, Globe, Lock, Video, Mic, Monitor } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';

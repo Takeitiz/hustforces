@@ -1,5 +1,8 @@
 import axios from "axios";
 
+// Create a custom event for auth errors that the app can listen for
+export const AUTH_ERROR_EVENT = 'hustforces_auth_error';
+
 export const apiClient = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
     headers: {
@@ -29,12 +32,10 @@ apiClient.interceptors.response.use(
             localStorage.removeItem('token');
             localStorage.removeItem('user');
 
-            // Redirect to login if needed
-            if (window.location.pathname !== '/login') {
-                window.location.href = '/login';
-            }
+            // Dispatch a custom event that the app can listen for
+            // This avoids direct DOM manipulation and lets React handle navigation
+            window.dispatchEvent(new CustomEvent(AUTH_ERROR_EVENT));
         }
         return Promise.reject(error);
     }
 );
-
