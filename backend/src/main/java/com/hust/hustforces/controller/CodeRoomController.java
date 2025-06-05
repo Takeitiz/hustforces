@@ -1,4 +1,4 @@
-package com.hust.hustforces;
+package com.hust.hustforces.controller;
 
 import com.hust.hustforces.model.dto.coderoom.*;
 import com.hust.hustforces.service.CodeRoomService;

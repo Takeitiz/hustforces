@@ -69,6 +69,14 @@ export function Appbar() {
                         >
                             Standings
                         </Link>
+                        <Link
+                            to="/code-rooms"
+                            className={`font-medium transition-all duration-300 hover:text-blue-600 dark:hover:text-blue-400 relative after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 hover:after:w-full after:bg-blue-600 dark:after:bg-blue-400 after:transition-all after:duration-300 ${
+                                isScrolled ? "text-gray-700 dark:text-gray-200" : "text-gray-700 dark:text-gray-200"
+                            }`}
+                        >
+                            Code Rooms
+                        </Link>
                     </nav>
 
                     <div className="flex items-center gap-4">
