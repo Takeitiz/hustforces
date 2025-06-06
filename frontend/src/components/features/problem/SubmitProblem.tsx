@@ -1,13 +1,13 @@
 import type React from "react"
 import type { Problem } from "../../../types/problem.ts"
 import { LANGUAGE_MAPPING } from "../../../constants/languageMapping.ts"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { SubmitStatus } from "../../../constants/submitStatus.ts"
 import { toast } from "react-toastify"
 import { Label } from "../../ui/Label.tsx"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/Select.tsx"
 import { Button } from "../../ui/Button.tsx"
-import MonacoEditor from "react-monaco-editor"
+import Editor, { Monaco } from "@monaco-editor/react"
 import submissionService from "../../../service/submissionService.ts"
 import { useAuth } from "../../../contexts/AuthContext.tsx"
 import { useNavigate } from "react-router-dom"
@@ -35,6 +35,8 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
     const [isEditorReady, setIsEditorReady] = useState(false)
     const { isLoggedIn } = useAuth()
     const navigate = useNavigate()
+    const editorRef = useRef<any>(null)
+    const monacoRef = useRef<Monaco | null>(null)
 
     // Initialize code with problem default code
     useEffect(() => {
@@ -120,14 +122,71 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
      * @param {string} value - New code value
      */
     function handleCodeChange(value: string | undefined): void {
-        if (value != undefined) {
+        if (value !== undefined) {
             setCode({ ...code, [language]: value })
         }
     }
 
-    function handleEditorDidMount() {
+    function handleEditorDidMount(editor: any, monaco: Monaco) {
+        editorRef.current = editor
+        monacoRef.current = monaco
         setIsEditorReady(true)
+
+        // Configure additional language features
+        monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+            noSemanticValidation: false,
+            noSyntaxValidation: false
+        })
+
+        monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+            target: monaco.languages.typescript.ScriptTarget.Latest,
+            allowNonTsExtensions: true,
+            moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+            module: monaco.languages.typescript.ModuleKind.CommonJS,
+            allowJs: true
+        })
+
+        // Define custom themes for better syntax highlighting
+        monaco.editor.defineTheme('custom-dark', {
+            base: 'vs-dark',
+            inherit: true,
+            rules: [
+                { token: 'comment', foreground: '6A9955' },
+                { token: 'keyword', foreground: '569CD6' },
+                { token: 'string', foreground: 'CE9178' },
+                { token: 'number', foreground: 'B5CEA8' },
+                { token: 'type', foreground: '4EC9B0' },
+                { token: 'function', foreground: 'DCDCAA' },
+                { token: 'variable', foreground: '9CDCFE' },
+                { token: 'constant', foreground: '4FC1FF' },
+                { token: 'parameter', foreground: '9CDCFE' },
+                { token: 'property', foreground: '9CDCFE' },
+                { token: 'punctuation', foreground: 'D4D4D4' },
+                { token: 'operator', foreground: 'D4D4D4' },
+            ],
+            colors: {
+                'editor.background': '#1E1E1E',
+                'editor.foreground': '#D4D4D4',
+                'editor.lineHighlightBackground': '#2A2A2A',
+                'editorCursor.foreground': '#FFFFFF',
+                'editor.selectionBackground': '#264F78',
+                'editor.inactiveSelectionBackground': '#3A3D41'
+            }
+        })
+
+        // Set the custom theme
+        monaco.editor.setTheme('custom-dark')
     }
+
+    // Handle language change
+    useEffect(() => {
+        if (editorRef.current && monacoRef.current) {
+            const model = editorRef.current.getModel()
+            if (model) {
+                monacoRef.current.editor.setModelLanguage(model, LANGUAGE_MAPPING[language]?.monaco || 'plaintext')
+            }
+        }
+    }, [language])
 
     return (
         <div className="space-y-6">
@@ -141,9 +200,9 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
                             <SelectValue placeholder="Select language" />
                         </SelectTrigger>
                         <SelectContent className="z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
-                            {Object.keys(LANGUAGE_MAPPING).map((language) => (
-                                <SelectItem key={language} value={language}>
-                                    {LANGUAGE_MAPPING[language]?.name}
+                            {Object.keys(LANGUAGE_MAPPING).map((lang) => (
+                                <SelectItem key={lang} value={lang}>
+                                    {LANGUAGE_MAPPING[lang]?.name}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -156,8 +215,8 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
                     <div className="flex items-center">
                         <Code className="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" />
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {LANGUAGE_MAPPING[language]?.name || "Code Editor"}
-            </span>
+                            {LANGUAGE_MAPPING[language]?.name || "Code Editor"}
+                        </span>
                     </div>
                     <div className="flex space-x-1">
                         <div className="w-3 h-3 rounded-full bg-red-500"></div>
@@ -166,23 +225,78 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
                     </div>
                 </div>
                 <div className={`transition-opacity duration-300 ${isEditorReady ? "opacity-100" : "opacity-0"} relative z-10`}>
-                    <MonacoEditor
+                    <Editor
                         height="60vh"
-                        language={LANGUAGE_MAPPING[language]?.monaco}
-                        theme="vs-dark"
+                        language={LANGUAGE_MAPPING[language]?.monaco || 'plaintext'}
+                        theme="custom-dark"
                         value={code[language] || ""}
+                        onChange={handleCodeChange}
+                        onMount={handleEditorDidMount}
+                        className="monaco-editor-wrapper"
                         options={{
                             fontSize: 14,
-                            scrollBeyondLastLine: false,
+                            fontFamily: "'Fira Code', 'Cascadia Code', 'Consolas', monospace",
+                            fontLigatures: true,
                             minimap: { enabled: true },
+                            scrollBeyondLastLine: false,
                             lineNumbers: "on",
                             wordWrap: "on",
                             automaticLayout: true,
-                            fontFamily: "'Fira Code', monospace",
-                            fontLigatures: true,
+                            formatOnPaste: true,
+                            formatOnType: true,
+                            suggestOnTriggerCharacters: true,
+                            quickSuggestions: {
+                                other: true,
+                                comments: true,
+                                strings: true
+                            },
+                            parameterHints: {
+                                enabled: true
+                            },
+                            tabSize: 4,
+                            insertSpaces: true,
+                            folding: true,
+                            bracketPairColorization: {
+                                enabled: true
+                            },
+                            cursorBlinking: "smooth",
+                            cursorSmoothCaretAnimation: "on",
+                            smoothScrolling: true,
+                            mouseWheelZoom: true,
+                            renderWhitespace: "selection",
+                            renderLineHighlight: "all",
+                            renderIndentGuides: true,
+                            suggestSelection: "first",
+                            acceptSuggestionOnCommitCharacter: true,
+                            snippetSuggestions: "top",
+                            emptySelectionClipboard: false,
+                            copyWithSyntaxHighlighting: true,
+                            autoIndent: "full",
+                            stickyTabStops: true,
+                            showFoldingControls: "mouseover",
+                            foldingHighlight: true,
+                            unfoldOnClickAfterEndOfLine: true,
+                            trimAutoWhitespace: true,
+                            detectIndentation: true,
+                            largeFileOptimizations: true,
+                            maxTokenizationLineLength: 20000,
+                            autoClosingBrackets: "languageDefined",
+                            autoClosingQuotes: "languageDefined",
+                            autoClosingOvertype: "always",
+                            autoSurround: "languageDefined",
+                            links: true,
+                            colorDecorators: true,
+                            selectionHighlight: true,
+                            overviewRulerBorder: false,
+                            hideCursorInOverviewRuler: false,
+                            enableSplitViewResizing: true,
+                            revealHorizontalRightPadding: 30,
                         }}
-                        onChange={handleCodeChange}
-                        editorDidMount={handleEditorDidMount}
+                        loading={
+                            <div className="flex items-center justify-center h-[60vh] bg-gray-900">
+                                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                            </div>
+                        }
                     />
                 </div>
             </div>
@@ -222,16 +336,8 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
                     )}
                 </Button>
             </div>
-
-            {/*{testcases.length > 0 && (*/}
-            {/*    <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">*/}
-            {/*        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Test Results</h3>*/}
-            {/*        <RenderTestcase testcases={testcases} />*/}
-            {/*    </div>*/}
-            {/*)}*/}
         </div>
     )
 }
 
 export default SubmitProblem
-

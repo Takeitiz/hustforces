@@ -62,3 +62,45 @@
     max-width: none;
 }
 
+/* Monaco Editor Enhancements */
+.monaco-editor-wrapper {
+    border: 1px solid transparent;
+    transition: border-color 0.3s ease;
+}
+
+.monaco-editor-wrapper:focus-within {
+    border-color: #3b82f6;
+}
+
+/* Ensure Monaco editor tooltips and dropdowns appear above other elements */
+.monaco-editor .suggest-widget {
+    z-index: 100 !important;
+}
+
+.monaco-editor .monaco-hover {
+    z-index: 100 !important;
+}
+
+.monaco-editor .parameter-hints-widget {
+    z-index: 100 !important;
+}
+
+/* Custom scrollbar styling for Monaco */
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider {
+    background: rgba(79, 82, 88, 0.5) !important;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider:hover {
+    background: rgba(79, 82, 88, 0.8) !important;
+}
+
+/* Loading state for Monaco */
+.monaco-editor-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 60vh;
+    background: #1e1e1e;
+    color: #d4d4d4;
+}
+
