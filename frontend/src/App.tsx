@@ -1,6 +1,6 @@
 import "./App.css";
 // Removed BrowserRouter import as it's not needed here with createBrowserRouter
-import { Outlet, useNavigate } from "react-router-dom"; // Import useNavigate
+import { Outlet, useNavigate, useLocation } from "react-router-dom"; // Import useNavigate and useLocation
 import { Appbar } from "./components/layout/Appbar/Appbar.tsx";
 import { Footer } from "./components/layout/Footer/Footer.tsx";
 // AppRoutes import is no longer needed here as Outlet handles rendering
@@ -13,6 +13,10 @@ import { AUTH_ERROR_EVENT } from "./api/client.ts"; // Import the auth error eve
 
 function App() {
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Check if we're on a problem page
+    const isProblemPage = location.pathname.startsWith('/problem/');
 
     // Listen for auth errors and navigate to login
     useEffect(() => {
@@ -30,14 +34,14 @@ function App() {
     return (
         <AuthProvider>
             <ToastContainer position="top-right" autoClose={3000} />
-            <Appbar />
-            <main className="content-container min-h-screen pt-20">
+            {!isProblemPage && <Appbar />}
+            <main className={`min-h-screen ${!isProblemPage ? 'pt-20' : ''}`}>
                 <div className="fixed bottom-6 right-6 z-50">
                     <AdminNavLink/>
                 </div>
                 <Outlet/>
             </main>
-            <Footer/>
+            {!isProblemPage && <Footer/>}
         </AuthProvider>
     );
 }

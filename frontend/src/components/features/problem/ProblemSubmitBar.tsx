@@ -1,38 +1,34 @@
-import {Problem} from "../../../types/problem.ts";
-import {useState} from "react";
-import {Tabs, TabsList, TabsTrigger} from "../../ui/Tabs.tsx";
+import { Problem } from "../../../types/problem.ts";
 import SubmitProblem from "./SubmitProblem.tsx";
-import Submissions from "./Submissions.tsx";
 
 export const ProblemSubmitBar: React.FC<{
     problem: Problem;
     contestId?: string;
-}> = ({ problem, contestId }) => {
-    const [activeTab, setActiveTab] = useState("problem");
-
+    onCodeChange?: (code: string, language: string) => void;
+    hideSubmitButton?: boolean;
+}> = ({ problem, contestId, onCodeChange, hideSubmitButton = false }) => {
     return (
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-6">
-            <div className="grid gap-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <Tabs
-                            defaultValue="problem"
-                            className="rounded-md p-1"
-                            value={activeTab}
-                            onValueChange={setActiveTab}>
-                            <TabsList className="grid grid-cols-2 w-full">
-                                <TabsTrigger value="problem">Submit</TabsTrigger>
-                                <TabsTrigger value="submissions">Submissions</TabsTrigger>
-                            </TabsList>
-                        </Tabs>
+        <div className="h-full flex flex-col bg-white dark:bg-gray-900">
+            <div className="flex-1 overflow-hidden">
+                <div className="h-full flex flex-col">
+                    {/* Header with Language Selection */}
+                    <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-3">
+                        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Code Editor
+                        </h3>
+                    </div>
+
+                    {/* Code Editor */}
+                    <div className="flex-1 overflow-y-auto p-6">
+                        <SubmitProblem
+                            problem={problem}
+                            contestId={contestId}
+                            onCodeChange={onCodeChange}
+                            hideSubmitButton={hideSubmitButton}
+                        />
                     </div>
                 </div>
-                <div className={`${activeTab === "problem" ? "" : "hidden"}`}>
-                    <SubmitProblem problem={problem} contestId={contestId} />
-                </div>
-                {activeTab === "submissions" && <Submissions problem={problem} />}
             </div>
         </div>
     );
-}
-
+};

@@ -19,6 +19,8 @@ import { Code, Loader2, CheckCircle, XCircle } from "lucide-react"
 interface SubmitProblemProps {
     problem: Problem
     contestId?: string
+    onCodeChange?: (code: string, language: string) => void
+    hideSubmitButton?: boolean
 }
 
 /**
@@ -27,7 +29,7 @@ interface SubmitProblemProps {
  * @param {SubmitProblemProps} props - Component props
  * @returns {JSX.Element}
  */
-const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => {
+const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId, onCodeChange, hideSubmitButton = false }) => {
     const [language, setLanguage] = useState<string>(Object.keys(LANGUAGE_MAPPING)[0])
     const [code, setCode] = useState<Record<string, string>>({})
     const [status, setStatus] = useState<string>(SubmitStatus.SUBMIT)
@@ -132,7 +134,7 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
         monacoRef.current = monaco
         setIsEditorReady(true)
 
-        // Configure additional language features
+        // Configure additional language features for JavaScript
         monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
             noSemanticValidation: false,
             noSyntaxValidation: false
@@ -144,6 +146,113 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
             moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
             module: monaco.languages.typescript.ModuleKind.CommonJS,
             allowJs: true
+        })
+
+        // Add common JavaScript/TypeScript libraries for better auto-completion
+        monaco.languages.typescript.javascriptDefaults.addExtraLib(
+            `declare const console: { log(...args: any[]): void; error(...args: any[]): void; warn(...args: any[]): void; };
+             declare const Math: Math;
+             declare const Array: ArrayConstructor;
+             declare const Object: ObjectConstructor;
+             declare const String: StringConstructor;
+             declare const Number: NumberConstructor;
+             declare const Date: DateConstructor;
+             declare const JSON: JSON;
+             declare const Promise: PromiseConstructor;`,
+            'ts:globals.d.ts'
+        )
+
+        // Register custom completion providers for each language
+        // C++ Completion Provider
+        monaco.languages.registerCompletionItemProvider('cpp', {
+            provideCompletionItems: (model, position) => {
+                const word = model.getWordUntilPosition(position)
+                const range = {
+                    startLineNumber: position.lineNumber,
+                    endLineNumber: position.lineNumber,
+                    startColumn: word.startColumn,
+                    endColumn: word.endColumn
+                }
+
+                const suggestions = [
+                    // Common C++ keywords and structures
+                    { label: 'include', kind: monaco.languages.CompletionItemKind.Keyword, insertText: '#include <${1:iostream}>', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'using namespace std', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'using namespace std;', range },
+                    { label: 'main', kind: monaco.languages.CompletionItemKind.Function, insertText: 'int main() {\n    ${1}\n    return 0;\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'for', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'for (int ${1:i} = 0; ${1:i} < ${2:n}; ${1:i}++) {\n    ${3}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'while', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'while (${1:condition}) {\n    ${2}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'if', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'if (${1:condition}) {\n    ${2}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'vector', kind: monaco.languages.CompletionItemKind.Class, insertText: 'vector<${1:int}> ${2:v};', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'sort', kind: monaco.languages.CompletionItemKind.Function, insertText: 'sort(${1:v}.begin(), ${1:v}.end());', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'cout', kind: monaco.languages.CompletionItemKind.Variable, insertText: 'cout << ${1} << endl;', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'cin', kind: monaco.languages.CompletionItemKind.Variable, insertText: 'cin >> ${1};', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    // Common STL containers
+                    { label: 'map', kind: monaco.languages.CompletionItemKind.Class, insertText: 'map<${1:int}, ${2:int}> ${3:m};', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'set', kind: monaco.languages.CompletionItemKind.Class, insertText: 'set<${1:int}> ${2:s};', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'pair', kind: monaco.languages.CompletionItemKind.Class, insertText: 'pair<${1:int}, ${2:int}> ${3:p};', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'queue', kind: monaco.languages.CompletionItemKind.Class, insertText: 'queue<${1:int}> ${2:q};', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'stack', kind: monaco.languages.CompletionItemKind.Class, insertText: 'stack<${1:int}> ${2:st};', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'priority_queue', kind: monaco.languages.CompletionItemKind.Class, insertText: 'priority_queue<${1:int}> ${2:pq};', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                ]
+
+                return { suggestions }
+            }
+        })
+
+        // Java Completion Provider
+        monaco.languages.registerCompletionItemProvider('java', {
+            provideCompletionItems: (model, position) => {
+                const word = model.getWordUntilPosition(position)
+                const range = {
+                    startLineNumber: position.lineNumber,
+                    endLineNumber: position.lineNumber,
+                    startColumn: word.startColumn,
+                    endColumn: word.endColumn
+                }
+
+                const suggestions = [
+                    { label: 'main', kind: monaco.languages.CompletionItemKind.Function, insertText: 'public static void main(String[] args) {\n    ${1}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'sout', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'System.out.println(${1});', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'for', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'for (int ${1:i} = 0; ${1:i} < ${2:n}; ${1:i}++) {\n    ${3}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'foreach', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'for (${1:Type} ${2:item} : ${3:collection}) {\n    ${4}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'if', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'if (${1:condition}) {\n    ${2}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'class', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'public class ${1:ClassName} {\n    ${2}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'ArrayList', kind: monaco.languages.CompletionItemKind.Class, insertText: 'ArrayList<${1:Integer}> ${2:list} = new ArrayList<>();', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'HashMap', kind: monaco.languages.CompletionItemKind.Class, insertText: 'HashMap<${1:Integer}, ${2:String}> ${3:map} = new HashMap<>();', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'Scanner', kind: monaco.languages.CompletionItemKind.Class, insertText: 'Scanner ${1:sc} = new Scanner(System.in);', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'Arrays.sort', kind: monaco.languages.CompletionItemKind.Function, insertText: 'Arrays.sort(${1:array});', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                ]
+
+                return { suggestions }
+            }
+        })
+
+        // Rust Completion Provider
+        monaco.languages.registerCompletionItemProvider('rust', {
+            provideCompletionItems: (model, position) => {
+                const word = model.getWordUntilPosition(position)
+                const range = {
+                    startLineNumber: position.lineNumber,
+                    endLineNumber: position.lineNumber,
+                    startColumn: word.startColumn,
+                    endColumn: word.endColumn
+                }
+
+                const suggestions = [
+                    { label: 'main', kind: monaco.languages.CompletionItemKind.Function, insertText: 'fn main() {\n    ${1}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'println', kind: monaco.languages.CompletionItemKind.Function, insertText: 'println!("${1}");', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'let', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'let ${1:var} = ${2:value};', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'let mut', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'let mut ${1:var} = ${2:value};', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'for', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'for ${1:item} in ${2:collection} {\n    ${3}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'if', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'if ${1:condition} {\n    ${2}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'match', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'match ${1:value} {\n    ${2:pattern} => ${3:result},\n    _ => ${4:default},\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'Vec', kind: monaco.languages.CompletionItemKind.Class, insertText: 'Vec<${1:i32}>', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'vec!', kind: monaco.languages.CompletionItemKind.Function, insertText: 'vec![${1}]', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                    { label: 'use std', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'use std::${1:io};', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, range },
+                ]
+
+                return { suggestions }
+            }
         })
 
         // Define custom themes for better syntax highlighting
@@ -186,7 +295,7 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
                 monacoRef.current.editor.setModelLanguage(model, LANGUAGE_MAPPING[language]?.monaco || 'plaintext')
             }
         }
-    }, [language])
+    }, [language, code, onCodeChange])
 
     return (
         <div className="space-y-6">
@@ -247,11 +356,47 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
                             suggestOnTriggerCharacters: true,
                             quickSuggestions: {
                                 other: true,
-                                comments: true,
+                                comments: false,
                                 strings: true
                             },
                             parameterHints: {
                                 enabled: true
+                            },
+                            acceptSuggestionOnCommitCharacter: true,
+                            acceptSuggestionOnEnter: "on",
+                            snippetSuggestions: "top",
+                            suggestSelection: "first",
+                            tabCompletion: "on",
+                            suggest: {
+                                localityBonus: true,
+                                shareSuggestSelections: true,
+                                showKeywords: true,
+                                showSnippets: true,
+                                showMethods: true,
+                                showFunctions: true,
+                                showConstructors: true,
+                                showFields: true,
+                                showVariables: true,
+                                showClasses: true,
+                                showStructs: true,
+                                showInterfaces: true,
+                                showModules: true,
+                                showProperties: true,
+                                showEvents: true,
+                                showOperators: true,
+                                showUnits: true,
+                                showValues: true,
+                                showConstants: true,
+                                showEnums: true,
+                                showEnumMembers: true,
+                                showColors: true,
+                                showFiles: true,
+                                showReferences: true,
+                                showFolders: true,
+                                showTypeParameters: true,
+                                showIssues: true,
+                                insertMode: 'replace',
+                                filterGraceful: true,
                             },
                             tabSize: 4,
                             insertSpaces: true,
@@ -265,10 +410,6 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
                             mouseWheelZoom: true,
                             renderWhitespace: "selection",
                             renderLineHighlight: "all",
-                            renderIndentGuides: true,
-                            suggestSelection: "first",
-                            acceptSuggestionOnCommitCharacter: true,
-                            snippetSuggestions: "top",
                             emptySelectionClipboard: false,
                             copyWithSyntaxHighlighting: true,
                             autoIndent: "full",
@@ -289,7 +430,6 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
                             selectionHighlight: true,
                             overviewRulerBorder: false,
                             hideCursorInOverviewRuler: false,
-                            enableSplitViewResizing: true,
                             revealHorizontalRightPadding: 30,
                         }}
                         loading={
@@ -301,41 +441,43 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId }) => 
                 </div>
             </div>
 
-            <div className="flex justify-end">
-                <Button
-                    disabled={status === SubmitStatus.PENDING}
-                    type="submit"
-                    className={`px-6 py-3 rounded-lg font-medium shadow-md transition-all duration-300 flex items-center gap-2 ${
-                        status === SubmitStatus.ACCEPTED
-                            ? "bg-green-600 hover:bg-green-700"
-                            : status === SubmitStatus.FAILED
-                                ? "bg-red-600 hover:bg-red-700"
-                                : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                    }`}
-                    onClick={handleSubmit}
-                >
-                    {!isLoggedIn ? (
-                        "Login to Submit"
-                    ) : status === SubmitStatus.PENDING ? (
-                        <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            Submitting...
-                        </>
-                    ) : status === SubmitStatus.ACCEPTED ? (
-                        <>
-                            <CheckCircle className="w-5 h-5" />
-                            Accepted
-                        </>
-                    ) : status === SubmitStatus.FAILED ? (
-                        <>
-                            <XCircle className="w-5 h-5" />
-                            Failed
-                        </>
-                    ) : (
-                        "Submit Solution"
-                    )}
-                </Button>
-            </div>
+            {!hideSubmitButton && (
+                <div className="flex justify-end">
+                    <Button
+                        disabled={status === SubmitStatus.PENDING}
+                        type="submit"
+                        className={`px-6 py-3 rounded-lg font-medium shadow-md transition-all duration-300 flex items-center gap-2 ${
+                            status === SubmitStatus.ACCEPTED
+                                ? "bg-green-600 hover:bg-green-700"
+                                : status === SubmitStatus.FAILED
+                                    ? "bg-red-600 hover:bg-red-700"
+                                    : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                        }`}
+                        onClick={handleSubmit}
+                    >
+                        {!isLoggedIn ? (
+                            "Login to Submit"
+                        ) : status === SubmitStatus.PENDING ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                Submitting...
+                            </>
+                        ) : status === SubmitStatus.ACCEPTED ? (
+                            <>
+                                <CheckCircle className="w-5 h-5" />
+                                Accepted
+                            </>
+                        ) : status === SubmitStatus.FAILED ? (
+                            <>
+                                <XCircle className="w-5 h-5" />
+                                Failed
+                            </>
+                        ) : (
+                            "Submit Solution"
+                        )}
+                    </Button>
+                </div>
+            )}
         </div>
     )
 }
