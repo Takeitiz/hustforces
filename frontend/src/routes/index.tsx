@@ -34,6 +34,7 @@ import { AdminImportPage } from "../pages/Admin/Import/AdminImportPage"
 import {EditProblemPage} from "../pages/Admin/Problems/EditProblemPage.tsx";
 import {RoomBrowser} from "../components/CodeRoom/RoomBrowser.tsx";
 import CodeRoomPage from "../pages/CodeRoom/CodeRoomPage.tsx";
+import {ProblemsPage} from "../pages/Problem/ProblemsPage.tsx";
 
 const router = createBrowserRouter([
     {
@@ -56,6 +57,10 @@ const router = createBrowserRouter([
             {
                 path: "forgot-password",
                 element: <ForgotPasswordPage />,
+            },
+            {
+                path: "problems",
+                element: <ProblemsPage />,
             },
             {
                 path: "problem/:slug",

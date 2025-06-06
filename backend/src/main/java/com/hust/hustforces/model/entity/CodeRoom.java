@@ -92,4 +92,9 @@ public class CodeRoom extends BaseEntity {
 
     @Column(name = "last_activity_at")
     private LocalDateTime lastActivityAt;
+
+    @Lob
+    @Basic(fetch=FetchType.LAZY)
+    @Column(name = "yjs_document", columnDefinition = "BYTEA")
+    private byte[] yjsDocument; // Store Yjs document state
 }

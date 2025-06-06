@@ -49,3 +49,15 @@ export interface Problem {
     timeLimit?: number
     memoryLimit?: number
 }
+
+export interface ProblemDto {
+    id: string;
+    title: string;
+    slug: string;
+    difficulty: Difficulty;
+    solved: number;
+    createdAt: string;
+    updatedAt: string;
+    totalSubmissions: number;
+    acceptanceRate: number;
+}

@@ -10,7 +10,7 @@ import { DiscussionForumPage } from "../Discussion/DiscussionForumPage.tsx";
 import { SolutionsPage } from "../Solution/SolutionsPage.tsx";
 
 export function ProblemPage() {
-    const { problemId, tab = "problem" } = useParams<{ problemId: string; tab?: string }>();
+    const { slug, tab = "problem" } = useParams<{ slug: string; tab?: string }>();
     const [problem, setProblem] = useState<Problem | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -19,14 +19,15 @@ export function ProblemPage() {
 
     useEffect(() => {
         async function fetchProblem() {
-            if (!problemId) {
+            if (!slug) {
                 setError(true);
                 setLoading(false);
                 return;
             }
 
             try {
-                const problemData = await problemService.getProblem(problemId);
+                // First get the problem by slug - you'll need to add this method to your service
+                const problemData = await problemService.getProblemBySlug(slug);
                 if (problemData) {
                     setProblem(problemData);
                 } else {
@@ -42,11 +43,11 @@ export function ProblemPage() {
         }
 
         fetchProblem();
-    }, [problemId]);
+    }, [slug]);
 
     const handleTabChange = (value: string) => {
         setActiveTab(value);
-        navigate(`/problem/${problemId}/${value !== "problem" ? value : ""}`);
+        navigate(`/problem/${slug}/${value !== "problem" ? value : ""}`);
     };
 
     if (loading) {
@@ -81,7 +82,7 @@ export function ProblemPage() {
                     <main className="flex-1 py-8 md:py-12 grid md:grid-cols-2 gap-8 md:gap-12">
                         <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-6">
                             <div className="prose prose-stone dark:prose-invert">
-                                <ProblemStatement description={problem.description}/>
+                                <ProblemStatement problem={problem}/>
                             </div>
                         </div>
                         <ProblemSubmitBar problem={problem} />

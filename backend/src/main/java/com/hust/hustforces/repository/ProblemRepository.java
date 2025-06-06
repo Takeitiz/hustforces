@@ -1,6 +1,9 @@
 package com.hust.hustforces.repository;
 
+import com.hust.hustforces.enums.Difficulty;
 import com.hust.hustforces.model.entity.Problem;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -29,5 +32,13 @@ public interface ProblemRepository extends JpaRepository<Problem, String> {
     @Query("SELECT p FROM Problem p " +
             "LEFT JOIN FETCH p.defaultCode " +
             "WHERE p.hidden = false")
-    List<Problem> getAllNotHiddenProblemsWithDefaultCode();
+    Page<Problem> findAllNotHiddenProblemsWithDefaultCode(Pageable pageable);
+
+    @Query("SELECT p FROM Problem p " +
+            "WHERE p.hidden = false " +
+            "AND (:search IS NULL OR LOWER(p.title) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.slug) LIKE LOWER(CONCAT('%', :search, '%'))) " +
+            "AND (:difficulty IS NULL OR p.difficulty = :difficulty)")
+    Page<Problem> searchProblems(@Param("search") String search,
+                                 @Param("difficulty") Difficulty difficulty,
+                                 Pageable pageable);
 }

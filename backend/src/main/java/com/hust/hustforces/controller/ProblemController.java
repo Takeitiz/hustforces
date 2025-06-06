@@ -1,9 +1,15 @@
 package com.hust.hustforces.controller;
 
+import com.hust.hustforces.enums.Difficulty;
+import com.hust.hustforces.model.dto.admin.TestcaseDto;
+import com.hust.hustforces.model.dto.problem.ProblemDto;
 import com.hust.hustforces.model.entity.Problem;
 import com.hust.hustforces.service.ProblemService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,28 +22,61 @@ import java.util.List;
 public class ProblemController {
     private final ProblemService problemService;
 
-    @GetMapping("/{problemId}")
-    public ResponseEntity<Problem> getProblem(@PathVariable String problemId, @RequestParam(required = false) String contestId) {
-        log.info("Received request to get problem with id: {}, contest context: {}", problemId, (contestId != null ? contestId : "none"));
+    @GetMapping("/by-slug/{slug}")
+    public ResponseEntity<Problem> getProblemBySlug(
+            @PathVariable String slug,
+            @RequestParam(required = false) String contestId) {
+        log.info("Received request to get problem with slug: {}, contest context: {}",
+                slug, (contestId != null ? contestId : "none"));
 
-        Problem problem = problemService.getProblem(problemId, contestId);
+        Problem problem = problemService.getProblemBySlug(slug, contestId);
 
         if (problem == null) {
-            log.warn("No problem found for id: {} and contestId: {}", problemId, (contestId != null ? contestId : "none"));
+            log.warn("No problem found for slug: {} and contestId: {}",
+                    slug, (contestId != null ? contestId : "none"));
             return ResponseEntity.notFound().build();
         }
 
-        log.info("Successfully retrieved problem: {}", problemId);
+        log.info("Successfully retrieved problem: {}", slug);
         return ResponseEntity.ok(problem);
     }
 
     @GetMapping
-    public ResponseEntity<List<Problem>> getAllProblems() {
-        log.info("Received request to get all visible problems");
+    public ResponseEntity<Page<ProblemDto>> getAllProblems(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Difficulty difficulty,
+            @PageableDefault(size = 20, sort = "createdAt,desc") Pageable pageable) {
 
-        List<Problem> problems = problemService.getProblems();
+        log.info("Received request to get problems - search: {}, difficulty: {}, page: {}, size: {}",
+                search, difficulty, pageable.getPageNumber(), pageable.getPageSize());
 
-        log.info("Returning {} problems", problems.size());
+        Page<ProblemDto> problems;
+
+        if (search != null || difficulty != null) {
+            problems = problemService.searchProblems(search, difficulty, pageable);
+        } else {
+            problems = problemService.getProblems(pageable);
+        }
+
+        log.info("Returning page {} with {} problems out of {} total",
+                pageable.getPageNumber(),
+                problems.getNumberOfElements(),
+                problems.getTotalElements());
+
         return ResponseEntity.ok(problems);
+    }
+
+    @GetMapping("/{slug}/examples")
+    public ResponseEntity<List<TestcaseDto>> getProblemExamples(@PathVariable String slug) {
+        log.info("Fetching example test cases for problem: {}", slug);
+
+        // Get only the first 3 test cases as examples
+        List<TestcaseDto> examples = problemService.getProblemExampleTestcases(slug, 3);
+
+        if (examples.isEmpty()) {
+            log.info("No examples found for problem: {}", slug);
+        }
+
+        return ResponseEntity.ok(examples);
     }
 }

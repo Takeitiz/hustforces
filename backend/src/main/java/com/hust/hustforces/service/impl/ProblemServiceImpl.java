@@ -1,22 +1,31 @@
 package com.hust.hustforces.service.impl;
 
+import com.hust.hustforces.enums.Difficulty;
 import com.hust.hustforces.enums.LanguageId;
+import com.hust.hustforces.mapper.ProblemMapper;
 import com.hust.hustforces.model.dto.ProblemDetails;
+import com.hust.hustforces.model.dto.admin.TestcaseDto;
+import com.hust.hustforces.model.dto.problem.ProblemDto;
 import com.hust.hustforces.model.entity.Contest;
 import com.hust.hustforces.model.entity.Problem;
 import com.hust.hustforces.repository.ContestRepository;
 import com.hust.hustforces.repository.ProblemRepository;
+import com.hust.hustforces.repository.SubmissionRepository;
 import com.hust.hustforces.service.ProblemService;
 import com.hust.hustforces.utils.ProblemFileUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -32,6 +41,11 @@ public class ProblemServiceImpl implements ProblemService {
     private final ProblemCacheService cacheService;
     private final ContestRepository contestRepository;
     private final ProblemRepository problemRepository;
+    private final ProblemMapper problemMapper;
+    private final SubmissionRepository submissionRepository;
+
+    @Value("${mount.path}")
+    private String mountPath;
 
     // In-memory cache for problem metadata to avoid repeated DB lookups
     private final Map<String, Problem> problemMetadataCache = new ConcurrentHashMap<>();
@@ -108,6 +122,69 @@ public class ProblemServiceImpl implements ProblemService {
             log.error("Unexpected error loading problem details for problemId: {}", problemId, e);
             throw new IOException("Failed to load problem details: " + e.getMessage());
         }
+    }
+
+    @Override
+    @Cacheable(value = "problems", key = "'slug_' + #slug + '_' + #contestId")
+    public Problem getProblemBySlug(String slug, String contestId) {
+        log.info("Getting problem metadata for slug: {}, contestId: {}", slug, contestId);
+
+        if (contestId != null && !contestId.isEmpty()) {
+            log.debug("Looking up contest with id: {}", contestId);
+            Optional<Contest> contestOpt = contestRepository.findByIdAndHiddenFalse(contestId);
+
+            if (contestOpt.isEmpty()) {
+                log.warn("Contest not found or hidden: contestId: {}", contestId);
+                return null;
+            }
+
+            log.debug("Contest found: {}, looking up problem in contest context", contestId);
+            // First find the problem by slug
+            Optional<Problem> problemOpt = problemRepository.findBySlug(slug);
+
+            if (problemOpt.isEmpty()) {
+                log.warn("Problem not found with slug: {}", slug);
+                return null;
+            }
+
+            Problem problem = problemOpt.get();
+
+            // Then verify it's in the contest
+            Optional<Problem> problemInContest = problemRepository.findByIdWithDefaultCodeAndInContest(problem.getId(), contestId);
+
+            if (problemInContest.isEmpty()) {
+                log.warn("Problem not found in contest: slug: {}, contestId: {}", slug, contestId);
+                return null;
+            }
+
+            log.info("Problem found in contest: slug: {}, contestId: {}", slug, contestId);
+            Problem foundProblem = problemInContest.get();
+            problemMetadataCache.put(foundProblem.getId(), foundProblem);
+            return foundProblem;
+        }
+
+        log.debug("No contest specified, looking up problem directly by slug: {}", slug);
+        Optional<Problem> problemOpt = problemRepository.findBySlug(slug);
+
+        if (problemOpt.isEmpty()) {
+            log.warn("Problem not found: slug: {}", slug);
+            return null;
+        }
+
+        // Fetch with default code
+        Problem problem = problemOpt.get();
+        Optional<Problem> problemWithDefaultCode = problemRepository.findByIdWithDefaultCode(problem.getId());
+
+        if (problemWithDefaultCode.isEmpty()) {
+            log.warn("Problem found but couldn't load with default code: slug: {}", slug);
+            return null;
+        }
+
+        Problem foundProblem = problemWithDefaultCode.get();
+        log.info("Problem found: slug: {}", slug);
+        problemMetadataCache.put(foundProblem.getId(), foundProblem);
+
+        return foundProblem;
     }
 
     @Override
@@ -243,17 +320,116 @@ public class ProblemServiceImpl implements ProblemService {
     }
 
     @Override
-    @Cacheable(value = "allProblems")
-    public List<Problem> getProblems() {
-        log.info("Getting all visible problems with default code");
+    public Page<ProblemDto> getProblems(Pageable pageable) {
+        log.info("Getting all visible problems with pagination - page: {}, size: {}",
+                pageable.getPageNumber(), pageable.getPageSize());
 
-        List<Problem> problems = problemRepository.getAllNotHiddenProblemsWithDefaultCode();
-        log.info("Retrieved {} visible problems", problems.size());
+        Page<Problem> problemPage = problemRepository.findAllNotHiddenProblemsWithDefaultCode(pageable);
+
+        // Convert to DTOs with statistics
+        Page<ProblemDto> problemDtoPage = problemPage.map(problem -> {
+            int totalSubmissions = submissionRepository.countByProblemId(problem.getId());
+            int acceptedSubmissions = submissionRepository.countByProblemIdAndStatusAC(problem.getId());
+            return problemMapper.toProblemDtoWithStats(problem, totalSubmissions, acceptedSubmissions);
+        });
 
         // Update problem metadata cache
-        problems.forEach(p -> problemMetadataCache.put(p.getId(), p));
+        problemPage.getContent().forEach(p -> problemMetadataCache.put(p.getId(), p));
 
-        return problems;
+        log.info("Retrieved {} problems out of {} total",
+                problemPage.getNumberOfElements(), problemPage.getTotalElements());
+
+        return problemDtoPage;
+    }
+
+    @Override
+    public Page<ProblemDto> searchProblems(String search, Difficulty difficulty, Pageable pageable) {
+        log.info("Searching problems with search: {}, difficulty: {}", search, difficulty);
+
+        Page<Problem> problemPage = problemRepository.searchProblems(search, difficulty, pageable);
+
+        // Update problem metadata cache for the fetched problems
+        problemPage.getContent().forEach(p -> problemMetadataCache.put(p.getId(), p));
+
+        // Convert to DTOs
+        Page<ProblemDto> problemDtoPage = problemPage.map(problemMapper::toProblemDto);
+
+        log.info("Found {} problems matching criteria", problemPage.getTotalElements());
+
+        return problemDtoPage;
+    }
+
+    @Override
+    public List<TestcaseDto> getProblemExampleTestcases(String slug, int limit) {
+        log.info("Getting example test cases for problem: {}, limit: {}", slug, limit);
+
+        // First verify the problem exists and is not hidden
+        Optional<Problem> problemOpt = problemRepository.findBySlug(slug);
+        if (problemOpt.isEmpty() || problemOpt.get().isHidden()) {
+            log.warn("Problem not found or hidden: {}", slug);
+            return Collections.emptyList();
+        }
+
+        String problemPath = mountPath + "/" + slug;
+        List<TestcaseDto> testcases = new ArrayList<>();
+
+        try {
+            Path inputsPath = Paths.get(problemPath, "tests", "inputs");
+            if (!Files.exists(inputsPath)) {
+                log.warn("No test inputs directory found for problem: {}", slug);
+                return testcases;
+            }
+
+            // Get sorted list of test files and limit them
+            List<Path> inputFiles = Files.list(inputsPath)
+                    .filter(path -> path.toString().endsWith(".txt"))
+                    .sorted((p1, p2) -> {
+                        // Sort by numeric filename (0.txt, 1.txt, 2.txt, etc.)
+                        String name1 = p1.getFileName().toString().replace(".txt", "");
+                        String name2 = p2.getFileName().toString().replace(".txt", "");
+                        try {
+                            return Integer.compare(Integer.parseInt(name1), Integer.parseInt(name2));
+                        } catch (NumberFormatException e) {
+                            return name1.compareTo(name2);
+                        }
+                    })
+                    .limit(limit) // Only take the first 'limit' files
+                    .collect(Collectors.toList());
+
+            for (Path inputFile : inputFiles) {
+                String fileName = inputFile.getFileName().toString();
+                String testId = fileName.replace(".txt", "");
+
+                String input = new String(Files.readAllBytes(inputFile));
+
+                String output = "";
+                Path outputFile = Paths.get(problemPath, "tests", "outputs", fileName);
+                if (Files.exists(outputFile)) {
+                    output = new String(Files.readAllBytes(outputFile));
+                }
+
+                // Explanations are optional
+                String explanation = "";
+                Path explanationFile = Paths.get(problemPath, "tests", "explanations", fileName);
+                if (Files.exists(explanationFile)) {
+                    explanation = new String(Files.readAllBytes(explanationFile));
+                }
+
+                testcases.add(TestcaseDto.builder()
+                        .id(testId)
+                        .input(input.trim())
+                        .output(output.trim())
+                        .explanation(explanation.trim().isEmpty() ? null : explanation.trim())
+                        .build());
+            }
+
+            log.info("Loaded {} example test cases for problem: {}", testcases.size(), slug);
+
+        } catch (IOException e) {
+            log.error("Error loading example test cases for problem: {}", slug, e);
+        }
+
+        return testcases;
     }
 
     /**
