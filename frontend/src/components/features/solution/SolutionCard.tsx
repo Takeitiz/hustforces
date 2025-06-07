@@ -1,22 +1,22 @@
 import { formatDistanceToNow } from "date-fns";
-import { Link } from "react-router-dom";
 import { MessageSquare, ThumbsUp, ThumbsDown, Code } from "lucide-react";
 import { SolutionDto } from "../../../types/solution";
 import { getLanguageName } from "../../../constants/languageMapping";
 
 interface SolutionCardProps {
     solution: SolutionDto;
+    onClick: () => void;
 }
 
-export function SolutionCard({ solution }: SolutionCardProps) {
+export function SolutionCard({ solution, onClick }: SolutionCardProps) {
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300">
-            <Link
-                to={`/solutions/${solution.id}`}
-                className="block p-6"
-            >
+        <div
+            className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300 cursor-pointer"
+            onClick={onClick}
+        >
+            <div className="p-6">
                 <div className="flex justify-between items-start">
-                    <div>
+                    <div className="flex-1">
                         <div className="flex items-center gap-2 mb-3">
                             <Code size={18} className="text-blue-600 dark:text-blue-400" />
                             <span className="font-medium text-blue-600 dark:text-blue-400">
@@ -35,13 +35,9 @@ export function SolutionCard({ solution }: SolutionCardProps) {
                             {solution.problemTitle && (
                                 <>
                                     <span>•</span>
-                                    <Link
-                                        to={`/problem/${solution.problemId}`}
-                                        className="text-blue-600 dark:text-blue-400 hover:underline"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
+                                    <span className="text-blue-600 dark:text-blue-400">
                                         {solution.problemTitle}
-                                    </Link>
+                                    </span>
                                 </>
                             )}
                         </div>
@@ -68,7 +64,7 @@ export function SolutionCard({ solution }: SolutionCardProps) {
                         <span>{solution.downvotes}</span>
                     </div>
                 </div>
-            </Link>
+            </div>
         </div>
     );
 }

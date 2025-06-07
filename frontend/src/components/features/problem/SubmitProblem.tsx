@@ -4,7 +4,6 @@ import { LANGUAGE_MAPPING } from "../../../constants/languageMapping.ts"
 import { useEffect, useState, useRef } from "react"
 import { SubmitStatus } from "../../../constants/submitStatus.ts"
 import { toast } from "react-toastify"
-import { Label } from "../../ui/Label.tsx"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/Select.tsx"
 import { Button } from "../../ui/Button.tsx"
 import Editor, { Monaco } from "@monaco-editor/react"
@@ -50,6 +49,24 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId, onCod
         })
         setCode(defaultCode)
     }, [problem])
+
+    useEffect(() => {
+        if (onCodeChange && code[language] !== undefined) {
+            onCodeChange(code[language], language);
+        }
+    }, [code, language, onCodeChange]);
+
+    function handleCodeChange(value: string | undefined): void {
+        if (value !== undefined) {
+            const newCode = { ...code, [language]: value };
+            setCode(newCode);
+
+            // Notify parent component
+            if (onCodeChange) {
+                onCodeChange(value, language);
+            }
+        }
+    }
 
     /**
      * Poll for submission status with backoff
@@ -118,16 +135,16 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId, onCod
         }
     }
 
-    /**
-     * Handle code change in the editor
-     *
-     * @param {string} value - New code value
-     */
-    function handleCodeChange(value: string | undefined): void {
-        if (value !== undefined) {
-            setCode({ ...code, [language]: value })
-        }
-    }
+    // /**
+    //  * Handle code change in the editor
+    //  *
+    //  * @param {string} value - New code value
+    //  */
+    // function handleCodeChange(value: string | undefined): void {
+    //     if (value !== undefined) {
+    //         setCode({ ...code, [language]: value })
+    //     }
+    // }
 
     function handleEditorDidMount(editor: any, monaco: Monaco) {
         editorRef.current = editor
@@ -299,16 +316,29 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId, onCod
 
     return (
         <div className="space-y-6">
-            <div>
-                <Label htmlFor="language" className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+            <div className="mb-4">
+                <label htmlFor="language" className="block text-sm font-medium mb-1">
                     Select Language
-                </Label>
+                </label>
                 <div className="relative z-30">
-                    <Select value={language} defaultValue="cpp" onValueChange={(value) => setLanguage(value)}>
-                        <SelectTrigger className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-                            <SelectValue placeholder="Select language" />
+                    <Select
+                        value={language}
+                        defaultValue="cpp"
+                        onValueChange={(value) => {
+                            setLanguage(value);
+                            // Notify parent of language change
+                            if (onCodeChange) {
+                                const currentCode = code[value] || "";
+                                onCodeChange(currentCode, value);
+                            }
+                        }}
+                    >
+                        <SelectTrigger
+                            className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+                            <SelectValue placeholder="Select language"/>
                         </SelectTrigger>
-                        <SelectContent className="z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                        <SelectContent
+                            className="z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
                             {Object.keys(LANGUAGE_MAPPING).map((lang) => (
                                 <SelectItem key={lang} value={lang}>
                                     {LANGUAGE_MAPPING[lang]?.name}
@@ -322,7 +352,7 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId, onCod
             <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm">
                 <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 flex items-center justify-between">
                     <div className="flex items-center">
-                        <Code className="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" />
+                        <Code className="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"/>
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                             {LANGUAGE_MAPPING[language]?.name || "Code Editor"}
                         </span>
@@ -333,7 +363,8 @@ const SubmitProblem: React.FC<SubmitProblemProps> = ({ problem, contestId, onCod
                         <div className="w-3 h-3 rounded-full bg-green-500"></div>
                     </div>
                 </div>
-                <div className={`transition-opacity duration-300 ${isEditorReady ? "opacity-100" : "opacity-0"} relative z-10`}>
+                <div
+                    className={`transition-opacity duration-300 ${isEditorReady ? "opacity-100" : "opacity-0"} relative z-10`}>
                     <Editor
                         height="60vh"
                         language={LANGUAGE_MAPPING[language]?.monaco || 'plaintext'}

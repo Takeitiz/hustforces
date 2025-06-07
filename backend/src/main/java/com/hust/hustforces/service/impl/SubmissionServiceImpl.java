@@ -170,7 +170,7 @@ public class SubmissionServiceImpl implements SubmissionService {
             updateSubmissionState(submission.getId(), SubmissionState.SUBMITTED);
 
             // Get problem details and prepare full code
-            ProblemDetails problemDetails = problemService.getProblem(problem.getSlug(), languageId);
+            ProblemDetails problemDetails = problemService.getProblem(problem.getId(), languageId);
             String fullCode = problemDetails.getFullBoilerplateCode().replace("##USER_CODE_HERE##", submission.getCode());
 
             // Create Judge0 submissions

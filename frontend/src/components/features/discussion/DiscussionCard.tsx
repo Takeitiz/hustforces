@@ -1,22 +1,22 @@
 import { formatDistanceToNow } from "date-fns";
-import { Link } from "react-router-dom";
 import { MessageSquare, Eye, ThumbsUp, ThumbsDown } from "lucide-react";
 import { DiscussionDto } from "../../../types/discussion";
 
 interface DiscussionCardProps {
     discussion: DiscussionDto;
+    onClick: () => void;
 }
 
-export function DiscussionCard({ discussion }: DiscussionCardProps) {
+export function DiscussionCard({ discussion, onClick }: DiscussionCardProps) {
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300">
-            <Link
-                to={`/discussions/${discussion.id}`}
-                className="block p-6"
-            >
+        <div
+            className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300 cursor-pointer"
+            onClick={onClick}
+        >
+            <div className="p-6">
                 <div className="flex justify-between items-start">
-                    <div>
-                        <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
+                    <div className="flex-1">
+                        <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                             {discussion.title}
                         </h2>
 
@@ -32,13 +32,9 @@ export function DiscussionCard({ discussion }: DiscussionCardProps) {
                             {discussion.problemTitle && (
                                 <>
                                     <span>•</span>
-                                    <Link
-                                        to={`/problem/${discussion.problemId}`}
-                                        className="text-blue-600 dark:text-blue-400 hover:underline"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
+                                    <span className="text-blue-600 dark:text-blue-400">
                                         {discussion.problemTitle}
-                                    </Link>
+                                    </span>
                                 </>
                             )}
                         </div>
@@ -70,7 +66,7 @@ export function DiscussionCard({ discussion }: DiscussionCardProps) {
                         <span>{discussion.downvotes}</span>
                     </div>
                 </div>
-            </Link>
+            </div>
         </div>
     );
 }
