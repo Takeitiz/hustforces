@@ -345,7 +345,7 @@ export function SolutionDetailView({ solutionId, onBack, onUpdate }: SolutionDet
                                                                     {children}
                                                                 </code>
                                                             ) : (
-                                                                <code className="block bg-gray-900 dark:bg-gray-950 text-gray-100 p-4 rounded-lg overflow-x-auto font-mono text-sm my-4" {...props}>
+                                                                <code className="block bg-gray-900 dark:bg-gray-950 p-4 rounded-lg overflow-x-auto font-mono text-sm my-4" {...props}>
                                                                     {children}
                                                                 </code>
                                                             ),

@@ -1,25 +1,19 @@
 import { createBrowserRouter, Navigate } from "react-router-dom"
 import App from "../App"
-import {HomePage} from "../pages/Home/HomePage"
+import { HomePage } from "../pages/Home/HomePage"
 import LoginPage from "../pages/Auth/LoginPage"
-import {RegisterPage} from "../pages/Auth/RegisterPage"
-import {ForgotPasswordPage} from "../pages/Auth/ForgotPasswordPage"
-import {ProblemPage} from "../pages/Problem/ProblemPage"
-import {ProfilePage} from "../pages/Profile/ProfilePage"
-import {ContestsPage} from "../pages/Contest/ContestsPage"
-import {ContestDetailPage} from "../pages/Contest/ContestDetailPage"
-import {ContestLeaderboardPage} from "../pages/Contest/ContestLeaderboardPage"
-import {DiscussionForumPage} from "../pages/Discussion/DiscussionForumPage"
-import {DiscussionDetailPage} from "../pages/Discussion/DiscussionDetailPage"
-import {CreateDiscussionPage} from "../pages/Discussion/CreateDiscussionPage"
-import {EditDiscussionPage} from "../pages/Discussion/EditDiscussionPage"
-import {SolutionsPage} from "../pages/Solution/SolutionsPage"
-import {SolutionDetailPage} from "../pages/Solution/SolutionDetailPage"
-import {CreateSolutionPage} from "../pages/Solution/CreateSolutionPage"
-import {EditSolutionPage} from "../pages/Solution/EditSolutionPage"
-import {SettingsPage} from "../pages/User/SettingsPage"
-import {PrivacyPolicyPage} from "../pages/Legal/PrivacyPolicyPage"
-import {TermsPage} from "../pages/Legal/TermsPage"
+import { RegisterPage } from "../pages/Auth/RegisterPage"
+import { ForgotPasswordPage } from "../pages/Auth/ForgotPasswordPage"
+import { ProblemPage } from "../pages/Problem/ProblemPage"
+import { ProfilePage } from "../pages/Profile/ProfilePage"
+import { ContestsPage } from "../pages/Contest/ContestsPage"
+import { ContestDetailPage } from "../pages/Contest/ContestDetailPage"
+import { ContestLeaderboardPage } from "../pages/Contest/ContestLeaderboardPage"
+import { DiscussionDetailPage } from "../pages/Discussion/DiscussionDetailPage"
+import { EditDiscussionPage } from "../pages/Discussion/EditDiscussionPage"
+import { SettingsPage } from "../pages/User/SettingsPage"
+import { PrivacyPolicyPage } from "../pages/Legal/PrivacyPolicyPage"
+import { TermsPage } from "../pages/Legal/TermsPage"
 import ErrorPages from "../pages/Error/ErrorPages"
 import UnauthorizedPage from "../pages/Error/UnauthorizedPage"
 import AdminDashboardPage from "../pages/Admin/AdminDashboardPage"
@@ -31,10 +25,10 @@ import { ProblemDetailPage } from "../pages/Admin/Problems/ProblemDetailPage"
 import { AdminContestsPage } from "../pages/Admin/Contests/AdminContestsPage"
 import { CreateContestPage } from "../pages/Admin/Contests/CreateContestPage"
 import { AdminImportPage } from "../pages/Admin/Import/AdminImportPage"
-import {EditProblemPage} from "../pages/Admin/Problems/EditProblemPage.tsx";
-import {RoomBrowser} from "../components/CodeRoom/RoomBrowser.tsx";
-import CodeRoomPage from "../pages/CodeRoom/CodeRoomPage.tsx";
-import {ProblemsPage} from "../pages/Problem/ProblemsPage.tsx";
+import { EditProblemPage } from "../pages/Admin/Problems/EditProblemPage.tsx"
+import { RoomBrowser } from "../components/CodeRoom/RoomBrowser.tsx"
+import CodeRoomPage from "../pages/CodeRoom/CodeRoomPage.tsx"
+import { ProblemsPage } from "../pages/Problem/ProblemsPage.tsx"
 
 const router = createBrowserRouter([
     {
@@ -83,47 +77,23 @@ const router = createBrowserRouter([
                 element: <ContestLeaderboardPage />,
             },
             {
-                path: "discussions",
-                element: <DiscussionForumPage />,
-            },
-            {
                 path: "discussions/:id",
                 element: <DiscussionDetailPage />,
-            },
-            {
-                path: "discussions/create",
-                element: <CreateDiscussionPage />,
             },
             {
                 path: "discussions/:id/edit",
                 element: <EditDiscussionPage />,
             },
             {
-                path: "solutions",
-                element: <SolutionsPage />,
-            },
-            {
-                path: "solutions/:id",
-                element: <SolutionDetailPage />,
-            },
-            {
-                path: "solutions/create",
-                element: <CreateSolutionPage />,
-            },
-            {
-                path: "solutions/:id/edit",
-                element: <EditSolutionPage />,
-            },
-            {
                 path: "settings",
                 element: <SettingsPage />,
             },
             {
-                path: 'code-rooms',
+                path: "code-rooms",
                 element: <RoomBrowser />,
             },
             {
-                path: 'code-room/:roomCode',
+                path: "code-room/:roomCode",
                 element: <CodeRoomPage />,
             },
             {

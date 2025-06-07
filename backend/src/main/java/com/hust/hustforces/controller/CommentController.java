@@ -1,6 +1,7 @@
 package com.hust.hustforces.controller;
 
 import com.hust.hustforces.model.dto.discussion.CommentDto;
+import com.hust.hustforces.repository.CommentRepository;
 import com.hust.hustforces.service.CommentService;
 import com.hust.hustforces.utils.CurrentUserUtil;
 import jakarta.validation.Valid;
@@ -23,6 +24,7 @@ import java.util.Map;
 public class CommentController {
     private final CommentService commentService;
     private final CurrentUserUtil currentUserUtil;
+    private final CommentRepository commentRepository;
 
     @PostMapping
     public ResponseEntity<CommentDto> createComment(@Valid @RequestBody Map<String, String> request) {
@@ -119,5 +121,23 @@ public class CommentController {
         String userId = currentUserUtil.getCurrentUserId();
         CommentDto comment = commentService.voteComment(id, userId, upvote);
         return ResponseEntity.ok(comment);
+    }
+
+    @GetMapping("/{commentId}/vote")
+    public ResponseEntity<?> getUserVote(@PathVariable String commentId) {
+        try {
+            String userId = currentUserUtil.getCurrentUserId();
+
+            Optional<Comment> vote = commentRepository.findByUserIdAndCommentId(userId, commentId);
+
+            if (vote.isPresent()) {
+                return ResponseEntity.ok(Map.of("vote", vote.get().getVoteType()));
+            } else {
+                return ResponseEntity.ok(Map.of("vote", (Object) null));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(Map.of("error", "Failed to fetch vote"));
+        }
     }
 }

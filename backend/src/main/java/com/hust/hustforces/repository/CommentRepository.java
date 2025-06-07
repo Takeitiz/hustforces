@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, String> {
@@ -48,4 +49,6 @@ public interface CommentRepository extends JpaRepository<Comment, String> {
     @Modifying
     @Query("UPDATE Comment c SET c.downvotes = c.downvotes + :delta WHERE c.id = :commentId")
     void updateDownvotes(@Param("commentId") String commentId, @Param("delta") int delta);
+
+    Optional<Comment> findByUserIdAndCommentId(String userId, String commentId);
 }

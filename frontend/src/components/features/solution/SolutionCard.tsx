@@ -9,6 +9,7 @@ interface SolutionCardProps {
 }
 
 export function SolutionCard({ solution, onClick }: SolutionCardProps) {
+
     return (
         <div
             className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow duration-300 cursor-pointer"
