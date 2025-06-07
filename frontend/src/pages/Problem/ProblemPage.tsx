@@ -226,11 +226,11 @@ export function ProblemPage() {
                                     </TabsContent>
 
                                     <TabsContent value="solutions" className="mt-0">
-                                        <SolutionsPage />
+                                        <SolutionsPage problemSlug={slug} problemData={problem} />
                                     </TabsContent>
 
                                     <TabsContent value="discussions" className="mt-0">
-                                        <DiscussionForumPage />
+                                        <DiscussionForumPage problemSlug={slug} problemData={problem} />
                                     </TabsContent>
 
                                     <TabsContent value="submissions" className="mt-0">
