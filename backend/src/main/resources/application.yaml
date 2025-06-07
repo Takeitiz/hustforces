@@ -82,7 +82,7 @@ judge0:
 # Server configuration
 server:
   port: 8080
-  base-url: ${SERVER_BASE_URL:https://f375-2001-ee0-40c1-f134-80be-acd5-6130-481d.ngrok-free.app}
+  base-url: ${SERVER_BASE_URL:https://ee59-2001-ee0-40c1-8307-9d67-e61e-fd33-3609.ngrok-free.app}
 
 # Logging configuration
 logging:

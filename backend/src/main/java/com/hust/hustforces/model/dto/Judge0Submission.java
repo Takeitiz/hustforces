@@ -9,27 +9,27 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class Judge0Submission {
     @JsonProperty("language_id")
-    private Integer languageId;
+    private Integer language_id;
 
     @JsonProperty("source_code")
-    private String sourceCode;
+    private String source_code;
 
     @JsonProperty("expected_output")
-    private String expectedOutput;
+    private String expected_output;
 
     @JsonProperty("callback_url")
-    private String callbackUrl;
+    private String callback_url;
 
     public Judge0Submission(Integer languageId, String sourceCode, String expectedOutput, String baseUrl, String submissionId) {
-        this.languageId = languageId;
-        this.sourceCode = sourceCode;
-        this.expectedOutput = expectedOutput;
-        this.callbackUrl = baseUrl + "/api/callback/" + submissionId;
+        this.language_id = languageId;
+        this.source_code = sourceCode;
+        this.expected_output = expectedOutput;
+        this.callback_url = baseUrl + "/api/callback/" + submissionId;
     }
 
     public Judge0Submission(Integer languageId, String sourceCode, String expectedOutput) {
-        this.languageId = languageId;
-        this.sourceCode = sourceCode;
-        this.expectedOutput = expectedOutput;
+        this.language_id = languageId;
+        this.source_code = sourceCode;
+        this.expected_output = expectedOutput;
     }
 }

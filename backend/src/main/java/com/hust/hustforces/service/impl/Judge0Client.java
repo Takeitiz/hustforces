@@ -1,5 +1,7 @@
 package com.hust.hustforces.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hust.hustforces.model.dto.Judge0Response;
 import com.hust.hustforces.model.dto.Judge0Submission;
 import lombok.RequiredArgsConstructor;
@@ -25,19 +27,22 @@ public class Judge0Client {
     @Value("${judge0.uri}")
     private String judge0Uri;
 
-    public List<Judge0Response> submitBatch(List<Judge0Submission> submissions) {
+    public List<Judge0Response> submitBatch(List<Judge0Submission> submissions) throws JsonProcessingException {
         return retryTemplate.execute(context -> {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
+            // Manually create JSON
+            ObjectMapper mapper = new ObjectMapper();
             Map<String, Object> requestMap = new HashMap<>();
             requestMap.put("submissions", submissions);
 
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestMap, headers);
+            String jsonBody = mapper.writeValueAsString(requestMap);
+
+            HttpEntity<String> request = new HttpEntity<>(jsonBody, headers);
             String url = judge0Uri + "/submissions/batch?base64_encoded=false";
 
-            log.info("Submitting batch of {} submissions to Judge0, attempt: {}",
-                    submissions.size(), context.getRetryCount() + 1);
+            log.info("Submitting batch with body: {}", jsonBody);
 
             ResponseEntity<List<Judge0Response>> response = restTemplate.exchange(
                     url,
