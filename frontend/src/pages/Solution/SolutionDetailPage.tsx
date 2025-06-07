@@ -34,6 +34,7 @@ export function SolutionDetailPage() {
         try {
             const data = await solutionService.getSolution(solutionId!);
             setSolution(data);
+            console.log(data);
         } catch (error) {
             console.error("Error fetching solution:", error);
             toast.error("Failed to load solution");
