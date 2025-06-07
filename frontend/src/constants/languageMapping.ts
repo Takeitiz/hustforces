@@ -11,9 +11,10 @@ export const LANGUAGE_MAPPING: Record<string, LanguageConfig> = {
     rust: { name: 'Rust', monaco: 'rust', internal: 3 }
 };
 
-export function getLanguageName(languageId: number): string {
+export function getLanguageName(languageId: number | string): string {
+    const id = typeof languageId === 'string' ? parseInt(languageId) : languageId;
     const language = Object.keys(LANGUAGE_MAPPING).find(
-        key => LANGUAGE_MAPPING[key].internal === languageId
+        key => LANGUAGE_MAPPING[key].internal === id
     );
     return language ? LANGUAGE_MAPPING[language].name : 'Unknown';
 }

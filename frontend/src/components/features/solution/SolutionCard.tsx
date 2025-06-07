@@ -27,7 +27,7 @@ export function SolutionCard({ solution, onClick }: SolutionCardProps) {
                             </span>
                         </div>
 
-                        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
+                        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                             <span>
                                 {formatDistanceToNow(new Date(solution.createdAt), { addSuffix: true })}
                             </span>
@@ -41,10 +41,6 @@ export function SolutionCard({ solution, onClick }: SolutionCardProps) {
                                 </>
                             )}
                         </div>
-
-                        <p className="text-gray-600 dark:text-gray-300 line-clamp-2 mb-4">
-                            {solution.description}
-                        </p>
                     </div>
                 </div>
 

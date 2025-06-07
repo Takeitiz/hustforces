@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import solutionService from "../../service/solutionService";
 import { SolutionDto } from "../../types/solution";
 import { SolutionList } from "../../components/features/solution/SolutionList";
+import { SolutionDetailView } from "../../components/features/solution/SolutionDetailView";
 import { Button } from "../../components/ui/Button";
 import { Plus, Search, ArrowLeft, Loader2, Code } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -16,9 +17,10 @@ import MonacoEditor from "react-monaco-editor";
 interface SolutionsPageProps {
     problemSlug?: string;
     problemData?: Problem;
+    hideControls?: boolean;
 }
 
-export function SolutionsPage({ problemSlug, problemData }: SolutionsPageProps = {}) {
+export function SolutionsPage({ problemSlug, problemData, hideControls = false }: SolutionsPageProps) {
     const { problemId, slug } = useParams<{ problemId?: string; slug?: string }>();
     const [solutions, setSolutions] = useState<SolutionDto[]>([]);
     const [problem, setProblem] = useState<Problem | null>(problemData || null);
@@ -27,6 +29,7 @@ export function SolutionsPage({ problemSlug, problemData }: SolutionsPageProps =
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [creating, setCreating] = useState(false);
     const [isEditorReady, setIsEditorReady] = useState(false);
+    const [selectedSolutionId, setSelectedSolutionId] = useState<string | null>(null);
     const { isLoggedIn } = useAuth();
 
     // Form state
@@ -281,49 +284,67 @@ export function SolutionsPage({ problemSlug, problemData }: SolutionsPageProps =
         );
     }
 
+    // If a solution is selected, show the detail view
+    if (selectedSolutionId) {
+        return (
+            <SolutionDetailView
+                solutionId={selectedSolutionId}
+                onBack={() => setSelectedSolutionId(null)}
+                onUpdate={() => {
+                    setSelectedSolutionId(null);
+                    fetchSolutions();
+                }}
+            />
+        );
+    }
+
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">
-                    {problem
-                        ? `Solutions for ${problem.title}`
-                        : (effectiveProblemId ? "Problem Solutions" : "All Solutions")}
-                </h2>
+            {!hideControls && (
+                <>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-semibold">
+                            {problem
+                                ? `Solutions for ${problem.title}`
+                                : (effectiveProblemId ? "Problem Solutions" : "All Solutions")}
+                        </h2>
 
-                {effectiveProblemId && (
-                    <Button
-                        className="flex items-center gap-2"
-                        onClick={handleCreateSolution}
-                        size="sm"
-                    >
-                        <Plus size={16} />
-                        Share Solution
-                    </Button>
-                )}
-            </div>
+                        {effectiveProblemId && (
+                            <Button
+                                className="flex items-center gap-2"
+                                onClick={handleCreateSolution}
+                                size="sm"
+                            >
+                                <Plus size={16} />
+                                Share Solution
+                            </Button>
+                        )}
+                    </div>
 
-            {problem && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4 text-sm">
-                    <p className="text-gray-600 dark:text-gray-300">
-                        Browse user-submitted solutions or share your own approach.
-                    </p>
-                </div>
+                    {problem && (
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4 text-sm">
+                            <p className="text-gray-600 dark:text-gray-300">
+                                Browse user-submitted solutions or share your own approach.
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="flex gap-4 mb-4">
+                        <div className="relative flex-grow">
+                            <input
+                                type="text"
+                                className="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors dark:bg-gray-800"
+                                placeholder="Search solutions..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                            />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        </div>
+                        <Button onClick={handleSearch} size="sm">Search</Button>
+                    </div>
+                </>
             )}
-
-            <div className="flex gap-4 mb-4">
-                <div className="relative flex-grow">
-                    <input
-                        type="text"
-                        className="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors dark:bg-gray-800"
-                        placeholder="Search solutions..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    />
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                </div>
-                <Button onClick={handleSearch} size="sm">Search</Button>
-            </div>
 
             {loading ? (
                 <div className="flex justify-center py-10">
@@ -333,6 +354,7 @@ export function SolutionsPage({ problemSlug, problemData }: SolutionsPageProps =
                 <SolutionList
                     solutions={solutions}
                     onSolutionUpdate={fetchSolutions}
+                    onSelectSolution={(id) => setSelectedSolutionId(id)}
                 />
             )}
         </div>

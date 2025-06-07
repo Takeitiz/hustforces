@@ -1,9 +1,8 @@
-import {Problem} from "../../../types/problem.ts";
+import {Problem, Submission} from "../../../types/problem.ts";
 import {useEffect, useState} from "react";
 import {toast} from "react-toastify";
 import {SubmissionTable} from "./SubmissionTable.tsx";
 import submissionService from "../../../service/submissionService.ts";
-import {Submission} from "../../../types/submission.ts";
 
 /**
  * Props interface for Submissions component
