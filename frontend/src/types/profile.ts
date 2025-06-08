@@ -30,6 +30,8 @@ export interface SubmissionHistory {
     status: string;
     languageId: string;
     createdAt: string;
+    time: number;
+    memory: number;
 }
 
 export interface RankingHistory {

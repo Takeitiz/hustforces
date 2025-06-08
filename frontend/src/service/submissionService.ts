@@ -60,7 +60,25 @@ const submissionService = {
             console.error('Submission failed:', error);
             throw error;
         }
-    }
+    },
+
+    /**
+     * Get all submissions for a specific user
+     *
+     * @param {string} username - Username of the user
+     * @returns {Promise<SubmissionResponseDto[]>} - Array of user's submissions
+     */
+    getUserSubmissions: async (username: string): Promise<SubmissionResponseDto[]> => {
+        try {
+            const response = await apiClient.get<{ submissions: SubmissionResponseDto[] }>(
+                `/submission/user/${username}`
+            );
+            return response.data.submissions || [];
+        } catch (error) {
+            console.error("Failed to fetch user submissions", error);
+            throw error;
+        }
+    },
 };
 
 export default submissionService;

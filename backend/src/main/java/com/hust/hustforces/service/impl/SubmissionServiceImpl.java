@@ -6,6 +6,7 @@ import com.hust.hustforces.enums.SubmissionState;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.mapper.SubmissionMapper;
 import com.hust.hustforces.model.dto.*;
+import com.hust.hustforces.model.dto.profile.SubmissionHistoryDto;
 import com.hust.hustforces.model.dto.submission.SubmissionDetailDto;
 import com.hust.hustforces.model.dto.submission.SubmissionResponseDto;
 import com.hust.hustforces.model.dto.submission.TestCaseDto;
@@ -22,6 +23,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -163,6 +166,28 @@ public class SubmissionServiceImpl implements SubmissionService {
                             submission, problem, passedTestCases, totalTestCases);
                 })
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public Page<SubmissionHistoryDto> getUserSubmissions(String username, Pageable pageable) {
+        // Get user by username
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+
+        // Get submissions with pagination
+        Page<Submission> submissions = submissionRepository.findByUserId(user.getId(), pageable);
+
+        // Transform to SubmissionHistoryDto
+        return submissions.map(submission -> SubmissionHistoryDto.builder()
+                .id(submission.getId())
+                .problemId(submission.getProblemId())
+                .problemTitle(submission.getProblem() != null ? submission.getProblem().getTitle() : "Unknown Problem")
+                .status(submission.getStatus().toString())
+                .languageId(submission.getLanguageId().toString())
+                .time(submission.getTime())
+                .memory(submission.getMemory())
+                .createdAt(submission.getCreatedAt().toString())
+                .build());
     }
 
     private void processSubmission(Submission submission, Problem problem, LanguageId languageId) {

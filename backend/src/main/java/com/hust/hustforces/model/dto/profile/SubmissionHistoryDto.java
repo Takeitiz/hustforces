@@ -12,4 +12,6 @@ public class SubmissionHistoryDto {
     private String status;
     private String languageId;
     private String createdAt;
+    private double time;
+    private int memory;
 }

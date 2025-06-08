@@ -93,7 +93,7 @@ export function Appbar() {
                         {isLoggedIn ? (
                             <div className="hidden md:flex items-center gap-4">
                                 <Link
-                                    to="/profile"
+                                    to={`/profile/${user?.username}`}
                                     className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-300"
                                 >
                                     <div className="bg-blue-100 dark:bg-blue-900/50 p-1.5 rounded-full">
@@ -174,12 +174,19 @@ export function Appbar() {
                         >
                             Standings
                         </Link>
+                        <Link
+                            to="/code-rooms"
+                            className="font-medium py-2 px-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-300"
+                            onClick={() => setMobileMenuOpen(false)}
+                        >
+                            Code Rooms
+                        </Link>
                     </nav>
 
                     {isLoggedIn ? (
                         <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
                             <Link
-                                to="/profile"
+                                to={`/profile/${user?.username}`}
                                 className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-300"
                                 onClick={() => setMobileMenuOpen(false)}
                             >
@@ -220,4 +227,3 @@ export function Appbar() {
         </header>
     )
 }
-

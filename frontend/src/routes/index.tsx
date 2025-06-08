@@ -29,6 +29,7 @@ import { EditProblemPage } from "../pages/Admin/Problems/EditProblemPage.tsx"
 import { RoomBrowser } from "../components/CodeRoom/RoomBrowser.tsx"
 import CodeRoomPage from "../pages/CodeRoom/CodeRoomPage.tsx"
 import { ProblemsPage } from "../pages/Problem/ProblemsPage.tsx"
+import {UserSubmissionsPage} from "../pages/Profile/UserSubmissionsPage.tsx";
 
 const router = createBrowserRouter([
     {
@@ -63,6 +64,10 @@ const router = createBrowserRouter([
             {
                 path: "profile/:username",
                 element: <ProfilePage />,
+            },
+            {
+                path: "profile/:username/submissions",
+                element: <UserSubmissionsPage />,
             },
             {
                 path: "contests",

@@ -1,8 +1,8 @@
 package com.hust.hustforces.repository;
 
-import com.hust.hustforces.enums.SubmissionResult;
 import com.hust.hustforces.enums.SubmissionState;
 import com.hust.hustforces.model.entity.Submission;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -28,7 +28,7 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
 
     List<Submission> findByUserIdAndProblemIdOrderByCreatedAtDesc(String userId, String problemId);
 
-    List<Submission> findByUserId(String userId);
+    Page<Submission> findByUserId(String userId, Pageable pageable);
 
     List<Submission> findByActiveContestId(String contestId);
 
@@ -59,9 +59,9 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
     List<Object[]> countProblemsByDifficultyForUser(@Param("userId") String userId);
 
     // Group submissions by date for calendar heatmap
-    @Query("SELECT FUNCTION('DATE_FORMAT', s.createdAt, '%Y-%m-%d'), COUNT(s) " +
+    @Query("SELECT FUNCTION('TO_CHAR', s.createdAt, 'YYYY-MM-DD'), COUNT(s) " +
             "FROM Submission s WHERE s.userId = :userId " +
-            "GROUP BY FUNCTION('DATE_FORMAT', s.createdAt, '%Y-%m-%d')")
+            "GROUP BY FUNCTION('TO_CHAR', s.createdAt, 'YYYY-MM-DD')")
     List<Object[]> countSubmissionsByDateForUser(@Param("userId") String userId);
 
     // Get recent submissions efficiently

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import { SubmissionHistory } from "../../../types/profile.ts";
 import { getLanguageName } from "../../../constants/languageMapping.ts";
 import { CheckCircle, XCircle, Clock } from "lucide-react";
@@ -9,6 +9,8 @@ interface RecentSubmissionsProps {
 }
 
 export function RecentSubmissions({ submissions }: RecentSubmissionsProps) {
+    const { username } = useParams<{ username: string }>();
+
     if (submissions.length === 0) {
         return (
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden">
@@ -69,7 +71,7 @@ export function RecentSubmissions({ submissions }: RecentSubmissionsProps) {
                                     </div>
                                 </td>
                                 <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                                    {getLanguageName(parseInt(submission.languageId))}
+                                    {getLanguageName(submission.languageId)}
                                 </td>
                                 <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-sm">
                                     {formatDistanceToNow(new Date(submission.createdAt), { addSuffix: true })}
@@ -81,10 +83,7 @@ export function RecentSubmissions({ submissions }: RecentSubmissionsProps) {
                 </div>
 
                 <div className="mt-4 text-center">
-                    <Link
-                        to="/submissions"
-                        className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-                    >
+                    <Link to={`/profile/${username}/submissions`} className="...">
                         View all submissions
                     </Link>
                 </div>
