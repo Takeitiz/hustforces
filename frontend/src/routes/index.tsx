@@ -9,8 +9,6 @@ import { ProfilePage } from "../pages/Profile/ProfilePage"
 import { ContestsPage } from "../pages/Contest/ContestsPage"
 import { ContestDetailPage } from "../pages/Contest/ContestDetailPage"
 import { ContestLeaderboardPage } from "../pages/Contest/ContestLeaderboardPage"
-import { DiscussionDetailPage } from "../pages/Discussion/DiscussionDetailPage"
-import { EditDiscussionPage } from "../pages/Discussion/EditDiscussionPage"
 import { SettingsPage } from "../pages/User/SettingsPage"
 import { PrivacyPolicyPage } from "../pages/Legal/PrivacyPolicyPage"
 import { TermsPage } from "../pages/Legal/TermsPage"
@@ -80,14 +78,6 @@ const router = createBrowserRouter([
             {
                 path: "contests/:id/leaderboard",
                 element: <ContestLeaderboardPage />,
-            },
-            {
-                path: "discussions/:id",
-                element: <DiscussionDetailPage />,
-            },
-            {
-                path: "discussions/:id/edit",
-                element: <EditDiscussionPage />,
             },
             {
                 path: "settings",
