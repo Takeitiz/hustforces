@@ -50,5 +50,4 @@ public interface CommentRepository extends JpaRepository<Comment, String> {
     @Query("UPDATE Comment c SET c.downvotes = c.downvotes + :delta WHERE c.id = :commentId")
     void updateDownvotes(@Param("commentId") String commentId, @Param("delta") int delta);
 
-    Optional<Comment> findByUserIdAndCommentId(String userId, String commentId);
 }

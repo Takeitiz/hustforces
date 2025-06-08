@@ -1,7 +1,10 @@
 package com.hust.hustforces.controller;
 
 import com.hust.hustforces.model.dto.discussion.CommentDto;
+import com.hust.hustforces.model.entity.Comment;
+import com.hust.hustforces.model.entity.Vote;
 import com.hust.hustforces.repository.CommentRepository;
+import com.hust.hustforces.repository.VoteRepository;
 import com.hust.hustforces.service.CommentService;
 import com.hust.hustforces.utils.CurrentUserUtil;
 import jakarta.validation.Valid;
@@ -16,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/comments")
@@ -24,7 +28,7 @@ import java.util.Map;
 public class CommentController {
     private final CommentService commentService;
     private final CurrentUserUtil currentUserUtil;
-    private final CommentRepository commentRepository;
+    private final VoteRepository voteRepository;
 
     @PostMapping
     public ResponseEntity<CommentDto> createComment(@Valid @RequestBody Map<String, String> request) {
@@ -128,10 +132,10 @@ public class CommentController {
         try {
             String userId = currentUserUtil.getCurrentUserId();
 
-            Optional<Comment> vote = commentRepository.findByUserIdAndCommentId(userId, commentId);
+            Optional<Vote> vote = voteRepository.findByUserIdAndEntityIdAndEntityType(userId, commentId, "COMMENT");
 
             if (vote.isPresent()) {
-                return ResponseEntity.ok(Map.of("vote", vote.get().getVoteType()));
+                return ResponseEntity.ok(Map.of("vote", vote.get().isUpvote() ? "upvote" : "downvote"));
             } else {
                 return ResponseEntity.ok(Map.of("vote", (Object) null));
             }
