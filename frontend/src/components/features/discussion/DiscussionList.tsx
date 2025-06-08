@@ -6,10 +6,21 @@ import { DiscussionDetailView } from "./DiscussionDetailView";
 interface DiscussionListProps {
     discussions: DiscussionDto[];
     onDiscussionUpdate?: () => void;
+    onSelectDiscussion?: (id: string) => void;
 }
 
-export function DiscussionList({ discussions, onDiscussionUpdate }: DiscussionListProps) {
-    const [selectedDiscussionId, setSelectedDiscussionId] = useState<string | null>(null);
+export function DiscussionList({ discussions, onDiscussionUpdate, onSelectDiscussion }: DiscussionListProps) {
+    // Only manage local state if parent doesn't provide onSelectDiscussion
+    const [localSelectedDiscussionId, setLocalSelectedDiscussionId] = useState<string | null>(null);
+
+    // Use parent's selection handler if provided, otherwise use local state
+    const handleSelectDiscussion = (id: string) => {
+        if (onSelectDiscussion) {
+            onSelectDiscussion(id);
+        } else {
+            setLocalSelectedDiscussionId(id);
+        }
+    };
 
     if (discussions.length === 0) {
         return (
@@ -22,12 +33,12 @@ export function DiscussionList({ discussions, onDiscussionUpdate }: DiscussionLi
         );
     }
 
-    // If a discussion is selected, show its detail view
-    if (selectedDiscussionId) {
+    // If managing local state and a discussion is selected, show its detail view
+    if (!onSelectDiscussion && localSelectedDiscussionId) {
         return (
             <DiscussionDetailView
-                discussionId={selectedDiscussionId}
-                onBack={() => setSelectedDiscussionId(null)}
+                discussionId={localSelectedDiscussionId}
+                onBack={() => setLocalSelectedDiscussionId(null)}
                 onUpdate={onDiscussionUpdate}
             />
         );
@@ -39,7 +50,7 @@ export function DiscussionList({ discussions, onDiscussionUpdate }: DiscussionLi
                 <DiscussionCard
                     key={discussion.id}
                     discussion={discussion}
-                    onClick={() => setSelectedDiscussionId(discussion.id)}
+                    onClick={() => handleSelectDiscussion(discussion.id)}
                 />
             ))}
         </div>

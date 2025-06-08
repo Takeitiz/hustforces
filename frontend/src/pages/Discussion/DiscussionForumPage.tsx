@@ -5,6 +5,7 @@ import discussionService from "../../service/discussionService";
 import { DiscussionDto } from "../../types/discussion";
 import { Button } from "../../components/ui/Button";
 import { DiscussionList } from "../../components/features/discussion/DiscussionList";
+import { DiscussionDetailView } from "../../components/features/discussion/DiscussionDetailView";
 import { Plus, Search, ArrowLeft, Loader2 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import problemService from "../../service/problemService";
@@ -13,9 +14,10 @@ import { Problem } from "../../types/problem";
 interface DiscussionForumPageProps {
     problemSlug?: string;
     problemData?: Problem;
+    hideControls?: boolean;
 }
 
-export function DiscussionForumPage({ problemSlug, problemData }: DiscussionForumPageProps = {}) {
+export function DiscussionForumPage({ problemSlug, problemData, hideControls = false }: DiscussionForumPageProps = {}) {
     const { problemId, slug } = useParams<{ problemId?: string; slug?: string }>();
     const [discussions, setDiscussions] = useState<DiscussionDto[]>([]);
     const [loading, setLoading] = useState(true);
@@ -23,6 +25,7 @@ export function DiscussionForumPage({ problemSlug, problemData }: DiscussionForu
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [creating, setCreating] = useState(false);
     const [problem, setProblem] = useState<Problem | null>(problemData || null);
+    const [selectedDiscussionId, setSelectedDiscussionId] = useState<string | null>(null);
     const { isLoggedIn } = useAuth();
 
     // Form state
@@ -222,36 +225,65 @@ export function DiscussionForumPage({ problemSlug, problemData }: DiscussionForu
         );
     }
 
+    // If a discussion is selected, show the detail view
+    if (selectedDiscussionId) {
+        return (
+            <DiscussionDetailView
+                discussionId={selectedDiscussionId}
+                onBack={() => setSelectedDiscussionId(null)}
+                onUpdate={() => {
+                    setSelectedDiscussionId(null);
+                    fetchDiscussions();
+                }}
+            />
+        );
+    }
+
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">
-                    {effectiveProblemId ? "Problem Discussions" : "Discussion Forum"}
-                </h2>
-                <Button
-                    className="flex items-center gap-2"
-                    onClick={handleCreateDiscussion}
-                    size="sm"
-                >
-                    <Plus size={16} />
-                    Start Discussion
-                </Button>
-            </div>
+            {!hideControls && (
+                <>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-semibold">
+                            {problem
+                                ? `Discussions for ${problem.title}`
+                                : (effectiveProblemId ? "Problem Discussions" : "Discussion Forum")}
+                        </h2>
 
-            <div className="flex gap-4 mb-4">
-                <div className="relative flex-grow">
-                    <input
-                        type="text"
-                        className="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors dark:bg-gray-800"
-                        placeholder="Search discussions..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    />
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                </div>
-                <Button onClick={handleSearch} size="sm">Search</Button>
-            </div>
+                        <Button
+                            className="flex items-center gap-2"
+                            onClick={handleCreateDiscussion}
+                            size="sm"
+                        >
+                            <Plus size={16} />
+                            Start Discussion
+                        </Button>
+                    </div>
+
+                    {problem && (
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4 text-sm">
+                            <p className="text-gray-600 dark:text-gray-300">
+                                Ask questions, share insights, or discuss different approaches to solving this problem.
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="flex gap-4 mb-4">
+                        <div className="relative flex-grow">
+                            <input
+                                type="text"
+                                className="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors dark:bg-gray-800"
+                                placeholder="Search discussions..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                            />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        </div>
+                        <Button onClick={handleSearch} size="sm">Search</Button>
+                    </div>
+                </>
+            )}
 
             {loading ? (
                 <div className="flex justify-center py-10">
@@ -261,6 +293,7 @@ export function DiscussionForumPage({ problemSlug, problemData }: DiscussionForu
                 <DiscussionList
                     discussions={discussions}
                     onDiscussionUpdate={fetchDiscussions}
+                    onSelectDiscussion={(id) => setSelectedDiscussionId(id)}
                 />
             )}
         </div>

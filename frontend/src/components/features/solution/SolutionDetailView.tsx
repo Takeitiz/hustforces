@@ -15,6 +15,7 @@ import { getLanguageName } from "../../../constants/languageMapping";
 import MonacoEditor from "react-monaco-editor";
 import { LANGUAGE_MAPPING } from "../../../constants/languageMapping";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../ui/Tabs";
+import {CommentDto} from "../../../types/discussion.ts";
 
 // Type for react-markdown code component props
 interface CodeProps extends React.HTMLAttributes<HTMLElement> {
@@ -64,6 +65,80 @@ export function SolutionDetailView({ solutionId, onBack, onUpdate }: SolutionDet
         }
     };
 
+    const handleCommentSubmit = async (content: string) => {
+        if (!isLoggedIn) {
+            toast.info("Please log in to comment");
+            return;
+        }
+
+        try {
+            const newComment = await commentService.createComment(content, null, solutionId);
+            toast.success("Comment posted successfully");
+
+            // Add the new comment to the solution
+            setSolution(prev => {
+                if (!prev) return null;
+                return {
+                    ...prev,
+                    comments: [...prev.comments, newComment]
+                };
+            });
+        } catch (error) {
+            console.error("Error posting comment:", error);
+            toast.error("Failed to post comment");
+        }
+    };
+
+    const handleCommentUpdate = (commentId: string, updatedData: Partial<CommentDto>) => {
+        setSolution(prev => {
+            if (!prev) return null;
+
+            const updateCommentRecursively = (comments: CommentDto[]): CommentDto[] => {
+                return comments.map(comment => {
+                    if (comment.id === commentId) {
+                        return { ...comment, ...updatedData };
+                    }
+                    if (comment.replies && comment.replies.length > 0) {
+                        return {
+                            ...comment,
+                            replies: updateCommentRecursively(comment.replies)
+                        };
+                    }
+                    return comment;
+                });
+            };
+
+            return {
+                ...prev,
+                comments: updateCommentRecursively(prev.comments)
+            };
+        });
+    };
+
+
+    const handleCommentDelete = (commentId: string) => {
+        setSolution(prev => {
+            if (!prev) return null;
+
+            const deleteCommentRecursively = (comments: CommentDto[]): CommentDto[] => {
+                return comments.filter(comment => {
+                    if (comment.id === commentId) {
+                        return false;
+                    }
+                    if (comment.replies && comment.replies.length > 0) {
+                        comment.replies = deleteCommentRecursively(comment.replies);
+                    }
+                    return true;
+                });
+            };
+
+            return {
+                ...prev,
+                comments: deleteCommentRecursively(prev.comments)
+            };
+        });
+    };
+
     const handleVote = async (isUpvote: boolean) => {
         if (!isLoggedIn) {
             toast.info("Please log in to vote");
@@ -89,22 +164,6 @@ export function SolutionDetailView({ solutionId, onBack, onUpdate }: SolutionDet
             toast.error("Failed to vote on solution");
         } finally {
             setVoting(false);
-        }
-    };
-
-    const handleCommentSubmit = async (content: string) => {
-        if (!isLoggedIn) {
-            toast.info("Please log in to comment");
-            return;
-        }
-
-        try {
-            await commentService.createComment(content, null, solutionId);
-            toast.success("Comment posted successfully");
-            fetchSolution(); // Refresh to get the new comment
-        } catch (error) {
-            console.error("Error posting comment:", error);
-            toast.error("Failed to post comment");
         }
     };
 
@@ -477,7 +536,11 @@ export function SolutionDetailView({ solutionId, onBack, onUpdate }: SolutionDet
                     <CommentForm onSubmit={handleCommentSubmit} />
 
                     <div className="mt-6">
-                        <CommentList comments={solution.comments} />
+                        <CommentList
+                            comments={solution.comments}
+                            onCommentUpdate={handleCommentUpdate}
+                            onCommentDelete={handleCommentDelete}
+                        />
                     </div>
                 </div>
             )}

@@ -16,7 +16,7 @@ export function DiscussionCard({ discussion, onClick }: DiscussionCardProps) {
             <div className="p-6">
                 <div className="flex justify-between items-start">
                     <div className="flex-1">
-                        <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                        <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors line-clamp-2">
                             {discussion.title}
                         </h2>
 
@@ -38,14 +38,10 @@ export function DiscussionCard({ discussion, onClick }: DiscussionCardProps) {
                                 </>
                             )}
                         </div>
-
-                        <p className="text-gray-600 dark:text-gray-300 line-clamp-2 mb-4">
-                            {discussion.content}
-                        </p>
                     </div>
                 </div>
 
-                <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 pt-4 border-t border-gray-100 dark:border-gray-700">
                     <div className="flex items-center mr-4">
                         <MessageSquare size={16} className="mr-1" />
                         <span>{discussion.commentCount} comments</span>

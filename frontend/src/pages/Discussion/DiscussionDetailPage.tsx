@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import { formatDistanceToNow } from "date-fns";
 import discussionService from "../../service/discussionService";
 import commentService from "../../service/commentService";
-import { DiscussionDetailDto } from "../../types/discussion";
+import { DiscussionDetailDto, CommentDto } from "../../types/discussion";
 import { CommentForm } from "../../components/features/comment/CommentForm";
 import { CommentList } from "../../components/features/comment/CommentList";
 import { User, ThumbsUp, ThumbsDown, ArrowLeft, Edit, Trash } from "lucide-react";
@@ -68,13 +68,70 @@ export function DiscussionDetailPage() {
         }
 
         try {
-            await commentService.createComment(content, discussionId!);
+            const newComment = await commentService.createComment(content, discussionId!);
             toast.success("Comment posted successfully");
-            fetchDiscussion(); // Refresh to get the new comment
+
+            // Add the new comment to the discussion
+            setDiscussion(prev => {
+                if (!prev) return null;
+                return {
+                    ...prev,
+                    comments: [...prev.comments, newComment]
+                };
+            });
         } catch (error) {
             console.error("Error posting comment:", error);
             toast.error("Failed to post comment");
         }
+    };
+
+    const handleCommentUpdate = (commentId: string, updatedData: Partial<CommentDto>) => {
+        setDiscussion(prev => {
+            if (!prev) return null;
+
+            const updateCommentRecursively = (comments: CommentDto[]): CommentDto[] => {
+                return comments.map(comment => {
+                    if (comment.id === commentId) {
+                        return { ...comment, ...updatedData };
+                    }
+                    if (comment.replies && comment.replies.length > 0) {
+                        return {
+                            ...comment,
+                            replies: updateCommentRecursively(comment.replies)
+                        };
+                    }
+                    return comment;
+                });
+            };
+
+            return {
+                ...prev,
+                comments: updateCommentRecursively(prev.comments)
+            };
+        });
+    };
+
+    const handleCommentDelete = (commentId: string) => {
+        setDiscussion(prev => {
+            if (!prev) return null;
+
+            const deleteCommentRecursively = (comments: CommentDto[]): CommentDto[] => {
+                return comments.filter(comment => {
+                    if (comment.id === commentId) {
+                        return false;
+                    }
+                    if (comment.replies && comment.replies.length > 0) {
+                        comment.replies = deleteCommentRecursively(comment.replies);
+                    }
+                    return true;
+                });
+            };
+
+            return {
+                ...prev,
+                comments: deleteCommentRecursively(prev.comments)
+            };
+        });
     };
 
     const canEditDiscussion = isLoggedIn && discussion?.user.id === user?.id;
@@ -214,7 +271,11 @@ export function DiscussionDetailPage() {
                 <CommentForm onSubmit={handleCommentSubmit} />
 
                 <div className="mt-6">
-                    <CommentList comments={discussion.comments} />
+                    <CommentList
+                        comments={discussion.comments}
+                        onCommentUpdate={handleCommentUpdate}
+                        onCommentDelete={handleCommentDelete}
+                    />
                 </div>
             </div>
         </div>
