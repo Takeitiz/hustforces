@@ -13,7 +13,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "Contest")
+@Table(name = "Contest", indexes = {
+        @Index(name = "idx_contest_hidden_start", columnList = "hidden, start_time DESC"),
+        @Index(name = "idx_contest_times", columnList = "start_time, end_time"),
+        @Index(name = "idx_contest_title", columnList = "title")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

@@ -29,13 +29,11 @@ public class ContestServiceImpl implements ContestService {
     private final ContestRepository contestRepository;
     private final ContestProblemRepository contestProblemRepository;
     private final ContestPointsRepository contestPointsRepository;
-    private final UserStatsRepository userStatsRepository;
     private final ProblemRepository problemRepository;
     private final UserRepository userRepository;
     private final LeaderboardService leaderboardService;
     private final ContestMapper contestMapper;
     private final ApplicationEventPublisher eventPublisher;
-    private final ContestSubmissionRepository contestSubmissionRepository;
     private final RatingCalculationService ratingCalculationService;
 
     /**
@@ -114,7 +112,11 @@ public class ContestServiceImpl implements ContestService {
         Page<Contest> contests = contestRepository.findByHiddenFalseOrderByStartTimeDesc(pageable);
 
         return contests.map(contest -> {
-            List<ContestProblemInfoDto> problemInfoDtos = getContestProblems(contest.getId());
+            List<ContestProblemInfoDto> problemInfoDtos =
+                    contestRepository.findByIdWithProblems(contest.getId())
+                            .map(this::mapContestProblems)
+                            .orElse(Collections.emptyList());
+
             return contestMapper.toContestDto(contest, problemInfoDtos);
         });
     }
@@ -124,11 +126,11 @@ public class ContestServiceImpl implements ContestService {
      */
     @Override
     public List<ContestDto> getActiveContests() {
-        List<Contest> activeContests = contestRepository.findActiveContests(LocalDateTime.now());
+        List<Contest> activeContests = contestRepository.findActiveContestsWithProblems(LocalDateTime.now());
 
         return activeContests.stream()
                 .map(contest -> {
-                    List<ContestProblemInfoDto> problemInfoDtos = getContestProblems(contest.getId());
+                    List<ContestProblemInfoDto> problemInfoDtos = mapContestProblems(contest);
                     return contestMapper.toContestDto(contest, problemInfoDtos);
                 })
                 .collect(Collectors.toList());
@@ -306,49 +308,74 @@ public class ContestServiceImpl implements ContestService {
     }
 
     /**
+     * Helper method to map contest problems efficiently
+     */
+    private List<ContestProblemInfoDto> mapContestProblems(Contest contest) {
+        return contest.getProblems().stream()
+                .map(cp -> ContestProblemInfoDto.builder()
+                        .id(cp.getId())
+                        .problemId(cp.getProblemId())
+                        .title(cp.getProblem() != null ? cp.getProblem().getTitle() : "Unknown")
+                        .index(cp.getIndex())
+                        .solved(cp.getSolved())
+                        .build())
+                .sorted(Comparator.comparingInt(ContestProblemInfoDto::getIndex))
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Finalize contest results and update user ratings
      */
-    @Transactional
     protected void finalizeContest(Contest contest, List<ContestLeaderboardEntryDto> leaderboard) {
         log.info("Finalizing contest results for contest: {}", contest.getId());
 
-        // Calculate ratings using the dedicated service
-        Map<String, RatingCalculationService.RatingChange> ratingChanges =
-                ratingCalculationService.calculateRatingChanges(contest, leaderboard);
+        try {
+            // Calculate ratings using the dedicated service
+            Map<String, RatingCalculationService.RatingChange> ratingChanges =
+                    ratingCalculationService.calculateRatingChanges(contest, leaderboard);
 
-        // Convert to event data format
-        Map<String, ContestCompletedEvent.RankData> rankings = new HashMap<>();
+            // Convert to event data format
+            Map<String, ContestCompletedEvent.RankData> rankings = new HashMap<>();
 
-        // Process each participant and update data
-        for (ContestLeaderboardEntryDto entry : leaderboard) {
-            String userId = entry.getUserId();
-            RatingCalculationService.RatingChange ratingChange = ratingChanges.get(userId);
+            // Process each participant and update data in a single transaction
+            for (ContestLeaderboardEntryDto entry : leaderboard) {
+                String userId = entry.getUserId();
+                RatingCalculationService.RatingChange ratingChange = ratingChanges.get(userId);
 
-            rankings.put(userId, new ContestCompletedEvent.RankData(
-                    entry.getRank(),
-                    ratingChange.oldRating(),
-                    ratingChange.newRating(),
-                    ratingChange.change()
+                rankings.put(userId, new ContestCompletedEvent.RankData(
+                        entry.getRank(),
+                        ratingChange.oldRating(),
+                        ratingChange.newRating(),
+                        ratingChange.change()
+                ));
+
+                // Update ContestPoints entity with the final rank
+                ContestPoints points = contestPointsRepository.findByContestIdAndUserId(contest.getId(), userId)
+                        .orElseThrow(() -> new ResourceNotFoundException("ContestPoints",
+                                "contestId_userId", contest.getId() + "_" + userId));
+
+                points.setRank(entry.getRank());
+                points.setPoints(entry.getTotalPoints());
+                contestPointsRepository.save(points);
+            }
+
+            // Mark contest as finalized in Redis
+            leaderboardService.markContestFinalized(contest.getId());
+
+            // Publish event for other components to react
+            eventPublisher.publishEvent(new ContestCompletedEvent(
+                    contest.getId(),
+                    contest.getTitle(),
+                    rankings
             ));
 
-            // Also update ContestPoints entity with the final rank
-            contestPointsRepository.findByContestIdAndUserId(contest.getId(), userId)
-                    .ifPresent(points -> {
-                        points.setRank(entry.getRank());
-                        points.setPoints(entry.getTotalPoints());
-                        contestPointsRepository.save(points);
-                    });
+            log.info("Contest finalization completed for contest: {}, with {} participants",
+                    contest.getId(), rankings.size());
+
+        } catch (Exception e) {
+            log.error("Error finalizing contest {}: {}", contest.getId(), e.getMessage(), e);
+            throw new RuntimeException("Failed to finalize contest", e);
         }
-
-        // Publish event for other components to react
-        eventPublisher.publishEvent(new ContestCompletedEvent(
-                contest.getId(),
-                contest.getTitle(),
-                rankings
-        ));
-
-        log.info("Contest finalization completed for contest: {}, with {} participants",
-                contest.getId(), rankings.size());
     }
 
     /**
@@ -376,11 +403,19 @@ public class ContestServiceImpl implements ContestService {
     }
 
     /**
-     * Validate contest time range
+     * Update the constants usage throughout the service
      */
     private void validateContestTimes(LocalDateTime startTime, LocalDateTime endTime) {
         if (endTime.isBefore(startTime)) {
             throw new IllegalArgumentException("End time cannot be before start time");
+        }
+
+        if (endTime.isBefore(startTime.plusMinutes(30))) {
+            throw new IllegalArgumentException("Contest duration must be at least 30 minutes");
+        }
+
+        if (endTime.isAfter(startTime.plusDays(7))) {
+            throw new IllegalArgumentException("Contest duration cannot exceed 7 days");
         }
     }
 

@@ -49,17 +49,14 @@ public class SubmissionServiceImpl implements SubmissionService {
     private final SubmissionCacheService cacheService;
     private final Judge0Client judge0Client;
     private final LanguageMapping languageMapping;
+    private final RedisRateLimiter rateLimiter;
 
-    // Simple rate limiter - allow up to 10 submissions per minute per user
-    private final Map<String, List<Long>> userSubmissionTimestamps = new HashMap<>();
-    private final int MAX_SUBMISSIONS_PER_MINUTE = 10;
-    private final Object rateLimitLock = new Object();
 
     @Override
     @Transactional
     public SubmissionDetailDto createSubmission(SubmissionRequest input, String userId) throws IOException {
-        // Apply rate limiting
-        if (!checkRateLimit(userId)) {
+        // Apply rate limiting using Redis
+        if (!rateLimiter.allowRequest(userId)) {
             throw new IllegalStateException("Rate limit exceeded. Please wait before submitting again.");
         }
 
@@ -282,26 +279,5 @@ public class SubmissionServiceImpl implements SubmissionService {
             submissionRepository.save(submission);
             log.debug("Updated submission {} state to {}", submissionId, state);
         });
-    }
-
-    private boolean checkRateLimit(String userId) {
-        long currentTime = System.currentTimeMillis();
-        long oneMinuteAgo = currentTime - 60000;
-
-        synchronized (rateLimitLock) {
-            List<Long> timestamps = userSubmissionTimestamps.computeIfAbsent(userId, k -> new ArrayList<>());
-
-            // Remove timestamps older than one minute
-            timestamps.removeIf(timestamp -> timestamp < oneMinuteAgo);
-
-            // Check if user is within limit
-            if (timestamps.size() >= MAX_SUBMISSIONS_PER_MINUTE) {
-                return false;
-            }
-
-            // Add current timestamp
-            timestamps.add(currentTime);
-            return true;
-        }
     }
 }

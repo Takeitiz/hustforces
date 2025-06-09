@@ -113,22 +113,20 @@ public class LeaderboardServiceImpl implements LeaderboardService {
             }
         }
 
-        // Queue the update for batch processing instead of immediate update
-        pendingScoreUpdates
-                .computeIfAbsent(contestId, k -> new ConcurrentHashMap<>())
-                .put(userId, (double) totalPoints);
+        // Update score directly in Redis (no more queueing)
+        cacheService.updateUserScore(contestId, userId, totalPoints);
 
         // Update problem status for this user
         updateProblemStatus(contestId, userId, problemId, points, submissionId);
 
-        // Since we're now batching updates, we'll make a best-effort estimate of the new rank
-        // The exact rank will be updated when the batch is processed
-        int estimatedNewRank = cacheService.getUserRank(contestId, userId);
+        // Get the new rank
+        int newRank = cacheService.getUserRank(contestId, userId);
 
-        // For immediate UI feedback, publish a user update
+        // Publish updates
         publishUserUpdate(contestId, userId);
+        publishLeaderboardUpdate(contestId);
 
-        return estimatedNewRank;
+        return newRank;
     }
 
     @Override
@@ -342,50 +340,6 @@ public class LeaderboardServiceImpl implements LeaderboardService {
         publishLeaderboardUpdate(contestId);
     }
 
-    /**
-     * Cache the full standings for a completed contest
-     */
-    private void cacheCompletedContestStandings(String contestId) {
-        try {
-            // Generate full leaderboard
-            Set<ZSetOperations.TypedTuple<Object>> allScores = cacheService.getContestLeaderboard(contestId);
-            List<ContestLeaderboardEntryDto> entries = new ArrayList<>();
-            AtomicInteger rank = new AtomicInteger(1);
-
-            for (ZSetOperations.TypedTuple<Object> entry : allScores) {
-                String userId = (String) entry.getValue();
-                if (userId == null) continue;
-
-                User user = userRepository.findById(userId).orElse(null);
-                if (user == null) continue;
-
-                Map<String, ProblemSubmissionStatusDto> problemStatuses = getUserProblemStatuses(contestId, userId);
-
-                ContestLeaderboardEntryDto leaderboardEntry = ContestLeaderboardEntryDto.builder()
-                        .userId(userId)
-                        .username(user.getUsername())
-                        .rank(rank.getAndIncrement())
-                        .totalPoints(Objects.requireNonNull(entry.getScore()).intValue())
-                        .problemStatuses(new ArrayList<>(problemStatuses.values()))
-                        .build();
-
-                entries.add(leaderboardEntry);
-            }
-
-            // Create page DTO with all entries
-            LeaderboardPageDto fullStandings = new LeaderboardPageDto(
-                    entries, 0, entries.size(), entries.size());
-
-            // Serialize and cache
-            String serialized = objectMapper.writeValueAsString(fullStandings);
-            cacheService.storeContestStandings(contestId, serialized);
-
-            log.info("Cached complete standings for contest {} with {} entries", contestId, entries.size());
-        } catch (Exception e) {
-            log.error("Error caching contest standings for {}: {}", contestId, e.getMessage(), e);
-        }
-    }
-
     @Override
     public void incrementAttemptCount(String contestId, String userId, String problemId) {
         log.info("Incrementing attempt count for user {} on problem {} in contest {}",
@@ -419,6 +373,16 @@ public class LeaderboardServiceImpl implements LeaderboardService {
             // Publish update to websocket
             publishUserUpdate(contestId, userId);
         }
+    }
+
+    @Override
+    public void markContestFinalized(String contestId) {
+        cacheService.markContestCompleted(contestId);
+
+        // Cache the final standings
+        cacheCompletedContestStandings(contestId);
+
+        log.info("Contest {} marked as finalized", contestId);
     }
 
     // Private helper methods
@@ -510,6 +474,50 @@ public class LeaderboardServiceImpl implements LeaderboardService {
                     cacheService.storeInHash(userProblemsKey, problemId, status);
                 }
             }
+        }
+    }
+
+    /**
+     * Cache the full standings for a completed contest
+     */
+    private void cacheCompletedContestStandings(String contestId) {
+        try {
+            // Generate full leaderboard
+            Set<ZSetOperations.TypedTuple<Object>> allScores = cacheService.getContestLeaderboard(contestId);
+            List<ContestLeaderboardEntryDto> entries = new ArrayList<>();
+            AtomicInteger rank = new AtomicInteger(1);
+
+            for (ZSetOperations.TypedTuple<Object> entry : allScores) {
+                String userId = (String) entry.getValue();
+                if (userId == null) continue;
+
+                User user = userRepository.findById(userId).orElse(null);
+                if (user == null) continue;
+
+                Map<String, ProblemSubmissionStatusDto> problemStatuses = getUserProblemStatuses(contestId, userId);
+
+                ContestLeaderboardEntryDto leaderboardEntry = ContestLeaderboardEntryDto.builder()
+                        .userId(userId)
+                        .username(user.getUsername())
+                        .rank(rank.getAndIncrement())
+                        .totalPoints(Objects.requireNonNull(entry.getScore()).intValue())
+                        .problemStatuses(new ArrayList<>(problemStatuses.values()))
+                        .build();
+
+                entries.add(leaderboardEntry);
+            }
+
+            // Create page DTO with all entries
+            LeaderboardPageDto fullStandings = new LeaderboardPageDto(
+                    entries, 0, entries.size(), entries.size());
+
+            // Serialize and cache
+            String serialized = objectMapper.writeValueAsString(fullStandings);
+            cacheService.storeContestStandings(contestId, serialized);
+
+            log.info("Cached complete standings for contest {} with {} entries", contestId, entries.size());
+        } catch (Exception e) {
+            log.error("Error caching contest standings for {}: {}", contestId, e.getMessage(), e);
         }
     }
 

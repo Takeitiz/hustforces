@@ -1,11 +1,8 @@
 package com.hust.hustforces.controller;
 
-import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.contest.ContestLeaderboardEntryDto;
 import com.hust.hustforces.model.dto.contest.LeaderboardPageDto;
 import com.hust.hustforces.model.dto.contest.ProblemSubmissionStatusDto;
-import com.hust.hustforces.model.entity.User;
-import com.hust.hustforces.repository.UserRepository;
 import com.hust.hustforces.service.LeaderboardService;
 import com.hust.hustforces.utils.CurrentUserUtil;
 import lombok.RequiredArgsConstructor;
@@ -15,8 +12,6 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

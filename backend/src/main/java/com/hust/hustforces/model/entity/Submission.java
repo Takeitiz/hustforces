@@ -11,12 +11,16 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.UuidGenerator;
 
-import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.List;
 
 @Entity
-@Table(name = "Submission")
+@Table(name = "Submission", indexes = {
+        @Index(name = "idx_user_problem", columnList = "user_id, problem_id"),
+        @Index(name = "idx_contest_status", columnList = "active_contest_id, status"),
+        @Index(name = "idx_created_at", columnList = "created_at"),
+        @Index(name = "idx_state_created", columnList = "state, created_at"),
+        @Index(name = "idx_user_created", columnList = "user_id, created_at DESC")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

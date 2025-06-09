@@ -7,8 +7,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.UuidGenerator;
 
-import java.time.LocalDateTime;
-
 @Entity
 @Table(name = "ContestSubmission",
         uniqueConstraints = {
@@ -16,6 +14,10 @@ import java.time.LocalDateTime;
                         name = "uk_user_problem_contest",
                         columnNames = {"user_id", "problem_id", "contest_id"}
                 )
+        },
+        indexes = {
+                @Index(name = "idx_contest_user", columnList = "contest_id, user_id"),
+                @Index(name = "idx_contest_points", columnList = "contest_id, points DESC")
         }
 )
 @Data

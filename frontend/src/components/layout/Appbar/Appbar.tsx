@@ -1,4 +1,4 @@
-import { LogOut, User, Menu, X, Moon, Sun } from "lucide-react"
+import { LogOut, User, Menu, X} from "lucide-react"
 import { Link } from "react-router-dom"
 import { Button } from "../../ui/Button.tsx"
 import { useAuth } from "../../../contexts/AuthContext.tsx"
@@ -9,9 +9,6 @@ export function Appbar() {
     const { isLoggedIn, user, logout } = useAuth()
     const [isScrolled, setIsScrolled] = useState(false)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        return document.documentElement.classList.contains("dark")
-    })
 
     // Handle scroll effect
     useEffect(() => {
@@ -21,17 +18,6 @@ export function Appbar() {
         window.addEventListener("scroll", handleScroll)
         return () => window.removeEventListener("scroll", handleScroll)
     }, [])
-
-    // Toggle dark mode
-    const toggleDarkMode = () => {
-        if (isDarkMode) {
-            document.documentElement.classList.remove("dark")
-            setIsDarkMode(false)
-        } else {
-            document.documentElement.classList.add("dark")
-            setIsDarkMode(true)
-        }
-    }
 
     return (
         <header
@@ -80,15 +66,6 @@ export function Appbar() {
                     </nav>
 
                     <div className="flex items-center gap-4">
-                        {/* Dark mode toggle */}
-                        <button
-                            onClick={toggleDarkMode}
-                            className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-300"
-                            aria-label="Toggle dark mode"
-                        >
-                            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                        </button>
-
                         {/* User actions */}
                         {isLoggedIn ? (
                             <div className="hidden md:flex items-center gap-4">

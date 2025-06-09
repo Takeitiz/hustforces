@@ -79,4 +79,11 @@ public interface LeaderboardService {
      * @param problemId The problem ID
      */
     void incrementAttemptCount(String contestId, String userId, String problemId);
+
+    /**
+     * Mark a contest as finalized to prevent further score updates
+     *
+     * @param contestId The contest ID
+     */
+    void markContestFinalized(String contestId);
 }
