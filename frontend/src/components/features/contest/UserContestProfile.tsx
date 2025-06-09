@@ -14,28 +14,28 @@ interface UserContestProfileProps {
 }
 
 export function UserContestProfile({ userId }: UserContestProfileProps) {
-    const { contestId } = useParams<{ contestId: string }>();
+    const { id } = useParams<{ id: string }>();
     const [loading, setLoading] = useState(true);
     const [contest, setContest] = useState<ContestDetailDto | null>(null);
     const [userRanking, setUserRanking] = useState<ContestLeaderboardEntryDto | null>(null);
     const [problemStatuses, setProblemStatuses] = useState<ProblemSubmissionStatusDto[]>([]);
 
     useEffect(() => {
-        if (contestId && userId) {
+        if (id && userId) {
             fetchUserContestData();
         }
-    }, [contestId, userId]);
+    }, [id, userId]);
 
     const fetchUserContestData = async () => {
-        if (!contestId || !userId) return;
+        if (!id || !userId) return;
 
         setLoading(true);
         try {
             // Fetch all needed data in parallel
             const [contestData, userRankingData, problemStatusesData] = await Promise.all([
-                contestService.getContest(contestId),
-                leaderboardService.getUserRanking(contestId, userId),
-                leaderboardService.getUserProblemStatuses(contestId, userId)
+                contestService.getContest(id),
+                leaderboardService.getUserRanking(id, userId),
+                leaderboardService.getUserProblemStatuses(id, userId)
             ]);
 
             setContest(contestData);

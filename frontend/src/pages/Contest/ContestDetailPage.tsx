@@ -11,7 +11,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/Table";
 
 export function ContestDetailPage() {
-    const { contestId } = useParams<{ contestId: string }>();
+    const { id } = useParams<{ id: string }>();
     const [contest, setContest] = useState<ContestDetailDto | null>(null);
     const [loading, setLoading] = useState(true);
     const [registering, setRegistering] = useState(false);
@@ -21,10 +21,10 @@ export function ContestDetailPage() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (contestId) {
+        if (id) {
             fetchContest();
         }
-    }, [contestId]);
+    }, [id]);
 
     // Timer effect for countdown
     useEffect(() => {
@@ -65,8 +65,8 @@ export function ContestDetailPage() {
     const fetchContest = async () => {
         setLoading(true);
         try {
-            if (!contestId) throw new Error("Contest ID is missing");
-            const data = await contestService.getContest(contestId);
+            if (!id) throw new Error("Contest ID is missing");
+            const data = await contestService.getContest(id);
             setContest(data);
         } catch (error) {
             console.error("Error fetching contest:", error);
@@ -83,11 +83,11 @@ export function ContestDetailPage() {
             return;
         }
 
-        if (!contestId) return;
+        if (!id) return;
 
         setRegistering(true);
         try {
-            await contestService.registerForContest(contestId);
+            await contestService.registerForContest(id);
             toast.success("Successfully registered for the contest");
             fetchContest(); // Refresh data
         } catch (error) {
@@ -269,7 +269,6 @@ export function ContestDetailPage() {
                                     <TableHead className="w-16">Index</TableHead>
                                     <TableHead>Title</TableHead>
                                     <TableHead className="text-right">Solved</TableHead>
-                                    <TableHead className="w-20"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -278,14 +277,6 @@ export function ContestDetailPage() {
                                         <TableCell className="font-medium">{String.fromCharCode(65 + problem.index)}</TableCell>
                                         <TableCell>{problem.title}</TableCell>
                                         <TableCell className="text-right">{problem.solved}</TableCell>
-                                        <TableCell>
-                                            <Link
-                                                to={`/problem/${problem.problemId}`}
-                                                className="text-blue-600 dark:text-blue-400 hover:underline"
-                                            >
-                                                View
-                                            </Link>
-                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

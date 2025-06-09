@@ -10,7 +10,7 @@ import websocketService from "../../service/websocketService";
 import { ContestDetailDto, ContestLeaderboardEntryDto } from "../../types/contest";
 
 export function ContestLeaderboardPage() {
-    const { contestId } = useParams<{ contestId: string }>();
+    const { id } = useParams<{ id: string }>();
     const [contest, setContest] = useState<ContestDetailDto | null>(null);
     const [leaderboard, setLeaderboard] = useState<ContestLeaderboardEntryDto[]>([]);
     const [loading, setLoading] = useState(true);
@@ -21,14 +21,14 @@ export function ContestLeaderboardPage() {
 
     // Fetch initial data
     useEffect(() => {
-        if (contestId) {
+        if (id) {
             fetchContestAndLeaderboard();
         }
-    }, [contestId]);
+    }, [id]);
 
     // Set up WebSocket connection for active contests
     useEffect(() => {
-        if (!contest || contest.status !== 'ACTIVE' || !contestId) {
+        if (!contest || contest.status !== 'ACTIVE' || !id) {
             return;
         }
 
@@ -55,17 +55,17 @@ export function ContestLeaderboardPage() {
                 subscriptionRef.current = null;
             }
         };
-    }, [contest, contestId]);
+    }, [contest, id]);
 
     const fetchContestAndLeaderboard = async () => {
-        if (!contestId) return;
+        if (!id) return;
 
         setLoading(true);
         try {
             // Fetch contest details and leaderboard in parallel
             const [contestData, leaderboardData] = await Promise.all([
-                contestService.getContest(contestId),
-                leaderboardService.getContestLeaderboard(contestId)
+                contestService.getContest(id),
+                leaderboardService.getContestLeaderboard(id)
             ]);
 
             setContest(contestData);
@@ -80,11 +80,11 @@ export function ContestLeaderboardPage() {
     };
 
     const subscribeToLeaderboardUpdates = () => {
-        if (!contestId) return;
+        if (!id) return;
 
         // Subscribe to leaderboard updates
         const subId = websocketService.subscribe(
-            `/topic/contests/${contestId}/leaderboard`,
+            `/topic/contests/${id}/leaderboard`,
             (message) => {
                 setLeaderboard(message);
                 setLastUpdated(new Date());
@@ -97,11 +97,11 @@ export function ContestLeaderboardPage() {
     };
 
     const handleManualRefresh = async () => {
-        if (refreshing || !contestId) return;
+        if (refreshing || !id) return;
 
         setRefreshing(true);
         try {
-            const data = await leaderboardService.getContestLeaderboard(contestId);
+            const data = await leaderboardService.getContestLeaderboard(id);
             setLeaderboard(data);
             setLastUpdated(new Date());
             toast.success("Leaderboard refreshed");
@@ -138,7 +138,7 @@ export function ContestLeaderboardPage() {
         <div className="max-w-7xl mx-auto px-4 py-8">
             <div className="mb-6">
                 <Link
-                    to={`/contests/${contestId}`}
+                    to={`/contests/${id}`}
                     className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                 >
                     <ArrowLeft className="h-4 w-4" />

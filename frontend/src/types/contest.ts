@@ -48,5 +48,39 @@ export interface ProblemSubmissionStatusDto {
     solved: boolean;
 }
 
+export interface LeaderboardPageDto {
+    entries: ContestLeaderboardEntryDto[];
+    page: number;
+    size: number;
+    totalItems: number;
+}
 
+export interface CreateContestRequest {
+    title: string;
+    description?: string;
+    startTime: string;
+    endTime: string;
+    isHidden: boolean;
+    leaderboard: boolean;
+    problems: ContestProblemDto[];
+}
 
+export interface UpdateContestRequest {
+    title?: string;
+    description?: string;
+    startTime?: string;
+    endTime?: string;
+    isHidden?: boolean;
+    leaderboard?: boolean;
+}
+
+export interface ContestProblemDto {
+    problemId: string;
+    index: number;
+}
+
+export interface ContestRegistrationDto {
+    contestId: string;
+    userId: string;
+    registeredAt: string;
+}

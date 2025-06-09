@@ -1,4 +1,5 @@
 import { apiClient } from "../api/client"
+import {UpdateContestRequest} from "../types/contest.ts";
 
 // User management
 export interface AdminUserDto {
@@ -227,7 +228,7 @@ const adminService = {
         }
     },
 
-    // Contest management
+// Contest management
     getContests: async (
         page = 0,
         size = 10,
@@ -270,6 +271,16 @@ const adminService = {
         }
     },
 
+    updateContest: async (id: string, data: UpdateContestRequest): Promise<AdminContestDto> => {
+        try {
+            const response = await apiClient.put<AdminContestDto>(`/admin/contests/${id}`, data)
+            return response.data
+        } catch (error) {
+            console.error("Failed to update contest:", error)
+            throw error
+        }
+    },
+
     updateContestVisibility: async (id: string, hidden: boolean): Promise<AdminContestDto> => {
         try {
             const response = await apiClient.put<AdminContestDto>(`/admin/contests/${id}`, {
@@ -287,6 +298,24 @@ const adminService = {
             await apiClient.delete(`/admin/contests/${id}`)
         } catch (error) {
             console.error("Failed to delete contest:", error)
+            throw error
+        }
+    },
+
+    addProblemToContest: async (contestId: string, problemId: string, index: number): Promise<void> => {
+        try {
+            await apiClient.post(`/admin/contests/${contestId}/problems`, { problemId, index })
+        } catch (error) {
+            console.error("Failed to add problem to contest:", error)
+            throw error
+        }
+    },
+
+    removeProblemFromContest: async (contestId: string, problemId: string): Promise<void> => {
+        try {
+            await apiClient.delete(`/admin/contests/${contestId}/problems/${problemId}`)
+        } catch (error) {
+            console.error("Failed to remove problem from contest:", error)
             throw error
         }
     },

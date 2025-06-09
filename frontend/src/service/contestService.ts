@@ -1,11 +1,14 @@
-import {PageResponse} from "../types/discussion.ts";
-import {ContestDetailDto, ContestDto} from "../types/contest.ts";
-import {apiClient} from "../api/client.ts";
+import { PageResponse } from "../types/discussion";
+import { ContestDetailDto, ContestDto, ContestRegistrationDto } from "../types/contest";
+import { apiClient } from "../api/client";
 
 const contestService = {
-    getAllContests: async (page = 0, size = 10): Promise<PageResponse<ContestDto>> => {
+    // Main endpoints matching backend
+    getAllContests: async (page = 0, size = 10, sort = "startTime,desc"): Promise<PageResponse<ContestDto>> => {
         try {
-            const response = await apiClient.get<PageResponse<ContestDto>>(`/contests?page=${page}&size=${size}`);
+            const response = await apiClient.get<PageResponse<ContestDto>>(
+                `/contests?page=${page}&size=${size}&sort=${sort}`
+            );
             return response.data;
         } catch (error) {
             console.error("Error fetching contests:", error);
@@ -45,7 +48,9 @@ const contestService = {
 
     getPastContests: async (page = 0, size = 10): Promise<PageResponse<ContestDto>> => {
         try {
-            const response = await apiClient.get<PageResponse<ContestDto>>(`/contests/past?page=${page}&size=${size}`);
+            const response = await apiClient.get<PageResponse<ContestDto>>(
+                `/contests/past?page=${page}&size=${size}`
+            );
             return response.data;
         } catch (error) {
             console.error("Error fetching past contests:", error);
@@ -65,14 +70,17 @@ const contestService = {
         }
     },
 
-    registerForContest: async (contestId: string): Promise<void> => {
+    registerForContest: async (contestId: string): Promise<ContestRegistrationDto> => {
         try {
-            await apiClient.post(`/contests/${contestId}/register`);
+            const response = await apiClient.post<ContestRegistrationDto>(
+                `/contests/${contestId}/register`
+            );
+            return response.data;
         } catch (error) {
             console.error("Error registering for contest:", error);
             throw error;
         }
     }
-}
+};
 
 export default contestService;
