@@ -3,27 +3,27 @@ package com.hust.hustforces.security;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter;
+
+import java.util.Arrays;
 
 @Configuration
 public class CorsConfig {
 
     @Bean
-    public CorsFilter corsFilter() {
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+
+
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        CorsConfiguration config = new CorsConfiguration();
-
-        config.setAllowCredentials(true);
-        config.addAllowedOrigin("http://localhost:5173");
-        config.addAllowedHeader("*");
-        config.addAllowedMethod("GET");
-        config.addAllowedMethod("POST");
-        config.addAllowedMethod("PUT");
-        config.addAllowedMethod("DELETE");
-        config.addAllowedMethod("OPTIONS");
-
-        source.registerCorsConfiguration("/**", config);
-        return new CorsFilter(source);
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }

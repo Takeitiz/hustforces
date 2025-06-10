@@ -40,6 +40,10 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/ws-coderoom/**").permitAll()
 
+                        .requestMatchers("/app/**").permitAll()
+                        .requestMatchers("/topic/**").permitAll()
+                        .requestMatchers("/queue/**").permitAll()
+
                         // Admin endpoints
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 

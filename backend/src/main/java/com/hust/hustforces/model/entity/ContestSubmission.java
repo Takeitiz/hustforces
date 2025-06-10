@@ -17,7 +17,7 @@ import org.hibernate.annotations.UuidGenerator;
         },
         indexes = {
                 @Index(name = "idx_contest_user", columnList = "contest_id, user_id"),
-                @Index(name = "idx_contest_points", columnList = "contest_id, points DESC")
+                @Index(name = "idx_contest_submission_points", columnList = "contest_id, points DESC")
         }
 )
 @Data
