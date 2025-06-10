@@ -1,5 +1,5 @@
 import { PageResponse } from "../types/discussion";
-import { ContestDetailDto, ContestDto, ContestRegistrationDto } from "../types/contest";
+import { ContestDetailDto, ContestDto, ContestRegistrationDto, ContestLeaderboardEntryDto } from "../types/contest";
 import { apiClient } from "../api/client";
 
 const contestService = {
@@ -78,6 +78,36 @@ const contestService = {
             return response.data;
         } catch (error) {
             console.error("Error registering for contest:", error);
+            throw error;
+        }
+    },
+
+    checkRegistrationStatus: async (contestId: string): Promise<{
+        registered: boolean;
+        contestId: string;
+        contestTitle: string;
+        userId: string;
+        contestStatus: "UPCOMING" | "ACTIVE" | "ENDED";
+    }> => {
+        try {
+            const response = await apiClient.get(
+                `/contests/${contestId}/registration-status`
+            );
+            return response.data;
+        } catch (error) {
+            console.error("Error checking registration status:", error);
+            throw error;
+        }
+    },
+
+    getHistoricalLeaderboard: async (contestId: string): Promise<ContestLeaderboardEntryDto[]> => {
+        try {
+            const response = await apiClient.get<ContestLeaderboardEntryDto[]>(
+                `/contests/${contestId}/historical-leaderboard`
+            );
+            return response.data;
+        } catch (error) {
+            console.error("Error fetching historical leaderboard:", error);
             throw error;
         }
     }

@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { format, intervalToDuration, formatDuration } from "date-fns";
 import { toast } from "react-toastify";
-import { CalendarClock, Trophy, Clock, ListOrdered, ArrowRight } from "lucide-react";
+import { CalendarClock, Trophy, Clock, ListOrdered, ArrowRight, AlertTriangle } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/Tabs";
 import { Button } from "../../components/ui/Button";
+import { Modal } from "../../components/ui/Modal";
 import contestService from "../../service/contestService";
 import { ContestDetailDto } from "../../types/contest";
 import { useAuth } from "../../contexts/AuthContext";
@@ -15,6 +16,8 @@ export function ContestDetailPage() {
     const [contest, setContest] = useState<ContestDetailDto | null>(null);
     const [loading, setLoading] = useState(true);
     const [registering, setRegistering] = useState(false);
+    const [isRegistered, setIsRegistered] = useState(false);
+    const [showRegistrationModal, setShowRegistrationModal] = useState(false);
     const [activeTab, setActiveTab] = useState("overview");
     const [timeLeft, setTimeLeft] = useState<string | null>(null);
     const { isLoggedIn } = useAuth();
@@ -68,6 +71,17 @@ export function ContestDetailPage() {
             if (!id) throw new Error("Contest ID is missing");
             const data = await contestService.getContest(id);
             setContest(data);
+
+            // Check registration status if user is logged in
+            if (isLoggedIn) {
+                try {
+                    const registrationStatus = await contestService.checkRegistrationStatus(id);
+                    setIsRegistered(registrationStatus.registered);
+                } catch (error) {
+                    // If the API returns 404 or error, assume not registered
+                    setIsRegistered(false);
+                }
+            }
         } catch (error) {
             console.error("Error fetching contest:", error);
             toast.error("Failed to load contest");
@@ -76,23 +90,35 @@ export function ContestDetailPage() {
         }
     };
 
-    const handleRegister = async () => {
+    const handleRegisterClick = () => {
         if (!isLoggedIn) {
             toast.info("Please log in to register for the contest");
             navigate("/login");
             return;
         }
 
+        // Show confirmation modal
+        setShowRegistrationModal(true);
+    };
+
+    const handleConfirmRegistration = async () => {
         if (!id) return;
 
         setRegistering(true);
+        setShowRegistrationModal(false);
+
         try {
             await contestService.registerForContest(id);
             toast.success("Successfully registered for the contest");
-            fetchContest(); // Refresh data
-        } catch (error) {
-            console.error("Error registering for contest:", error);
-            toast.error("Failed to register for the contest");
+            setIsRegistered(true);
+        } catch (error: any) {
+            if (error.response?.status === 409) {
+                toast.info("You are already registered for this contest");
+                setIsRegistered(true);
+            } else {
+                console.error("Error registering for contest:", error);
+                toast.error("Failed to register for the contest");
+            }
         } finally {
             setRegistering(false);
         }
@@ -107,11 +133,13 @@ export function ContestDetailPage() {
 
         if (!id || !contest) return;
 
-        // TODO: Check if the user is registered for the contest
-        // The backend should provide information about whether the current user is registered
-        // For now, we'll check if the contest has problems and navigate to the first one
+        // Check if the user is registered
+        if (!isRegistered) {
+            toast.error("You must register for the contest first");
+            return;
+        }
 
-        // You could also check contest.status === 'ACTIVE' to ensure contest is running
+        // Check if the contest is active
         if (contest.status !== 'ACTIVE') {
             toast.error("This contest is not currently active");
             return;
@@ -239,10 +267,10 @@ export function ContestDetailPage() {
                                 </div>
                             )}
 
-                            {contest.status === 'UPCOMING' && (
+                            {contest.status === 'UPCOMING' && !isRegistered && (
                                 <Button
                                     className="px-6 flex items-center gap-2"
-                                    onClick={handleRegister}
+                                    onClick={handleRegisterClick}
                                     disabled={registering}
                                 >
                                     {registering ? (
@@ -259,13 +287,21 @@ export function ContestDetailPage() {
                                 </Button>
                             )}
 
+                            {contest.status === 'UPCOMING' && isRegistered && (
+                                <div className="flex items-center gap-2 px-6 py-2 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-md">
+                                    <Trophy className="h-4 w-4" />
+                                    <span className="font-medium">Registered</span>
+                                </div>
+                            )}
+
                             {contest.status === 'ACTIVE' && (
                                 <Button
                                     className="px-6 flex items-center gap-2"
                                     onClick={handleEnterContest}
+                                    disabled={!isRegistered}
                                 >
                                     <Trophy className="h-4 w-4" />
-                                    Enter Contest
+                                    {isRegistered ? 'Enter Contest' : 'Register First'}
                                 </Button>
                             )}
                         </div>
@@ -361,6 +397,52 @@ export function ContestDetailPage() {
                     </div>
                 </TabsContent>
             </Tabs>
+
+            {/* Registration Confirmation Modal */}
+            <Modal
+                isOpen={showRegistrationModal}
+                onClose={() => setShowRegistrationModal(false)}
+                title="Confirm Contest Registration"
+            >
+                <div className="p-6">
+                    <div className="flex items-start gap-4 mb-6">
+                        <div className="flex-shrink-0">
+                            <div className="w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center">
+                                <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                                Important Notice
+                            </h3>
+                            <p className="text-gray-600 dark:text-gray-300">
+                                Once you register for this contest, <strong>you cannot undo this action</strong>.
+                                Make sure you are ready to participate before proceeding.
+                            </p>
+                            <div className="mt-4 space-y-2 text-sm text-gray-500 dark:text-gray-400">
+                                <p>• You will be able to view all problems when the contest starts</p>
+                                <p>• Your submissions will be counted towards the leaderboard</p>
+                                <p>• You cannot unregister from the contest</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowRegistrationModal(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleConfirmRegistration}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                            Confirm Registration
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }

@@ -228,7 +228,7 @@ const adminService = {
         }
     },
 
-// Contest management
+    // Contest management
     getContests: async (
         page = 0,
         size = 10,
@@ -281,18 +281,6 @@ const adminService = {
         }
     },
 
-    updateContestVisibility: async (id: string, hidden: boolean): Promise<AdminContestDto> => {
-        try {
-            const response = await apiClient.put<AdminContestDto>(`/admin/contests/${id}`, {
-                isHidden: hidden,
-            })
-            return response.data
-        } catch (error) {
-            console.error("Failed to update contest visibility:", error)
-            throw error
-        }
-    },
-
     deleteContest: async (id: string): Promise<void> => {
         try {
             await apiClient.delete(`/admin/contests/${id}`)
@@ -320,11 +308,14 @@ const adminService = {
         }
     },
 
-    updateLeaderboard: async (id: string): Promise<void> => {
+    finalizeContest: async (id: string): Promise<{ status: "success" | "error"; message: string }> => {
         try {
-            await apiClient.post(`/admin/contests/${id}/updateLeaderboard`)
+            const response = await apiClient.post<{ status: "success" | "error"; message: string }>(
+                `/admin/contests/${id}/finalize`
+            )
+            return response.data
         } catch (error) {
-            console.error("Failed to update leaderboard:", error)
+            console.error("Failed to finalize contest:", error)
             throw error
         }
     },
@@ -359,7 +350,6 @@ const adminService = {
             throw error
         }
     },
-
 
     generateBoilerplate: async (slug: string): Promise<string> => {
         try {

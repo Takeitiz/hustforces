@@ -19,7 +19,7 @@ export function AdminContestsPage() {
     const [sort, setSort] = useState("startTime,desc")
     const [searchTerm, setSearchTerm] = useState("")
     const [visibilityUpdateLoading, setVisibilityUpdateLoading] = useState<string | null>(null)
-    const [leaderboardUpdateLoading, setLeaderboardUpdateLoading] = useState<string | null>(null)
+    const [finalizeLoading, setFinalizeLoading] = useState<string | null>(null)
     const [deleteModalOpen, setDeleteModalOpen] = useState(false)
     const [contestToDelete, setContestToDelete] = useState<AdminContestDto | null>(null)
     const [deleteLoading, setDeleteLoading] = useState(false)
@@ -65,9 +65,16 @@ export function AdminContestsPage() {
     const handleVisibilityToggle = async (contest: AdminContestDto) => {
         setVisibilityUpdateLoading(contest.id)
         try {
-            await adminService.updateContestVisibility(contest.id, !contest.hidden)
+            const updatedContest = await adminService.updateContest(contest.id, {
+                title: contest.title,
+                description: contest.description,
+                startTime: contest.startTime,
+                endTime: contest.endTime,
+                isHidden: !contest.hidden,
+                leaderboard: contest.leaderboard
+            })
             // Update the contest in the local state
-            setContests(contests.map((c) => (c.id === contest.id ? { ...c, hidden: !contest.hidden } : c)))
+            setContests(contests.map((c) => (c.id === contest.id ? updatedContest : c)))
             toast.success(`Contest is now ${contest.hidden ? "visible" : "hidden"}`)
         } catch (error) {
             console.error("Failed to update contest visibility:", error)
@@ -77,16 +84,21 @@ export function AdminContestsPage() {
         }
     }
 
-    const handleUpdateLeaderboard = async (contest: AdminContestDto) => {
-        setLeaderboardUpdateLoading(contest.id)
+    const handleFinalizeContest = async (contest: AdminContestDto) => {
+        setFinalizeLoading(contest.id)
         try {
-            await adminService.updateLeaderboard(contest.id)
-            toast.success("Leaderboard updated successfully")
+            const result = await adminService.finalizeContest(contest.id)
+            if (result.status === "success") {
+                toast.success(result.message)
+                fetchContests() // Refresh the list
+            } else {
+                toast.error(result.message)
+            }
         } catch (error) {
-            console.error("Failed to update leaderboard:", error)
-            toast.error("Failed to update leaderboard")
+            console.error("Failed to finalize contest:", error)
+            toast.error("Failed to finalize contest")
         } finally {
-            setLeaderboardUpdateLoading(null)
+            setFinalizeLoading(null)
         }
     }
 
@@ -263,19 +275,19 @@ export function AdminContestsPage() {
                                                 {contest.hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                                                 <span className="sr-only">{contest.hidden ? "Make visible" : "Hide"}</span>
                                             </Button>
-                                            {contest.status !== "UPCOMING" && (
+                                            {contest.status === "ENDED" && (
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    onClick={() => handleUpdateLeaderboard(contest)}
-                                                    disabled={leaderboardUpdateLoading === contest.id}
+                                                    onClick={() => handleFinalizeContest(contest)}
+                                                    disabled={finalizeLoading === contest.id}
                                                     className="text-purple-600 dark:text-purple-400"
-                                                    title="Update Leaderboard"
+                                                    title="Finalize Contest"
                                                 >
                                                     <RefreshCw
-                                                        className={`h-4 w-4 ${leaderboardUpdateLoading === contest.id ? "animate-spin" : ""}`}
+                                                        className={`h-4 w-4 ${finalizeLoading === contest.id ? "animate-spin" : ""}`}
                                                     />
-                                                    <span className="sr-only">Update Leaderboard</span>
+                                                    <span className="sr-only">Finalize Contest</span>
                                                 </Button>
                                             )}
                                             <Button

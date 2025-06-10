@@ -8,16 +8,20 @@ import contestService from "../../service/contestService";
 import leaderboardService from "../../service/leaderboardService";
 import websocketService from "../../service/websocketService";
 import { ContestDetailDto, ContestLeaderboardEntryDto } from "../../types/contest";
+import { useAuth } from "../../contexts/AuthContext";
 
 export function ContestLeaderboardPage() {
     const { id } = useParams<{ id: string }>();
+    const { user } = useAuth();
     const [contest, setContest] = useState<ContestDetailDto | null>(null);
     const [leaderboard, setLeaderboard] = useState<ContestLeaderboardEntryDto[]>([]);
+    const [userRanking, setUserRanking] = useState<ContestLeaderboardEntryDto | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [isLive, setIsLive] = useState(false);
-    const subscriptionRef = useRef<string | null>(null);
+    const leaderboardSubRef = useRef<string | null>(null);
+    const userSubRef = useRef<string | null>(null);
 
     // Fetch initial data
     useEffect(() => {
@@ -37,7 +41,7 @@ export function ContestLeaderboardPage() {
             websocketService.connect(
                 () => {
                     console.log("WebSocket connected");
-                    subscribeToLeaderboardUpdates();
+                    subscribeToUpdates();
                 },
                 (error) => {
                     console.error("WebSocket error:", error);
@@ -45,31 +49,60 @@ export function ContestLeaderboardPage() {
                 }
             );
         } else {
-            subscribeToLeaderboardUpdates();
+            subscribeToUpdates();
         }
 
-        // Clean up subscription on unmount
+        // Clean up subscriptions on unmount
         return () => {
-            if (subscriptionRef.current) {
-                websocketService.unsubscribe(subscriptionRef.current);
-                subscriptionRef.current = null;
+            if (leaderboardSubRef.current) {
+                websocketService.unsubscribe(leaderboardSubRef.current);
+                leaderboardSubRef.current = null;
             }
+            if (userSubRef.current) {
+                websocketService.unsubscribe(userSubRef.current);
+                userSubRef.current = null;
+            }
+            setIsLive(false);
         };
-    }, [contest, id]);
+    }, [contest, id, user]);
 
     const fetchContestAndLeaderboard = async () => {
         if (!id) return;
 
         setLoading(true);
         try {
-            // Fetch contest details and leaderboard in parallel
-            const [contestData, leaderboardData] = await Promise.all([
-                contestService.getContest(id),
-                leaderboardService.getContestLeaderboard(id)
-            ]);
-
+            // Fetch contest details
+            const contestData = await contestService.getContest(id);
             setContest(contestData);
-            setLeaderboard(leaderboardData);
+
+            // Fetch appropriate leaderboard based on contest status
+            if (contestData.status === 'ENDED') {
+                // Try to fetch historical leaderboard for ended contests
+                try {
+                    const historicalData = await contestService.getHistoricalLeaderboard(id);
+                    setLeaderboard(historicalData);
+                } catch (error) {
+                    // If historical leaderboard is not available, fall back to regular leaderboard
+                    const leaderboardData = await leaderboardService.getContestLeaderboard(id);
+                    setLeaderboard(leaderboardData);
+                }
+            } else {
+                // For active or upcoming contests, use regular leaderboard
+                const leaderboardData = await leaderboardService.getContestLeaderboard(id);
+                setLeaderboard(leaderboardData);
+            }
+
+            // Fetch user ranking if logged in
+            if (user) {
+                try {
+                    const userRankingData = await leaderboardService.getUserRanking(id, user.id);
+                    setUserRanking(userRankingData);
+                } catch (error) {
+                    // User might not be registered in the contest
+                    console.log("User ranking not found");
+                }
+            }
+
             setLastUpdated(new Date());
         } catch (error) {
             console.error("Error fetching data:", error);
@@ -79,20 +112,37 @@ export function ContestLeaderboardPage() {
         }
     };
 
-    const subscribeToLeaderboardUpdates = () => {
+    const subscribeToUpdates = () => {
         if (!id) return;
 
         // Subscribe to leaderboard updates
-        const subId = websocketService.subscribe(
-            `/topic/contests/${id}/leaderboard`,
+        const leaderboardSubId = websocketService.subscribe(
+            `/topic/contest/${id}/leaderboard`,
             (message) => {
                 setLeaderboard(message);
                 setLastUpdated(new Date());
                 setIsLive(true);
             }
         );
+        leaderboardSubRef.current = leaderboardSubId;
 
-        subscriptionRef.current = subId;
+        // Subscribe to user-specific updates if logged in
+        if (user) {
+            const userSubId = websocketService.subscribe(
+                `/topic/contest/${id}/user/${user.id}`,
+                (message) => {
+                    setUserRanking(message);
+                }
+            );
+            userSubRef.current = userSubId;
+
+            // Request initial user data
+            websocketService.send(`/app/contest/${id}/user/${user.id}/subscribe`, {});
+        }
+
+        // Request initial leaderboard data
+        websocketService.send(`/app/contest/${id}/subscribe`, {});
+
         setIsLive(true);
     };
 
@@ -153,6 +203,7 @@ export function ContestLeaderboardPage() {
                             <h1 className="text-2xl font-bold mb-1">{contest.title} - Leaderboard</h1>
                             <p className="text-gray-500 dark:text-gray-400">
                                 {contest.problems.length} problems • {leaderboard.length} participants
+                                {contest.status === 'ENDED' && ' • Final Results'}
                             </p>
                         </div>
 
@@ -173,18 +224,32 @@ export function ContestLeaderboardPage() {
                                 </div>
                             )}
 
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleManualRefresh}
-                                disabled={refreshing}
-                                className="flex items-center gap-1"
-                            >
-                                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                                Refresh
-                            </Button>
+                            {contest.status === 'ACTIVE' && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleManualRefresh}
+                                    disabled={refreshing}
+                                    className="flex items-center gap-1"
+                                >
+                                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                                    Refresh
+                                </Button>
+                            )}
                         </div>
                     </div>
+
+                    {userRanking && user && (
+                        <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <div className="flex items-center justify-between">
+                                <div className="text-sm text-gray-600 dark:text-gray-400">Your Position</div>
+                                <div className="flex items-center gap-4">
+                                    <div className="text-lg font-bold">Rank: #{userRanking.rank}</div>
+                                    <div className="text-lg font-bold">Score: {userRanking.totalPoints}</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
                         <Leaderboard

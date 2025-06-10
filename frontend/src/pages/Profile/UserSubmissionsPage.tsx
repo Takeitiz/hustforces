@@ -1,43 +1,47 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, FileCode, CheckCircle, XCircle, Clock } from "lucide-react";
-import { toast } from "react-toastify";
+import { format } from "date-fns";
+import {
+    ArrowLeft,
+    Clock,
+    CheckCircle,
+    XCircle,
+    AlertCircle,
+    ChevronLeft,
+    ChevronRight
+} from "lucide-react";
 import { SubmissionResponseDto } from "../../types/submission";
 import submissionService from "../../service/submissionService";
-import profileService from "../../service/profileService";
-import { formatDistanceToNow } from "date-fns";
-import {getLanguageName} from "../../constants/languageMapping.ts";
+import { getLanguageName } from "../../constants/languageMapping";
+import { Button } from "../../components/ui/Button";
 
 export function UserSubmissionsPage() {
     const { username } = useParams<{ username: string }>();
     const [submissions, setSubmissions] = useState<SubmissionResponseDto[]>([]);
     const [loading, setLoading] = useState(true);
-    const [userDisplayName, setUserDisplayName] = useState<string>("");
+    const [error, setError] = useState(false);
+    const [page, setPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+    const [totalElements, setTotalElements] = useState(0);
+    const pageSize = 20;
 
     useEffect(() => {
         if (username) {
-            fetchUserData();
-            fetchUserSubmissions();
+            fetchSubmissions();
         }
-    }, [username]);
+    }, [username, page]);
 
-    const fetchUserData = async () => {
+    const fetchSubmissions = async () => {
         try {
-            const profile = await profileService.getUserProfile(username!);
-            setUserDisplayName(profile.user.username);
-        } catch (error) {
-            console.error("Error fetching user data:", error);
-        }
-    };
-
-    const fetchUserSubmissions = async () => {
-        setLoading(true);
-        try {
-            const response = await submissionService.getUserSubmissions(username!);
-            setSubmissions(response);
-        } catch (error) {
-            console.error("Error fetching user submissions:", error);
-            toast.error("Failed to load submissions");
+            setLoading(true);
+            const data = await submissionService.getUserSubmissions(username!, page, pageSize);
+            setSubmissions(data.submissions);
+            setTotalPages(data.totalPages);
+            setTotalElements(data.totalElements);
+            setError(false);
+        } catch (err) {
+            console.error("Error fetching submissions:", err);
+            setError(true);
         } finally {
             setLoading(false);
         }
@@ -46,11 +50,11 @@ export function UserSubmissionsPage() {
     const getStatusIcon = (status: string) => {
         switch (status) {
             case "AC":
-                return <CheckCircle className="w-5 h-5 text-green-500" />;
+                return <CheckCircle className="h-5 w-5 text-green-500" />;
             case "PENDING":
-                return <Clock className="w-5 h-5 text-yellow-500" />;
+                return <Clock className="h-5 w-5 text-yellow-500 animate-pulse" />;
             default:
-                return <XCircle className="w-5 h-5 text-red-500" />;
+                return <XCircle className="h-5 w-5 text-red-500" />;
         }
     };
 
@@ -59,19 +63,15 @@ export function UserSubmissionsPage() {
             case "AC":
                 return "Accepted";
             case "PENDING":
-                return "Pending";
-            case "FAIL":
+                return "Processing";
+            case "REJECTED":
                 return "Wrong Answer";
-            case "TLE":
-                return "Time Limit Exceeded";
-            case "COMPILATION_ERROR":
-                return "Compilation Error";
             default:
                 return status;
         }
     };
 
-    const getStatusColor = (status: string) => {
+    const getStatusClass = (status: string) => {
         switch (status) {
             case "AC":
                 return "text-green-600 dark:text-green-400";
@@ -82,10 +82,26 @@ export function UserSubmissionsPage() {
         }
     };
 
-    if (loading) {
+    if (loading && page === 0) {
         return (
-            <div className="flex justify-center py-10">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+            <div className="max-w-7xl mx-auto px-4 py-8">
+                <div className="flex justify-center py-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="max-w-7xl mx-auto px-4 py-8">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 text-center">
+                    <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                    <p className="text-gray-500 dark:text-gray-400">Failed to load submissions</p>
+                    <Link to={`/profile/${username}`} className="text-blue-600 dark:text-blue-400 hover:underline mt-4 inline-block">
+                        Back to profile
+                    </Link>
+                </div>
             </div>
         );
     }
@@ -95,99 +111,143 @@ export function UserSubmissionsPage() {
             <div className="mb-6">
                 <Link
                     to={`/profile/${username}`}
-                    className="flex items-center text-blue-600 dark:text-blue-400 hover:underline"
+                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
                 >
-                    <ArrowLeft className="w-4 h-4 mr-1" />
-                    Back to Profile
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to profile
                 </Link>
             </div>
 
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                    Submissions by {userDisplayName || username}
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400">
-                    View all problem submissions and their results
-                </p>
-            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+                <div className="p-6">
+                    <h1 className="text-2xl font-bold mb-6">{username}'s Submissions</h1>
 
-            {submissions.length === 0 ? (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
-                    <FileCode className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                    <p className="text-gray-500 dark:text-gray-400 text-lg">
-                        No submissions found
-                    </p>
-                    <p className="text-gray-400 dark:text-gray-500 mt-2">
-                        Start solving problems to see your submissions here
-                    </p>
-                </div>
-            ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Problem
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Status
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Language
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Runtime
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Memory
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Submitted
-                                </th>
-                            </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                            {submissions.map((submission) => (
-                                <tr
-                                    key={submission.id}
-                                    className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                >
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <Link
-                                            to={`/problem/${submission.problemId}`}
-                                            className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                    {submissions.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                            No submissions found
+                        </div>
+                    ) : (
+                        <>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                    <thead className="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            Problem
+                                        </th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            Status
+                                        </th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            Language
+                                        </th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            Time
+                                        </th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            Memory
+                                        </th>
+                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            Submitted
+                                        </th>
+                                        <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                    {submissions.map((submission) => (
+                                        <tr key={submission.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <Link
+                                                    to={`/problem/${submission.problemId}`}
+                                                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                                                >
+                                                    {submission.problemTitle}
+                                                </Link>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center gap-2">
+                                                    {getStatusIcon(submission.status)}
+                                                    <span className={`font-medium ${getStatusClass(submission.status)}`}>
+                                                            {getStatusText(submission.status)}
+                                                        </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                                {getLanguageName(submission.languageId)}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                {submission.time ? `${submission.time}s` : "-"}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                {submission.memory ? `${(submission.memory / 1024).toFixed(1)} MB` : "-"}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                {format(new Date(submission.createdAt), "MMM d, yyyy HH:mm")}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                                <Link
+                                                    to={`/submission/${submission.id}`}
+                                                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                                                >
+                                                    View Details
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Pagination */}
+                            {totalPages > 1 && (
+                                <div className="mt-6 flex items-center justify-between">
+                                    <div className="text-sm text-gray-700 dark:text-gray-300">
+                                        Showing {page * pageSize + 1} to {Math.min((page + 1) * pageSize, totalElements)} of {totalElements} submissions
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setPage(page - 1)}
+                                            disabled={page === 0}
                                         >
-                                            {submission.problemTitle}
-                                        </Link>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className={`flex items-center gap-2 ${getStatusColor(submission.status)}`}>
-                                            {getStatusIcon(submission.status)}
-                                            <span className="font-medium">
-                                                    {getStatusText(submission.status)}
-                                                </span>
+                                            <ChevronLeft className="h-4 w-4" />
+                                            Previous
+                                        </Button>
+                                        <div className="flex items-center gap-1">
+                                            {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                                                const pageNum = Math.max(0, Math.min(page - 2, totalPages - 5)) + i;
+                                                if (pageNum >= totalPages) return null;
+                                                return (
+                                                    <Button
+                                                        key={pageNum}
+                                                        variant={pageNum === page ? "default" : "outline"}
+                                                        size="sm"
+                                                        onClick={() => setPage(pageNum)}
+                                                    >
+                                                        {pageNum + 1}
+                                                    </Button>
+                                                );
+                                            })}
                                         </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-gray-100">
-                                        {getLanguageName(submission.languageId)}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-gray-100">
-                                        {submission.time ? `${submission.time.toFixed(2)}s` : "N/A"}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-gray-100">
-                                        {submission.memory ? `${submission.memory} KB` : "N/A"}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-gray-500 dark:text-gray-400">
-                                        {formatDistanceToNow(new Date(submission.createdAt), { addSuffix: true })}
-                                    </td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setPage(page + 1)}
+                                            disabled={page >= totalPages - 1}
+                                        >
+                                            Next
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
-            )}
+            </div>
         </div>
     );
 }

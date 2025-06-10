@@ -66,14 +66,27 @@ const submissionService = {
      * Get all submissions for a specific user
      *
      * @param {string} username - Username of the user
+     * @param {number} page - Page number (0-based)
+     * @param {number} size - Page size
+     * @param {string} sort - Sort field and direction
      * @returns {Promise<SubmissionResponseDto[]>} - Array of user's submissions
      */
-    getUserSubmissions: async (username: string): Promise<SubmissionResponseDto[]> => {
+    getUserSubmissions: async (
+        username: string,
+        page: number = 0,
+        size: number = 20,
+        sort: string = "createdAt,desc"
+    ): Promise<{
+        submissions: SubmissionResponseDto[];
+        totalPages: number;
+        totalElements: number;
+        currentPage: number;
+    }> => {
         try {
-            const response = await apiClient.get<{ submissions: SubmissionResponseDto[] }>(
-                `/submission/user/${username}`
+            const response = await apiClient.get(
+                `/submission/user/${username}?page=${page}&size=${size}&sort=${sort}`
             );
-            return response.data.submissions || [];
+            return response.data;
         } catch (error) {
             console.error("Failed to fetch user submissions", error);
             throw error;

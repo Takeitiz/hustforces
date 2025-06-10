@@ -51,9 +51,9 @@ const leaderboardService = {
         }
     },
 
-    getUserProblemStatuses: async (contestId: string, userId: string): Promise<Map<string, ProblemSubmissionStatusDto>> => {
+    getUserProblemStatuses: async (contestId: string, userId: string): Promise<{ [problemId: string]: ProblemSubmissionStatusDto }> => {
         try {
-            const response = await apiClient.get<Map<string, ProblemSubmissionStatusDto>>(
+            const response = await apiClient.get<{ [problemId: string]: ProblemSubmissionStatusDto }>(
                 `/leaderboards/contest/${contestId}/user/${userId}/problems`
             );
             return response.data;
