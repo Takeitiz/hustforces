@@ -63,6 +63,7 @@ interface CodeRoomState {
     removeParticipant: (userId: string) => void;
     updateParticipant: (userId: string, updates: Partial<ParticipantDto>) => void;
     setCurrentUser: (participant: ParticipantDto | null) => void;
+    cleanupDisconnectedParticipants: () => void;
 
     // Connection actions
     setConnected: (connected: boolean) => void;
@@ -147,33 +148,53 @@ const useCodeRoomStore = create<CodeRoomState>()(
             // Room actions
             setRoom: (room) => set({ room }),
 
+            // UPDATED: Fixed setRoomDetails to ensure proper state updates
             setRoomDetails: (details) => set((state) => {
+                // Create completely new Map instances
                 const participants = new Map<string, ParticipantDto>();
-                details.participants.forEach(p => participants.set(p.userId, p));
 
-                // Get current user from localStorage user object
+                // Deep clone participant objects
+                details.participants.forEach(p => {
+                    participants.set(p.userId, {
+                        ...p,
+                        cursorPosition: p.cursorPosition ? { ...p.cursorPosition } : undefined
+                    });
+                });
+
+                // Get current user from localStorage
                 const userStr = localStorage.getItem('user');
                 const currentUserId = userStr ? JSON.parse(userStr).id : null;
+                const currentUser = currentUserId
+                    ? participants.get(currentUserId) || null
+                    : null;
 
                 return {
-                    room: details.room,
+                    room: { ...details.room },
                     currentCode: details.currentCode,
                     originalCode: details.currentCode,
                     participants,
-                    currentUser: details.participants.find(p =>
-                        p.userId === currentUserId
-                    ) || null
+                    currentUser
                 };
             }),
 
             setCurrentCode: (code) => set({ currentCode: code }),
             setOriginalCode: (code) => set({ originalCode: code }),
 
-            // Participant actions
+            // UPDATED: Fixed addParticipant to ensure immutability
             addParticipant: (participant) => set((state) => {
                 const participants = new Map(state.participants);
-                participants.set(participant.userId, participant);
-                return { participants };
+                participants.set(participant.userId, { ...participant });
+
+                // Check if this is the current user
+                const userStr = localStorage.getItem('user');
+                const currentUserId = userStr ? JSON.parse(userStr).id : null;
+
+                return {
+                    participants,
+                    currentUser: participant.userId === currentUserId
+                        ? { ...participant }
+                        : state.currentUser
+                };
             }),
 
             removeParticipant: (userId) => set((state) => {
@@ -196,16 +217,54 @@ const useCodeRoomStore = create<CodeRoomState>()(
                 return { participants, cursors, typingUsers, remoteStreams };
             }),
 
+            // UPDATED: Fixed updateParticipant to ensure deep updates
             updateParticipant: (userId, updates) => set((state) => {
                 const participants = new Map(state.participants);
                 const participant = participants.get(userId);
+
                 if (participant) {
-                    participants.set(userId, { ...participant, ...updates });
+                    const updatedParticipant = {
+                        ...participant,
+                        ...updates,
+                        cursorPosition: updates.cursorPosition
+                            ? { ...updates.cursorPosition }
+                            : participant.cursorPosition
+                    };
+                    participants.set(userId, updatedParticipant);
+
+                    // Update currentUser if it's the same user
+                    const newState: Partial<CodeRoomState> = { participants };
+
+                    if (state.currentUser?.userId === userId) {
+                        newState.currentUser = updatedParticipant;
+                    }
+
+                    return newState;
                 }
+
                 return { participants };
             }),
 
             setCurrentUser: (participant) => set({ currentUser: participant }),
+
+            // NEW: Add cleanup method for participants
+            cleanupDisconnectedParticipants: () => set((state) => {
+                const participants = new Map<string, ParticipantDto>();
+                const now = Date.now();
+
+                state.participants.forEach((participant, userId) => {
+                    // Keep active participants and recently disconnected ones
+                    if (participant.status === 'ACTIVE' ||
+                        participant.status === 'IDLE' ||
+                        (participant.status === 'DISCONNECTED' &&
+                            state.cursors.get(userId)?.lastUpdate &&
+                            now - state.cursors.get(userId)!.lastUpdate < 30000)) {
+                        participants.set(userId, participant);
+                    }
+                });
+
+                return { participants };
+            }),
 
             // Connection actions
             setConnected: (connected) => set((prevState) => ({

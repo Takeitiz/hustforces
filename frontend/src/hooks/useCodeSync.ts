@@ -22,7 +22,8 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
         setCurrentCode,
         updateCursor,
         removeCursor,
-        setUserTyping
+        setUserTyping,
+        cursors
     } = useCodeRoomStore();
 
     // Refs for managing state
@@ -31,7 +32,77 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
     const isApplyingRemoteChange = useRef(false);
     const lastCursorPosition = useRef<CursorPositionDto | null>(null);
 
-    // Apply remote code change to editor
+    // Cursor position adjustment logic - NEW
+    const adjustCursorPosition = (
+        position: CursorPositionDto,
+        change: CodeChangeDto
+    ): CursorPositionDto => {
+        const { line, column } = position;
+        const { operation, startLine, startColumn, endLine, endColumn, text } = change;
+
+        let newLine = line;
+        let newColumn = column;
+
+        if (operation === 'insert') {
+            if (line > startLine || (line === startLine && column >= startColumn)) {
+                const lines = text.split('\n');
+                const linesDelta = lines.length - 1;
+
+                if (line === startLine) {
+                    if (linesDelta === 0) {
+                        // Single line insert
+                        newColumn = column + lines[0].length;
+                    } else {
+                        // Multi-line insert
+                        newLine = line + linesDelta;
+                        newColumn = lines[lines.length - 1].length + (column - startColumn);
+                    }
+                } else {
+                    newLine = line + linesDelta;
+                }
+            }
+        } else if (operation === 'delete' || operation === 'replace') {
+            if (line > endLine || (line === endLine && column > endColumn)) {
+                const linesDelta = endLine - startLine;
+
+                if (line === endLine) {
+                    newColumn = startColumn + (column - endColumn);
+                    newLine = startLine;
+                } else {
+                    newLine = line - linesDelta;
+                }
+            } else if (line > startLine || (line === startLine && column > startColumn)) {
+                // Cursor is within deleted range
+                newLine = startLine;
+                newColumn = startColumn;
+            }
+
+            // Handle replace by adding inserted text
+            if (operation === 'replace' && text) {
+                const lines = text.split('\n');
+                const linesDelta = lines.length - 1;
+
+                if (newLine === startLine) {
+                    if (linesDelta === 0) {
+                        newColumn = startColumn + lines[0].length;
+                    } else {
+                        newLine = startLine + linesDelta;
+                        newColumn = lines[lines.length - 1].length;
+                    }
+                } else {
+                    newLine = newLine + linesDelta;
+                }
+            }
+        }
+
+        return {
+            ...position,
+            line: Math.max(1, newLine),
+            column: Math.max(1, newColumn)
+        };
+    };
+
+    // Apply remote code change to editor - UPDATED WITH CURSOR ADJUSTMENT
     const applyRemoteChange = useCallback((change: CodeChangeDto) => {
         if (!editorRef.current || !change.userId || change.userId === currentUser?.userId) {
             return;
@@ -42,6 +113,20 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
         try {
             const model = editorRef.current.getModel();
             if (!model) return;
+
+            // Store current cursor positions
+            const cursorAdjustments: Array<{ userId: string; newPosition: CursorPositionDto; color: string }> = [];
+
+            cursors.forEach((cursorInfo, userId) => {
+                if (userId !== change.userId) {
+                    const adjustedPosition = adjustCursorPosition(cursorInfo.position, change);
+                    cursorAdjustments.push({
+                        userId,
+                        newPosition: adjustedPosition,
+                        color: cursorInfo.colorHex
+                    });
+                }
+            });
 
             const { operation, startLine, startColumn, endLine, endColumn, text } = change;
 
@@ -95,12 +180,17 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
                     break;
             }
 
+            // Apply cursor adjustments
+            cursorAdjustments.forEach(({ userId, newPosition, color }) => {
+                updateCursor(userId, newPosition, color);
+            });
+
             // Update local code state
             setCurrentCode(model.getValue());
         } finally {
             isApplyingRemoteChange.current = false;
         }
-    }, [currentUser, setCurrentCode]);
+    }, [currentUser, setCurrentCode, cursors, updateCursor]);
 
     // Send code change to server
     const sendCodeChange = useCallback((change: CodeChangeDto) => {
@@ -227,7 +317,7 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
         }
     }, [currentUser]);
 
-    // Set up WebSocket listeners for code sync
+    // Set up WebSocket listeners for code sync - UPDATED WITH CLEANUP
     useEffect(() => {
         const setupListeners = async () => {
             // Listen for code changes
@@ -256,10 +346,26 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
 
         // Cleanup
         return () => {
+            // Cancel any pending debounced calls
+            if (debouncedFlush) {
+                debouncedFlush.cancel();
+            }
+
+            // Clear typing timeout
             if (typingTimeoutRef.current) {
                 clearTimeout(typingTimeoutRef.current);
+                typingTimeoutRef.current = null;
             }
-            debouncedFlush.cancel();
+
+            // Send final typing status
+            if (currentUser) {
+                codeRoomWebSocketService.sendTypingStatus(false).catch(() => {
+                    // Ignore errors during cleanup
+                });
+            }
+
+            // Clear change queue
+            changeQueueRef.current = [];
         };
     }, [currentUser, applyRemoteChange, updateCursor, setUserTyping, debouncedFlush]);
 
@@ -331,7 +437,6 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
                     hoverMessage: { value: participant.username },
                     stickiness: 1,
                     zIndex: 100,
-                    // Custom CSS will use the color
                     inlineClassName: `cursor-${userId}`,
                 }
             });
@@ -352,7 +457,6 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
                     },
                     options: {
                         className: 'remote-selection',
-                        // Custom CSS will use the color with opacity
                         inlineClassName: `selection-${userId}`,
                     }
                 });
@@ -378,6 +482,9 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
         getDecoratedCode,
 
         // Direct access to editor ref if needed
-        editorRef
+        editorRef,
+
+        // Export for use in editor
+        isApplyingRemoteChange
     };
 }

@@ -12,6 +12,7 @@ interface CollaborativeEditorProps {
 
 export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
     const editorRef = useRef<any>(null);
+    const disposablesRef = useRef<any[]>([]);
     const decorationsRef = useRef<any[]>([]);
     const [isEditorReady, setIsEditorReady] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -22,16 +23,22 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
         currentCode,
         canEdit,
         forceSync,
-        getDecoratedCode
+        getDecoratedCode,
+        handleTypingIndicator,
+        isApplyingRemoteChange
     } = useCodeSync();
 
-    // Handle editor mount
+    // Handle editor mount - UPDATED WITH PROPER CLEANUP
     const handleEditorDidMount = (editor: any, monaco: any) => {
         editorRef.current = editor;
         setIsEditorReady(true);
 
-        // Initialize code sync
-        initializeEditor(editor);
+        // Clear any existing disposables
+        disposablesRef.current.forEach(d => d?.dispose?.());
+        disposablesRef.current = [];
+
+        // Store all disposables for cleanup
+        const disposables: any[] = [];
 
         // Configure editor options
         editor.updateOptions({
@@ -47,7 +54,13 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
             theme: 'vs-dark'
         });
 
-        // Define custom styles for remote cursors
+        // Initialize code sync
+        initializeEditor(editor);
+
+        // Store disposables
+        disposablesRef.current = disposables;
+
+        // Define custom theme
         monaco.editor.defineTheme('coderoom-dark', {
             base: 'vs-dark',
             inherit: true,
@@ -56,6 +69,25 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
         });
         monaco.editor.setTheme('coderoom-dark');
     };
+
+    // Cleanup on unmount - UPDATED
+    useEffect(() => {
+        return () => {
+            // Dispose all event listeners
+            disposablesRef.current.forEach(d => d?.dispose?.());
+            disposablesRef.current = [];
+
+            // Clean up editor instance
+            if (editorRef.current) {
+                const model = editorRef.current.getModel();
+                if (model) {
+                    model.dispose();
+                }
+                editorRef.current.dispose();
+                editorRef.current = null;
+            }
+        };
+    }, []);
 
     // Update decorations for remote cursors
     useEffect(() => {
@@ -122,42 +154,42 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
 
             // Cursor style
             styles.push(`
-        .cursor-${userId}::after {
-          content: '';
-          position: absolute;
-          width: 2px;
-          height: 100%;
-          background-color: ${color};
-          animation: blink 1s infinite;
-        }
-        
-        .cursor-${userId}::before {
-          content: '${participant.username}';
-          position: absolute;
-          top: -20px;
-          left: 0;
-          background-color: ${color};
-          color: white;
-          padding: 2px 6px;
-          border-radius: 3px;
-          font-size: 11px;
-          white-space: nowrap;
-          z-index: 1000;
-        }
-        
-        .selection-${userId} {
-          background-color: ${color}33 !important;
-        }
-      `);
+                .cursor-${userId}::after {
+                    content: '';
+                    position: absolute;
+                    width: 2px;
+                    height: 100%;
+                    background-color: ${color};
+                    animation: blink 1s infinite;
+                }
+                
+                .cursor-${userId}::before {
+                    content: '${participant.username}';
+                    position: absolute;
+                    top: -20px;
+                    left: 0;
+                    background-color: ${color};
+                    color: white;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    font-size: 11px;
+                    white-space: nowrap;
+                    z-index: 1000;
+                }
+                
+                .selection-${userId} {
+                    background-color: ${color}33 !important;
+                }
+            `);
         });
 
         // Typing animation
         styles.push(`
-      @keyframes blink {
-        0%, 50% { opacity: 1; }
-        51%, 100% { opacity: 0; }
-      }
-    `);
+            @keyframes blink {
+                0%, 50% { opacity: 1; }
+                51%, 100% { opacity: 0; }
+            }
+        `);
 
         // Apply styles
         const styleElement = document.createElement('style');
@@ -182,13 +214,13 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
             {/* Editor Header */}
             <div className="bg-gray-900 px-4 py-2 flex items-center justify-between border-b border-gray-800">
                 <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-400">
-            Language: <span className="text-white font-medium">{languageConfig.name}</span>
-          </span>
+                    <span className="text-sm text-gray-400">
+                        Language: <span className="text-white font-medium">{languageConfig.name}</span>
+                    </span>
                     {!canEdit && (
                         <span className="px-2 py-1 bg-yellow-900/50 text-yellow-400 text-xs rounded">
-              Read Only
-            </span>
+                            Read Only
+                        </span>
                     )}
                 </div>
 
@@ -260,10 +292,10 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
             {/* Status Bar */}
             <div className="bg-gray-900 px-4 py-1 flex items-center justify-between border-t border-gray-800 text-xs">
                 <div className="flex items-center gap-4 text-gray-400">
-          <span>
-            Ln {editorRef.current?.getPosition()?.lineNumber || 1},
-            Col {editorRef.current?.getPosition()?.column || 1}
-          </span>
+                    <span>
+                        Ln {editorRef.current?.getPosition()?.lineNumber || 1},
+                        Col {editorRef.current?.getPosition()?.column || 1}
+                    </span>
                     <span>{currentCode.split('\n').length} lines</span>
                 </div>
 
@@ -283,8 +315,8 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
                                     style={{ backgroundColor: cursorInfo.colorHex }}
                                 />
                                 <span className="text-gray-300">
-                  {participant.username} @ Ln {cursorInfo.position.line}
-                </span>
+                                    {participant.username} @ Ln {cursorInfo.position.line}
+                                </span>
                             </div>
                         );
                     })}

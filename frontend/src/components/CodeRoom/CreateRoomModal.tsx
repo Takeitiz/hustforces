@@ -7,25 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import useCodeRoomStore from '../../store/useCodeRoomStore';
 import { useCodeRoom } from '../../hooks/useCodeRoom';
 import { CreateCodeRoomRequest, LanguageId } from '../../types/codeRoom';
-import { Problem } from '../../types/problem';
+import { ProblemDto } from '../../types/problem';
 import { ContestDto } from '../../types/contest';
-import { apiClient } from '../../api/client';
-
-// Temporary problem service until it's implemented
-const problemService = {
-    getProblems: async () => {
-        const response = await apiClient.get<{ problems: Problem[] }>('/problems');
-        return response.data;
-    }
-};
-
-// Temporary contest service until it's implemented
-const contestService = {
-    getContests: async () => {
-        const response = await apiClient.get<ContestDto[]>('/contests');
-        return response.data;
-    }
-};
+import problemService from '../../service/problemService';
+import contestService from '../../service/contestService';
 
 interface CreateRoomModalProps {
     isOpen: boolean;
@@ -59,7 +44,7 @@ export function CreateRoomModal({
         initialCode: initialCode || ''
     });
 
-    const [problems, setProblems] = useState<Problem[]>([]);
+    const [problems, setProblems] = useState<ProblemDto[]>([]);
     const [contests, setContests] = useState<ContestDto[]>([]);
     const [loadingProblems, setLoadingProblems] = useState(false);
     const [loadingContests, setLoadingContests] = useState(false);
@@ -69,8 +54,8 @@ export function CreateRoomModal({
         const loadProblems = async () => {
             setLoadingProblems(true);
             try {
-                const response = await problemService.getProblems();
-                setProblems(response.problems || []);
+                const response = await problemService.getProblems(0, 100); // Get first 100 problems
+                setProblems(response.content || []);
             } catch (error) {
                 console.error('Failed to load problems:', error);
             } finally {
@@ -88,8 +73,9 @@ export function CreateRoomModal({
         const loadContests = async () => {
             setLoadingContests(true);
             try {
-                const response = await contestService.getContests();
-                setContests(response.filter(c => c.status === 'ACTIVE'));
+                // Use the actual contestService
+                const activeContests = await contestService.getActiveContests();
+                setContests(activeContests);
             } catch (error) {
                 console.error('Failed to load contests:', error);
             } finally {
@@ -268,11 +254,11 @@ export function CreateRoomModal({
                             formData.isPublic ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
                         }`}
                     >
-            <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    formData.isPublic ? 'translate-x-6' : 'translate-x-1'
-                }`}
-            />
+                        <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                formData.isPublic ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                        />
                     </button>
                 </div>
 
@@ -294,11 +280,11 @@ export function CreateRoomModal({
                                 formData.allowVoiceChat ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
                             }`}
                         >
-              <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      formData.allowVoiceChat ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-              />
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    formData.allowVoiceChat ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                            />
                         </button>
                     </div>
 
@@ -316,11 +302,11 @@ export function CreateRoomModal({
                                 formData.allowVideoChat ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
                             }`}
                         >
-              <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      formData.allowVideoChat ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-              />
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    formData.allowVideoChat ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                            />
                         </button>
                     </div>
 
@@ -338,11 +324,11 @@ export function CreateRoomModal({
                                 formData.allowScreenShare ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
                             }`}
                         >
-              <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      formData.allowScreenShare ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-              />
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    formData.allowScreenShare ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                            />
                         </button>
                     </div>
                 </div>

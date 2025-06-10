@@ -74,7 +74,7 @@ export function useCodeRoom() {
         }
     }, [navigate, setCreatingRoom, setRoom]);
 
-    // Join an existing room
+    // Join an existing room - UPDATED WITH FIXES
     const joinRoom = useCallback(async (roomCode: string) => {
         try {
             setJoiningRoom(true);
@@ -87,14 +87,30 @@ export function useCodeRoom() {
             const roomDetails = await codeRoomService.getRoomByCode(roomCode);
             setRoomDetails(roomDetails);
 
-            // Connect to WebSocket
+            // Get auth token
             const token = getToken();
+
+            // IMPORTANT: Set up listeners BEFORE connecting
+            const listenersPromise = setupWebSocketListeners();
+
+            // Connect to WebSocket
             await codeRoomWebSocketService.connect(roomDetails.room.id, token);
 
-            // Set up WebSocket event listeners
-            await setupWebSocketListeners();
+            // Wait for listeners to be set up
+            await listenersPromise;
 
-            // Request initial sync
+            // Ensure connection is established
+            let retries = 0;
+            while (!codeRoomWebSocketService.isConnected() && retries < 10) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                retries++;
+            }
+
+            if (!codeRoomWebSocketService.isConnected()) {
+                throw new Error('Failed to establish WebSocket connection');
+            }
+
+            // Request initial sync only after everything is ready
             await codeRoomWebSocketService.requestSync();
 
             setConnected(true);
@@ -260,7 +276,7 @@ export function useCodeRoom() {
         }
     }, [room, navigate]);
 
-    // Set up WebSocket event listeners
+    // Set up WebSocket event listeners - UPDATED WITH ASYNC HANDLING
     const setupWebSocketListeners = useCallback(async () => {
         // Handle participant events
         await codeRoomWebSocketService.onParticipantEvents({

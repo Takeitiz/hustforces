@@ -16,6 +16,11 @@ class WebRTCService {
     private screenStream: MediaStream | null = null;
     private config: RTCConfiguration | null = null;
 
+    // Connection state tracking - NEW
+    private connectionStates: Map<string, RTCPeerConnectionState> = new Map();
+    private connectionRetries: Map<string, number> = new Map();
+    private readonly MAX_RETRIES = 3;
+
     // Callbacks
     private onRemoteStreamCallback: MediaStreamCallback | null = null;
     private onRemoteTrackCallback: TrackCallback | null = null;
@@ -146,11 +151,16 @@ class WebRTCService {
         pc.onconnectionstatechange = () => {
             console.log(`Connection state for ${remoteUserId}: ${pc.connectionState}`);
 
+            // Track connection state
+            this.connectionStates.set(remoteUserId, pc.connectionState);
+
             if (this.onConnectionStateChangeCallback) {
                 this.onConnectionStateChangeCallback(remoteUserId, pc.connectionState);
             }
 
-            if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+            if (pc.connectionState === 'failed') {
+                this.handleConnectionFailure(remoteUserId);
+            } else if (pc.connectionState === 'closed') {
                 this.removePeerConnection(remoteUserId);
                 if (this.onPeerDisconnectedCallback) {
                     this.onPeerDisconnectedCallback(remoteUserId);
@@ -206,37 +216,107 @@ class WebRTCService {
     }
 
     /**
-     * Handle incoming WebRTC signal
+     * Handle incoming WebRTC signal - UPDATED WITH ERROR HANDLING
      */
     async handleSignal(signal: WebRTCSignalDto): Promise<void> {
         const { type, fromUserId, data } = signal;
 
         if (!fromUserId) {
-            console.error('No fromUserId in signal');
-            return;
+            console.error('Invalid signal: missing fromUserId');
+            throw new Error('Invalid signal: missing fromUserId');
         }
 
-        const pc = await this.getOrCreatePeerConnection(fromUserId);
+        try {
+            const pc = await this.getOrCreatePeerConnection(fromUserId);
 
-        switch (type) {
-            case 'offer':
-                await pc.setRemoteDescription(new RTCSessionDescription(data));
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
-                this.sendSignal({
-                    type: 'answer',
-                    toUserId: fromUserId,
-                    data: answer
-                });
-                break;
+            switch (type) {
+                case 'offer':
+                    try {
+                        await pc.setRemoteDescription(new RTCSessionDescription(data));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        this.sendSignal({
+                            type: 'answer',
+                            toUserId: fromUserId,
+                            data: answer
+                        });
+                    } catch (error) {
+                        console.error(`Failed to handle offer from ${fromUserId}:`, error);
+                        // Notify peer about the failure
+                        this.sendSignal({
+                            type: 'error' as any,
+                            toUserId: fromUserId,
+                            data: { error: 'Failed to process offer' }
+                        });
+                        throw error;
+                    }
+                    break;
 
-            case 'answer':
-                await pc.setRemoteDescription(new RTCSessionDescription(data));
-                break;
+                case 'answer':
+                    try {
+                        await pc.setRemoteDescription(new RTCSessionDescription(data));
+                    } catch (error) {
+                        console.error(`Failed to handle answer from ${fromUserId}:`, error);
+                        this.handleConnectionFailure(fromUserId);
+                        throw error;
+                    }
+                    break;
 
-            case 'ice-candidate':
-                await pc.addIceCandidate(new RTCIceCandidate(data));
-                break;
+                case 'ice-candidate':
+                    try {
+                        if (pc.remoteDescription) {
+                            await pc.addIceCandidate(new RTCIceCandidate(data));
+                        } else {
+                            // Queue ICE candidate if remote description not set yet
+                            console.warn('Queuing ICE candidate - remote description not ready');
+                            // You could implement ICE candidate queuing here if needed
+                        }
+                    } catch (error) {
+                        console.error(`Failed to add ICE candidate from ${fromUserId}:`, error);
+                        // ICE failures are common, don't throw
+                    }
+                    break;
+
+                case 'error' as any:
+                    console.error(`Received error from ${fromUserId}:`, data);
+                    this.handleConnectionFailure(fromUserId);
+                    break;
+            }
+        } catch (error) {
+            console.error(`Failed to handle ${type} signal from ${fromUserId}:`, error);
+            this.handleConnectionFailure(fromUserId);
+            throw error;
+        }
+    }
+
+    /**
+     * Handle connection failure with retry logic - NEW
+     */
+    private async handleConnectionFailure(userId: string): Promise<void> {
+        const retries = this.connectionRetries.get(userId) || 0;
+
+        if (retries < this.MAX_RETRIES) {
+            console.log(`Retrying connection to ${userId} (attempt ${retries + 1}/${this.MAX_RETRIES})`);
+            this.connectionRetries.set(userId, retries + 1);
+
+            // Clean up existing connection
+            this.removePeerConnection(userId);
+
+            // Wait before retry
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1)));
+
+            // Retry connection
+            try {
+                await this.createOffer(userId);
+            } catch (error) {
+                console.error(`Retry failed for ${userId}:`, error);
+            }
+        } else {
+            console.error(`Max retries reached for ${userId}, giving up`);
+            this.removePeerConnection(userId);
+            if (this.onPeerDisconnectedCallback) {
+                this.onPeerDisconnectedCallback(userId);
+            }
         }
     }
 
@@ -342,6 +422,10 @@ class WebRTCService {
             peer.remoteStream.getTracks().forEach(track => track.stop());
             this.peerConnections.delete(userId);
         }
+
+        // Clean up retry count
+        this.connectionRetries.delete(userId);
+        this.connectionStates.delete(userId);
     }
 
     /**
@@ -361,6 +445,10 @@ class WebRTCService {
         this.peerConnections.forEach((_, userId) => {
             this.removePeerConnection(userId);
         });
+
+        // Clear state maps
+        this.connectionRetries.clear();
+        this.connectionStates.clear();
 
         // Clear callbacks
         this.onRemoteStreamCallback = null;

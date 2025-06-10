@@ -10,6 +10,7 @@ import useCodeRoomStore from '../../store/useCodeRoomStore';
 import { useCodeRoom } from '../../hooks/useCodeRoom';
 import { useWebRTCIntegration } from '../../hooks/useWebRTCIntegration';
 import codeRoomWebSocketService from '../../service/codeRoomWebSocketService';
+import { toast } from 'react-toastify';
 
 export function CodeRoomInterface() {
     const { roomCode } = useParams<{ roomCode: string }>();
@@ -47,7 +48,7 @@ export function CodeRoomInterface() {
 
     const [isWebRTCReady, setIsWebRTCReady] = useState(false);
 
-    // Join room on mount
+    // Join room on mount - UPDATED WITHOUT setIsInitializing
     useEffect(() => {
         if (!roomCode) {
             navigate('/code-rooms');
@@ -56,23 +57,25 @@ export function CodeRoomInterface() {
 
         const initRoom = async () => {
             try {
-                setIsInitializing(true);
-                // Join the room
+                // Join the room (initialization is handled internally)
                 const roomDetails = await joinRoom(roomCode);
 
                 // Initialize WebRTC if media is allowed
-                if (roomDetails.room.allowVoiceChat || roomDetails.room.allowVideoChat || roomDetails.room.allowScreenShare) {
-                    await initializeWebRTC(roomDetails.room.id);
-                    setIsWebRTCReady(true);
-
-                    // We'll connect to participants in the next useEffect
-                    // after WebSocket listeners are fully set up
+                if (roomDetails.room.allowVoiceChat ||
+                    roomDetails.room.allowVideoChat ||
+                    roomDetails.room.allowScreenShare) {
+                    try {
+                        await initializeWebRTC(roomDetails.room.id);
+                        setIsWebRTCReady(true);
+                    } catch (error) {
+                        console.error('WebRTC initialization failed:', error);
+                        toast.warning('Voice/Video features unavailable');
+                        // Continue without WebRTC
+                    }
                 }
             } catch (error) {
                 console.error('Failed to join room:', error);
                 navigate('/code-rooms');
-            } finally {
-                setIsInitializing(false);
             }
         };
 
@@ -80,37 +83,71 @@ export function CodeRoomInterface() {
 
         // Cleanup on unmount
         return () => {
-            // Always clean up regardless of connection state
-            codeRoomWebSocketService.disconnect();
-            cleanupWebRTC();
-            reset();
+            // Use Promise to handle async cleanup
+            const cleanup = async () => {
+                try {
+                    await codeRoomWebSocketService.disconnect();
+                    cleanupWebRTC();
+                    reset();
+                } catch (error) {
+                    console.error('Cleanup error:', error);
+                }
+            };
+
+            cleanup();
         };
     }, [roomCode]);
 
-    // Handle new participants joining (for WebRTC)
+    // Handle WebRTC connections for existing participants - UPDATED
+    useEffect(() => {
+        if (!isWebRTCReady || !currentUser || !room) return;
+
+        const connectToExistingParticipants = async () => {
+            // Wait a bit to ensure WebSocket is fully ready
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Connect to existing participants
+            const participantsArray = Array.from(participants.values());
+
+            for (const participant of participantsArray) {
+                if (participant.userId !== currentUser.userId &&
+                    participant.status === 'ACTIVE') {
+                    try {
+                        await connectToUser(participant.userId);
+                        // Small delay between connections to avoid overwhelming
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    } catch (error) {
+                        console.error(`Failed to connect to ${participant.username}:`, error);
+                    }
+                }
+            }
+        };
+
+        connectToExistingParticipants();
+    }, [isWebRTCReady, currentUser, room?.id]); // Only depend on room.id, not participants
+
+    // Handle new participants joining separately - UPDATED
     useEffect(() => {
         if (!isWebRTCReady || !currentUser) return;
 
-        // Connect to existing participants
-        participants.forEach(participant => {
-            if (participant.userId !== currentUser.userId) {
-                connectToUser(participant.userId);
-            }
-        });
-
         const handleNewParticipant = async () => {
             await codeRoomWebSocketService.onParticipantEvents({
-                onJoined: (event) => {
+                onJoined: async (event) => {
                     if (event.participant.userId !== currentUser.userId) {
-                        // Only the existing participants initiate connection to new participant
-                        connectToUser(event.participant.userId);
+                        // Wait a bit for the new user to set up their WebRTC
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        try {
+                            await connectToUser(event.participant.userId);
+                        } catch (error) {
+                            console.error(`Failed to connect to new participant:`, error);
+                        }
                     }
                 }
             });
         };
 
         handleNewParticipant();
-    }, [isWebRTCReady, currentUser, participants, connectToUser]);
+    }, [isWebRTCReady, currentUser, connectToUser]);
 
     // Handle leave room
     const handleLeaveRoom = async () => {
@@ -174,12 +211,12 @@ export function CodeRoomInterface() {
                     <div className="flex items-center gap-4">
                         <h1 className="text-xl font-semibold">{room.name}</h1>
                         <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-sm font-mono">
-              #{room.roomCode}
-            </span>
+                            #{room.roomCode}
+                        </span>
                         {room.problemTitle && (
                             <span className="text-sm text-gray-600 dark:text-gray-400">
-                Problem: {room.problemTitle}
-              </span>
+                                Problem: {room.problemTitle}
+                            </span>
                         )}
                     </div>
 
@@ -229,8 +266,8 @@ export function CodeRoomInterface() {
                         >
                             <Users size={18} />
                             <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {participants.size}
-              </span>
+                                {participants.size}
+                            </span>
                         </Button>
 
                         <Button

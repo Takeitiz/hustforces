@@ -8,6 +8,7 @@ import { Button } from '../ui/Button';
 import useCodeRoomStore from '../../store/useCodeRoomStore';
 import { useMediaDevices } from '../../hooks/useMediaDevices';
 import { useWebRTCIntegration } from '../../hooks/useWebRTCIntegration';
+import { toast } from 'react-toastify';
 
 interface MediaPanelProps {
     isFullscreen?: boolean;
@@ -52,16 +53,19 @@ export function MediaPanel({ isFullscreen = false, onToggleFullscreen }: MediaPa
     const [isConnecting, setIsConnecting] = useState(true);
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const audioLevelIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Initialize media on mount
+    // Initialize media on mount - UPDATED WITH PROPER CLEANUP
     useEffect(() => {
-        let isMounted = true; // Flag to track component mount state
+        let isMounted = true;
+        let mediaCleanupInProgress = false;
 
         const initMedia = async () => {
-            if (!room) return;
+            if (!room || mediaCleanupInProgress) return;
 
             try {
-                if (isMounted) setIsConnecting(true);
+                setIsConnecting(true);
 
                 // Get media stream if voice/video is allowed
                 if (room.allowVoiceChat || room.allowVideoChat) {
@@ -70,7 +74,7 @@ export function MediaPanel({ isFullscreen = false, onToggleFullscreen }: MediaPa
                         room.allowVideoChat && localMediaState.isVideoOn
                     );
 
-                    if (stream && isMounted) {
+                    if (stream && isMounted && !mediaCleanupInProgress) {
                         setLocalStream(stream);
 
                         // Set initial media state
@@ -83,8 +87,13 @@ export function MediaPanel({ isFullscreen = false, onToggleFullscreen }: MediaPa
                 }
             } catch (error) {
                 console.error('Failed to initialize media:', error);
+                if (isMounted) {
+                    toast.error('Failed to access camera/microphone');
+                }
             } finally {
-                if (isMounted) setIsConnecting(false);
+                if (isMounted) {
+                    setIsConnecting(false);
+                }
             }
         };
 
@@ -92,10 +101,33 @@ export function MediaPanel({ isFullscreen = false, onToggleFullscreen }: MediaPa
 
         // Cleanup function
         return () => {
-            isMounted = false; // Update flag when component unmounts
-            stopAllMedia();
+            isMounted = false;
+            mediaCleanupInProgress = true;
+
+            // Stop all tracks immediately
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    track.stop();
+                    track.enabled = false;
+                });
+            }
+
+            // Clean up audio context
+            if (audioContextRef.current?.state !== 'closed') {
+                audioContextRef.current?.close();
+            }
+
+            // Clear intervals
+            if (audioLevelIntervalRef.current) {
+                clearInterval(audioLevelIntervalRef.current);
+            }
+
+            // Schedule async cleanup
+            Promise.resolve().then(() => {
+                stopAllMedia();
+            });
         };
-    }, [room]);
+    }, [room?.id]); // Only depend on room.id to avoid re-runs
 
     // Update local video stream
     useEffect(() => {
@@ -154,6 +186,7 @@ export function MediaPanel({ isFullscreen = false, onToggleFullscreen }: MediaPa
             }
         } catch (error) {
             console.error('Failed to toggle screen share:', error);
+            toast.error('Failed to share screen');
         }
     };
 
@@ -200,8 +233,8 @@ export function MediaPanel({ isFullscreen = false, onToggleFullscreen }: MediaPa
                 <div className="flex items-center gap-2">
                     <Users size={20} className="text-gray-400" />
                     <span className="text-white font-medium">
-            {videoParticipants.length} participant{videoParticipants.length !== 1 ? 's' : ''} with video
-          </span>
+                        {videoParticipants.length} participant{videoParticipants.length !== 1 ? 's' : ''} with video
+                    </span>
                 </div>
 
                 <div className="flex items-center gap-2">
