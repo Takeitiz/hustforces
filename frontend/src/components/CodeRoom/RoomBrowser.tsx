@@ -4,7 +4,7 @@ import { Search, Users, Globe, Lock, Clock, ArrowRight, Plus, Hash } from 'lucid
 import { Button } from '../ui/Button';
 import { CreateRoomModal } from './CreateRoomModal';
 import { JoinRoomModal } from './JoinRoomModal';
-import useCodeRoomStore from '../../store/useCodeRoomStore';
+import useCodeRoomStore from '../../contexts/CodeRoomContext';
 import codeRoomService from '../../service/codeRoomService';
 import { CodeRoomDto } from '../../types/codeRoom';
 import { formatDistanceToNow } from 'date-fns';

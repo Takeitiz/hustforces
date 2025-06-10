@@ -4,7 +4,7 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select';
-import useCodeRoomStore from '../../store/useCodeRoomStore';
+import useCodeRoomStore from '../../contexts/CodeRoomContext';
 import { useCodeRoom } from '../../hooks/useCodeRoom';
 import { CreateCodeRoomRequest, LanguageId } from '../../types/codeRoom';
 import { ProblemDto } from '../../types/problem';

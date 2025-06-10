@@ -1,6 +1,6 @@
 import React from 'react';
 import { Crown, UserCheck, Eye, MoreVertical, Mic, MicOff, Video, VideoOff, Monitor, WifiOff } from 'lucide-react';
-import useCodeRoomStore from '../../store/useCodeRoomStore';
+import useCodeRoomStore from '../../contexts/CodeRoomContext';
 import { useCodeRoom } from '../../hooks/useCodeRoom';
 import { ParticipantRole, ParticipantStatus } from '../../types/codeRoom';
 

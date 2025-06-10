@@ -5,7 +5,7 @@ import {
     Settings, Users
 } from 'lucide-react';
 import { Button } from '../ui/Button';
-import useCodeRoomStore from '../../store/useCodeRoomStore';
+import useCodeRoomStore from '../../contexts/CodeRoomContext';
 import { useMediaDevices } from '../../hooks/useMediaDevices';
 import { useWebRTCIntegration } from '../../hooks/useWebRTCIntegration';
 import { toast } from 'react-toastify';
@@ -25,7 +25,6 @@ export function MediaPanel({ isFullscreen = false, onToggleFullscreen }: MediaPa
         localStream,
         remoteStreams,
         setLocalStream,
-        addRemoteStream
     } = useCodeRoomStore();
 
     const {

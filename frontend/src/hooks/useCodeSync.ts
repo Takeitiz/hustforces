@@ -1,6 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { debounce } from 'lodash';
-import useCodeRoomStore from '../store/useCodeRoomStore';
+import useCodeRoomStore from '../contexts/CodeRoomContext';
 import codeRoomWebSocketService from '../service/codeRoomWebSocketService';
 import { CodeChangeDto, CursorPositionDto } from '../types/codeRoom';
 
@@ -21,9 +21,10 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
         canEdit,
         setCurrentCode,
         updateCursor,
-        removeCursor,
+        // removeCursor is not used in this hook, so don't destructure it
         setUserTyping,
-        cursors
+        cursors,
+        participants
     } = useCodeRoomStore();
 
     // Refs for managing state
@@ -413,13 +414,12 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
         if (!editorRef.current) return [];
 
         const decorations: any[] = [];
-        const cursors = useCodeRoomStore.getState().cursors;
 
         cursors.forEach((cursorInfo, userId) => {
             if (userId === currentUser?.userId) return;
 
-            const { position, colorHex } = cursorInfo;
-            const participant = useCodeRoomStore.getState().participants.get(userId);
+            const { position } = cursorInfo;
+            const participant = participants.get(userId);
 
             if (!participant) return;
 
@@ -464,7 +464,7 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
         });
 
         return decorations;
-    }, [currentUser]);
+    }, [currentUser, cursors, participants]);
 
     return {
         // Editor setup
@@ -476,15 +476,10 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
 
         // Actions
         forceSync,
-        handleTypingIndicator,
 
         // Decorations
         getDecoratedCode,
 
-        // Direct access to editor ref if needed
-        editorRef,
-
-        // Export for use in editor
-        isApplyingRemoteChange
+        // Only return what's actually used
     };
 }

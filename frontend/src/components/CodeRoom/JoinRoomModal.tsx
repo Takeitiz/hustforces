@@ -4,7 +4,7 @@ import { Hash, ArrowRight, Users } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
-import useCodeRoomStore from '../../store/useCodeRoomStore';
+import useCodeRoomStore from '../../contexts/CodeRoomContext';
 import { useCodeRoom } from '../../hooks/useCodeRoom';
 import codeRoomService from '../../service/codeRoomService';
 import { toast } from 'react-toastify';

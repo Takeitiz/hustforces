@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import useCodeRoomStore from '../store/useCodeRoomStore';
+import useCodeRoomStore from '../contexts/CodeRoomContext';
 import codeRoomService from '../service/codeRoomService';
 import codeRoomWebSocketService from '../service/codeRoomWebSocketService';
 import authService from '../service/authService';
@@ -276,7 +276,7 @@ export function useCodeRoom() {
         }
     }, [room, navigate]);
 
-    // Set up WebSocket event listeners - UPDATED WITH ASYNC HANDLING
+    // Set up WebSocket event listeners - UPDATED TO USE CURRENT STORE VALUES
     const setupWebSocketListeners = useCallback(async () => {
         // Handle participant events
         await codeRoomWebSocketService.onParticipantEvents({
@@ -285,8 +285,8 @@ export function useCodeRoom() {
                 toast.info(`${event.participant.username} joined the room`);
             },
             onLeft: (event) => {
-                const currentParticipants = useCodeRoomStore.getState().participants;
-                const participant = currentParticipants.get(event.userId);
+                // Get current participant info before removing
+                const participant = participants.get(event.userId);
                 if (participant) {
                     removeParticipant(event.userId);
                     toast.info(`${participant.username} left the room`);
@@ -297,8 +297,7 @@ export function useCodeRoom() {
             },
             onRoleChange: (event) => {
                 updateParticipant(event.userId, { role: event.newRole });
-                const currentParticipants = useCodeRoomStore.getState().participants;
-                const participant = currentParticipants.get(event.userId);
+                const participant = participants.get(event.userId);
                 if (participant) {
                     toast.info(`${participant.username}'s role changed to ${event.newRole}`);
                 }
@@ -307,16 +306,15 @@ export function useCodeRoom() {
 
         // Handle room status updates
         await codeRoomWebSocketService.onRoomStatusUpdate((event) => {
-            const currentRoom = useCodeRoomStore.getState().room;
             if ('message' in event) {
                 // Room deleted
                 toast.error(event.message);
                 reset();
                 navigate('/code-rooms');
-            } else if (currentRoom) {
+            } else if (room) {
                 // Room closed
                 toast.info('Room has been closed');
-                setRoom({ ...currentRoom, status: CodeRoomStatus.COMPLETED });
+                setRoom({ ...room, status: CodeRoomStatus.COMPLETED });
             }
         });
 
@@ -335,8 +333,11 @@ export function useCodeRoom() {
 
         // Handle sync response
         await codeRoomWebSocketService.onSyncResponse((response) => {
+            // Import the store hook inside the callback to get current state
+            const store = useCodeRoomStore();
+
             // Update current code and participants
-            useCodeRoomStore.getState().setCurrentCode(response.currentCode);
+            store.setCurrentCode(response.currentCode);
 
             // Update participants
             response.participants.forEach(participant => {
@@ -355,13 +356,12 @@ export function useCodeRoom() {
 
         // Handle submission notifications
         await codeRoomWebSocketService.onCodeSubmitted((event) => {
-            const currentParticipants = useCodeRoomStore.getState().participants;
-            const participant = currentParticipants.get(event.userId);
+            const participant = participants.get(event.userId);
             if (participant) {
                 toast.info(`${participant.username} submitted code`);
             }
         });
-    }, [navigate, reset, setRoom, addParticipant, removeParticipant, updateParticipant, setSyncing, setConnectionError]);
+    }, [navigate, reset, setRoom, addParticipant, removeParticipant, updateParticipant, setSyncing, setConnectionError, room, participants]);
 
     // Handle connection state changes
     useEffect(() => {

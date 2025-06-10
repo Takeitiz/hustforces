@@ -6,7 +6,7 @@ import { CollaborativeEditor } from './CollaborativeEditor';
 import { MediaPanel } from './MediaPanel';
 import { ParticipantsSidebar } from './ParticipantsSidebar';
 import { RoomSettingsModal } from './RoomSettingsModal';
-import useCodeRoomStore from '../../store/useCodeRoomStore';
+import useCodeRoomStore from '../../contexts/CodeRoomContext';
 import { useCodeRoom } from '../../hooks/useCodeRoom';
 import { useWebRTCIntegration } from '../../hooks/useWebRTCIntegration';
 import codeRoomWebSocketService from '../../service/codeRoomWebSocketService';

@@ -3,7 +3,7 @@ import MonacoEditor from 'react-monaco-editor';
 import { Loader2, Save, Play, Copy, Check } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useCodeSync } from '../../hooks/useCodeSync';
-import useCodeRoomStore from '../../store/useCodeRoomStore';
+import useCodeRoomStore from '../../contexts/CodeRoomContext';
 import { LanguageId } from '../../types/codeRoom';
 
 interface CollaborativeEditorProps {
@@ -24,8 +24,6 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
         canEdit,
         forceSync,
         getDecoratedCode,
-        handleTypingIndicator,
-        isApplyingRemoteChange
     } = useCodeSync();
 
     // Handle editor mount - UPDATED WITH PROPER CLEANUP
