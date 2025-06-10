@@ -5,6 +5,7 @@ import com.hust.hustforces.model.dto.contest.CreateContestRequest;
 import com.hust.hustforces.model.dto.contest.UpdateContestRequest;
 import com.hust.hustforces.service.ContestService;
 import com.hust.hustforces.service.LeaderboardService;
+import com.hust.hustforces.service.impl.ContestFinalizationService;
 import com.hust.hustforces.utils.CurrentUserUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -28,6 +30,7 @@ public class AdminContestController {
     private final ContestService contestService;
     private final LeaderboardService leaderboardService;
     private final CurrentUserUtil currentUserUtil;
+    private final ContestFinalizationService finalizationService;
 
     @GetMapping
     public ResponseEntity<Page<ContestDto>> getAllContests(
@@ -98,5 +101,32 @@ public class AdminContestController {
         log.info("Rebuilding leaderboard for contest: {}", contestId);
         leaderboardService.rebuildLeaderboard(contestId);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Manually finalize a contest
+     */
+    @PostMapping("/{contestId}/finalize")
+    public ResponseEntity<Map<String, String>> finalizeContest(@PathVariable String contestId) {
+        log.info("Admin request to finalize contest: {}", contestId);
+
+        try {
+            finalizationService.manuallyFinalizeContest(contestId);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "Contest finalized successfully");
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error finalizing contest {}: {}", contestId, e.getMessage());
+
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+
+            return ResponseEntity.badRequest().body(response);
+        }
     }
 }

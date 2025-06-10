@@ -105,4 +105,27 @@ public interface ContestRepository extends JpaRepository<Contest, String> {
             "WHERE c.id = :contestId AND c.hidden = false " +
             "AND c.startTime <= :now AND c.endTime > :now")
     boolean isContestActive(@Param("contestId") String contestId, @Param("now") LocalDateTime now);
+
+    /**
+     * Find contests that have ended but not finalized
+     */
+    @Query("SELECT c FROM Contest c WHERE " +
+            "c.hidden = false AND " +
+            "c.finalized = false AND " +
+            "c.endTime > :afterTime AND " +
+            "c.endTime <= :beforeTime " +
+            "ORDER BY c.endTime")
+    List<Contest> findEndedUnfinalizedContests(
+            @Param("afterTime") LocalDateTime afterTime,
+            @Param("beforeTime") LocalDateTime beforeTime
+    );
+
+    /**
+     * Find finalized contests for historical viewing
+     */
+    @Query("SELECT c FROM Contest c WHERE " +
+            "c.hidden = false AND " +
+            "c.finalized = true " +
+            "ORDER BY c.endTime DESC")
+    Page<Contest> findFinalizedContests(Pageable pageable);
 }

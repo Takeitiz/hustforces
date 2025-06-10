@@ -16,7 +16,8 @@ import java.util.List;
 @Table(name = "Contest", indexes = {
         @Index(name = "idx_contest_hidden_start", columnList = "hidden, start_time DESC"),
         @Index(name = "idx_contest_times", columnList = "start_time, end_time"),
-        @Index(name = "idx_contest_title", columnList = "title")
+        @Index(name = "idx_contest_title", columnList = "title"),
+        @Index(name = "idx_contest_finalized", columnList = "is_finalized, end_time")
 })
 @Data
 @NoArgsConstructor
@@ -59,4 +60,15 @@ public class Contest extends BaseEntity {
     @JsonIgnore
     private List<ContestSubmission> contestSubmissions = new ArrayList<>();
 
+    @Column(name = "is_finalized", nullable = false)
+    private boolean finalized = false;
+
+    @Column(name = "finalized_at")
+    private LocalDateTime finalizedAt;
+
+    @Column(name = "total_participants")
+    private Integer totalParticipants = 0;
+
+    @Column(name = "finalization_error")
+    private String finalizationError;
 }

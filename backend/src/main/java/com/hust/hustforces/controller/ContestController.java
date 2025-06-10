@@ -6,6 +6,7 @@ import com.hust.hustforces.model.entity.Contest;
 import com.hust.hustforces.repository.ContestPointsRepository;
 import com.hust.hustforces.repository.ContestRepository;
 import com.hust.hustforces.service.ContestService;
+import com.hust.hustforces.service.LeaderboardService;
 import com.hust.hustforces.utils.CurrentUserUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,8 @@ public class ContestController {
     private final CurrentUserUtil currentUserUtil;
     private final ContestRepository contestRepository;
     private final ContestPointsRepository contestPointsRepository;
+    private final LeaderboardService leaderboardService;
+
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ContestDto> createContest(@Valid @RequestBody CreateContestRequest request) {
@@ -160,5 +163,22 @@ public class ContestController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{contestId}/historical-leaderboard")
+    public ResponseEntity<List<ContestLeaderboardEntryDto>> getHistoricalLeaderboard(
+            @PathVariable String contestId) {
+
+        Contest contest = contestRepository.findById(contestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
+
+        if (!contest.isFinalized()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        List<ContestLeaderboardEntryDto> leaderboard =
+                leaderboardService.getLeaderboard(contestId);
+
+        return ResponseEntity.ok(leaderboard);
     }
 }

@@ -1,6 +1,7 @@
 package com.hust.hustforces.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.contest.ContestLeaderboardEntryDto;
@@ -33,6 +34,7 @@ public class LeaderboardServiceImpl implements LeaderboardService {
     private final ContestSubmissionRepository contestSubmissionRepository;
     private final SubmissionRepository submissionRepository;
     private final ObjectMapper objectMapper;
+    private final ContestPointsRepository contestPointsRepository;
 
     // Cache for pending score updates to be processed in batch
     private final Map<String, Map<String, Double>> pendingScoreUpdates = new ConcurrentHashMap<>();
@@ -75,9 +77,14 @@ public class LeaderboardServiceImpl implements LeaderboardService {
         log.info("Updating score for user {} in contest {} for problem {}: {} points",
                 userId, contestId, problemId, points);
 
-        // Validate contest exists
-        contestRepository.findById(contestId)
+        // Check if contest is already finalized
+        Contest contest = contestRepository.findById(contestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
+
+        if (contest.isFinalized()) {
+            log.warn("Attempt to update score for finalized contest {}", contestId);
+            throw new IllegalStateException("Cannot update scores for finalized contest");
+        }
 
         // Get user details
         userRepository.findById(userId)
@@ -126,6 +133,7 @@ public class LeaderboardServiceImpl implements LeaderboardService {
         publishUserUpdate(contestId, userId);
         publishLeaderboardUpdate(contestId);
 
+        updateDatabaseScore(contestId, userId, totalPoints, problemId);
         return newRank;
     }
 
@@ -202,23 +210,17 @@ public class LeaderboardServiceImpl implements LeaderboardService {
     public List<ContestLeaderboardEntryDto> getLeaderboard(String contestId) {
         log.info("Getting full leaderboard for contest {}", contestId);
 
-        // Check if we have a completed contest with cached standings
-        if (cacheService.isContestCompleted(contestId)) {
-            String cachedStandings = cacheService.getContestStandings(contestId);
-            if (cachedStandings != null) {
-                try {
-                    LeaderboardPageDto standings = objectMapper.readValue(cachedStandings, LeaderboardPageDto.class);
-                    return standings.getEntries();
-                } catch (JsonProcessingException e) {
-                    log.error("Error deserializing cached standings: {}", e.getMessage(), e);
-                    // Fall back to generating from Redis
-                }
-            }
-        }
+        // Check if contest is finalized
+        Contest contest = contestRepository.findById(contestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
 
-        // Default to returning the first page for backward compatibility
-        LeaderboardPageDto firstPage = getLeaderboardPage(contestId, 0, 100);
-        return firstPage.getEntries();
+        if (contest.isFinalized()) {
+            // Get from database for finalized contests
+            return getLeaderboardFromDatabase(contestId);
+        } else {
+            // Get from Redis for active contests
+            return getLeaderboardFromCache(contestId);
+        }
     }
 
     @Override
@@ -560,6 +562,78 @@ public class LeaderboardServiceImpl implements LeaderboardService {
         } catch (Exception e) {
             log.error("Error publishing user update for contest: {}, user: {}",
                     contestId, userId, e);
+        }
+    }
+
+    private List<ContestLeaderboardEntryDto> getLeaderboardFromDatabase(String contestId) {
+        log.info("Loading leaderboard from database for contest {}", contestId);
+
+        List<ContestPoints> contestPoints = contestPointsRepository
+                .findContestLeaderboardWithUsers(contestId);
+
+        List<ContestLeaderboardEntryDto> leaderboard = new ArrayList<>();
+
+        for (ContestPoints cp : contestPoints) {
+            try {
+                // Parse problem details from JSON
+                List<ProblemSubmissionStatusDto> problemStatuses =
+                        objectMapper.readValue(
+                                cp.getProblemDetailsJson(),
+                                new TypeReference<List<ProblemSubmissionStatusDto>>() {}
+                        );
+
+                ContestLeaderboardEntryDto entry = ContestLeaderboardEntryDto.builder()
+                        .userId(cp.getUserId())
+                        .username(cp.getUser().getUsername())
+                        .rank(cp.getRank())
+                        .totalPoints(cp.getPoints())
+                        .problemStatuses(problemStatuses)
+                        .build();
+
+                leaderboard.add(entry);
+
+            } catch (Exception e) {
+                log.error("Error parsing problem details for user {} in contest {}",
+                        cp.getUserId(), contestId, e);
+            }
+        }
+
+        return leaderboard;
+    }
+
+    private List<ContestLeaderboardEntryDto> getLeaderboardFromCache(String contestId) {
+        log.info("Loading leaderboard from Redis cache for contest {}", contestId);
+
+        // Your existing implementation
+        LeaderboardPageDto firstPage = getLeaderboardPage(contestId, 0, 100);
+        return firstPage.getEntries();
+    }
+
+    private void updateDatabaseScore(String contestId, String userId,
+                                     int totalPoints, String problemId) {
+        try {
+            ContestPoints contestPoints = contestPointsRepository
+                    .findByContestIdAndUserId(contestId, userId)
+                    .orElseGet(() -> ContestPoints.builder()
+                            .contestId(contestId)
+                            .userId(userId)
+                            .points(0)
+                            .rank(0)
+                            .problemsSolved(0)
+                            .totalAttempts(0)
+                            .problemDetailsJson("[]")
+                            .build());
+
+            // Update basic fields
+            contestPoints.setPoints(totalPoints);
+            contestPoints.setLastSubmissionTime(LocalDateTime.now());
+
+            // Note: Full details will be updated during finalization
+            contestPointsRepository.save(contestPoints);
+
+        } catch (Exception e) {
+            log.error("Error updating database score for user {} in contest {}",
+                    userId, contestId, e);
         }
     }
 }
