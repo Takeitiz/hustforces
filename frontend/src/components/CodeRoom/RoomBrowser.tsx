@@ -4,7 +4,6 @@ import { Search, Users, Globe, Lock, Clock, ArrowRight, Plus, Hash } from 'lucid
 import { Button } from '../ui/Button';
 import { CreateRoomModal } from './CreateRoomModal';
 import { JoinRoomModal } from './JoinRoomModal';
-import useCodeRoomStore from '../../contexts/CodeRoomContext';
 import codeRoomService from '../../service/codeRoomService';
 import { CodeRoomDto } from '../../types/codeRoom';
 import { formatDistanceToNow } from 'date-fns';
@@ -12,7 +11,10 @@ import { toast } from 'react-toastify';
 
 export function RoomBrowser() {
     const navigate = useNavigate();
-    const { showCreateRoomModal, showJoinRoomModal, setShowCreateRoomModal, setShowJoinRoomModal } = useCodeRoomStore();
+
+    // Use local state for modals instead of store state
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showJoinModal, setShowJoinModal] = useState(false);
 
     const [rooms, setRooms] = useState<CodeRoomDto[]>([]);
     const [myRooms, setMyRooms] = useState<CodeRoomDto[]>([]);
@@ -104,7 +106,10 @@ export function RoomBrowser() {
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
                 <Button
-                    onClick={() => setShowCreateRoomModal(true)}
+                    onClick={() => {
+                        console.log('Create button clicked'); // Debug log
+                        setShowCreateModal(true);
+                    }}
                     className="flex items-center justify-center gap-2"
                 >
                     <Plus size={18} />
@@ -112,7 +117,10 @@ export function RoomBrowser() {
                 </Button>
                 <Button
                     variant="outline"
-                    onClick={() => setShowJoinRoomModal(true)}
+                    onClick={() => {
+                        console.log('Join button clicked'); // Debug log
+                        setShowJoinModal(true);
+                    }}
                     className="flex items-center justify-center gap-2"
                 >
                     <Hash size={18} />
@@ -279,14 +287,20 @@ export function RoomBrowser() {
                 </div>
             )}
 
-            {/* Modals */}
+            {/* Modals - Using local state */}
             <CreateRoomModal
-                isOpen={showCreateRoomModal}
-                onClose={() => setShowCreateRoomModal(false)}
+                isOpen={showCreateModal}
+                onClose={() => {
+                    console.log('Closing create modal'); // Debug log
+                    setShowCreateModal(false);
+                }}
             />
             <JoinRoomModal
-                isOpen={showJoinRoomModal}
-                onClose={() => setShowJoinRoomModal(false)}
+                isOpen={showJoinModal}
+                onClose={() => {
+                    console.log('Closing join modal'); // Debug log
+                    setShowJoinModal(false);
+                }}
             />
         </div>
     );

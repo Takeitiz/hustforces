@@ -4,13 +4,15 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Label } from '../ui/Label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select';
+import { useNavigate } from 'react-router-dom';
 import useCodeRoomStore from '../../contexts/CodeRoomContext';
-import { useCodeRoom } from '../../hooks/useCodeRoom';
 import { CreateCodeRoomRequest, LanguageId } from '../../types/codeRoom';
 import { ProblemDto } from '../../types/problem';
 import { ContestDto } from '../../types/contest';
 import problemService from '../../service/problemService';
 import contestService from '../../service/contestService';
+import codeRoomService from '../../service/codeRoomService';
+import { toast } from 'react-toastify';
 
 interface CreateRoomModalProps {
     isOpen: boolean;
@@ -27,8 +29,8 @@ export function CreateRoomModal({
                                     contestId: defaultContestId,
                                     initialCode
                                 }: CreateRoomModalProps) {
-    const { createRoom, isCreatingRoom } = useCodeRoom();
-    const { setShowCreateRoomModal } = useCodeRoomStore();
+    const navigate = useNavigate();
+    const { setRoom, setShowCreateRoomModal, setCreatingRoom, isCreatingRoom } = useCodeRoomStore();
 
     const [formData, setFormData] = useState<CreateCodeRoomRequest>({
         name: '',
@@ -92,11 +94,31 @@ export function CreateRoomModal({
         e.preventDefault();
 
         try {
-            await createRoom(formData);
+            setCreatingRoom(true);
+
+            // Create room directly here instead of using the hook
+            const newRoom = await codeRoomService.createRoom(formData);
+            console.log('Room created:', newRoom); // Debug log
+
+            setRoom(newRoom);
+            toast.success('Room created successfully!');
+
+            // Close modal first
             onClose();
             setShowCreateRoomModal(false);
-        } catch (error) {
-            // Error is handled in the hook
+
+            // Then navigate after a small delay to ensure state updates
+            setTimeout(() => {
+                console.log('Navigating to:', `/code-room/${newRoom.roomCode}`); // Debug log
+                navigate(`/code-room/${newRoom.roomCode}`);
+            }, 100);
+
+        } catch (error: any) {
+            console.error('Failed to create room:', error);
+            const errorMessage = error.response?.data?.errorMessage || error.message || 'Failed to create room';
+            toast.error(errorMessage);
+        } finally {
+            setCreatingRoom(false);
         }
     };
 
@@ -145,16 +167,16 @@ export function CreateRoomModal({
                             Problem (Optional)
                         </Label>
                         <Select
-                            value={formData.problemId || ''}
-                            onValueChange={(value) => handleInputChange('problemId', value || undefined)}
+                            value={formData.problemId || 'none'}
+                            onValueChange={(value) => handleInputChange('problemId', value === 'none' ? undefined : value)}
                         >
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a problem" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">No problem</SelectItem>
+                                <SelectItem value="none">No problem</SelectItem>
                                 {loadingProblems ? (
-                                    <SelectItem value="" disabled>Loading...</SelectItem>
+                                    <SelectItem value="loading" disabled>Loading...</SelectItem>
                                 ) : (
                                     problems.map(problem => (
                                         <SelectItem key={problem.id} value={problem.id}>
@@ -174,16 +196,16 @@ export function CreateRoomModal({
                             Contest (Optional)
                         </Label>
                         <Select
-                            value={formData.contestId || ''}
-                            onValueChange={(value) => handleInputChange('contestId', value || undefined)}
+                            value={formData.contestId || 'none'}
+                            onValueChange={(value) => handleInputChange('contestId', value === 'none' ? undefined : value)}
                         >
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a contest" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">No contest</SelectItem>
+                                <SelectItem value="none">No contest</SelectItem>
                                 {loadingContests ? (
-                                    <SelectItem value="" disabled>Loading...</SelectItem>
+                                    <SelectItem value="loading" disabled>Loading...</SelectItem>
                                 ) : (
                                     contests.map(contest => (
                                         <SelectItem key={contest.id} value={contest.id}>

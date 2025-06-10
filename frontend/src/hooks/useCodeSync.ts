@@ -21,7 +21,6 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
         canEdit,
         setCurrentCode,
         updateCursor,
-        // removeCursor is not used in this hook, so don't destructure it
         setUserTyping,
         cursors,
         participants
