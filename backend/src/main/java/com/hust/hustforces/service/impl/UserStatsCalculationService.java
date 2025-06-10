@@ -23,6 +23,7 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional
 public class UserStatsCalculationService {
     private final UserRepository userRepository;
     private final UserStatsRepository userStatsRepository;
@@ -35,113 +36,178 @@ public class UserStatsCalculationService {
     public void calculateUserStatsIncremental() {
         log.info("Starting incremental user statistics calculation");
 
-        // First, find users without any stats at all
-        List<UserStats> missingStats = userStatsRepository.findByLastCalculatedIsNull();
-        if (!missingStats.isEmpty()) {
-            log.info("Found {} users with no statistics", missingStats.size());
-            missingStats.forEach(stats -> {
-                try {
-                    updateUserStats(stats.getUserId());
-                } catch (Exception e) {
-                    log.error("Error calculating stats for user {}: {}", stats.getUserId(), e.getMessage());
-                }
-            });
-        }
+        try {
+            // Find users needing updates (stats older than 1 hour or never calculated)
+            LocalDateTime cutoffTime = LocalDateTime.now().minusHours(1);
+            List<User> usersToUpdate = userRepository.findUsersNeedingStatsUpdate(cutoffTime);
 
-        // Then find users with oldest stat updates
-        List<UserStats> oldestStats = userStatsRepository.findTop50ByOrderByLastCalculatedAsc();
-        if (!oldestStats.isEmpty()) {
-            log.info("Updating statistics for {} users with oldest data", oldestStats.size());
-            oldestStats.forEach(stats -> {
+            log.info("Found {} users needing stats update", usersToUpdate.size());
+
+            for (User user : usersToUpdate) {
                 try {
-                    updateUserStats(stats.getUserId());
+                    updateUserStatsInternal(user);
                 } catch (Exception e) {
-                    log.error("Error updating stats for user {}: {}", stats.getUserId(), e.getMessage());
+                    log.error("Error calculating stats for user {}: {}",
+                            user.getId(), e.getMessage(), e);
                 }
-            });
+            }
+
+            // Also process users who have never had stats calculated
+            List<User> usersWithoutStats = userRepository.findUsersWithoutStats();
+            log.info("Found {} users without any statistics", usersWithoutStats.size());
+
+            for (User user : usersWithoutStats) {
+                try {
+                    // Fetch user with contest points
+                    User userWithData = userRepository.findByIdWithContestPoints(user.getId())
+                            .orElse(user);
+                    updateUserStatsInternal(userWithData);
+                } catch (Exception e) {
+                    log.error("Error creating initial stats for user {}: {}",
+                            user.getId(), e.getMessage(), e);
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("Error in incremental stats calculation", e);
         }
 
         log.info("Completed incremental user statistics calculation");
     }
 
-    // Run once per day to ensure all users get updated
-    @Scheduled(cron = "0 0 3 * * ?") // 3 AM every day
+    // Run once per day at 3 AM to ensure all users get updated
+    @Scheduled(cron = "0 0 3 * * ?")
     public void calculateAllUserStats() {
         log.info("Starting full user statistics calculation");
 
-        userRepository.findAll().forEach(user -> {
-            try {
-                updateUserStats(user.getId());
-            } catch (Exception e) {
-                log.error("Error calculating stats for user {}: {}", user.getId(), e.getMessage());
+        try {
+            List<User> allUsers = userRepository.findAllWithContestPoints();
+            log.info("Processing statistics for {} users", allUsers.size());
+
+            for (User user : allUsers) {
+                try {
+                    updateUserStatsInternal(user);
+
+                    // Small delay to avoid overwhelming the system
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.error("Stats calculation interrupted");
+                    break;
+                } catch (Exception e) {
+                    log.error("Error calculating stats for user {}: {}",
+                            user.getId(), e.getMessage(), e);
+                }
             }
-        });
+        } catch (Exception e) {
+            log.error("Error in full stats calculation", e);
+        }
 
         log.info("Completed full user statistics calculation");
     }
 
-    // Can also be called directly when needed (e.g., after a submission)
+    // Can be called directly when needed (e.g., after a submission)
     @Transactional
     public void updateUserStats(String userId) {
         log.debug("Calculating statistics for user: {}", userId);
 
-        // Get user to verify they exist and to get username for cache invalidation
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        try {
+            User user = userRepository.findByIdWithContestPoints(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+            updateUserStatsInternal(user);
+        } catch (Exception e) {
+            log.error("Error updating stats for user {}: {}", userId, e.getMessage(), e);
+            throw new RuntimeException("Failed to update user statistics", e);
+        }
+    }
+
+    private void updateUserStatsInternal(User user) {
+        log.debug("Updating statistics for user: {}", user.getId());
 
         // Get or create stats record
-        UserStats stats = userStatsRepository.findById(userId)
-                .orElse(new UserStats());
-        stats.setUserId(userId);
+        UserStats stats = userStatsRepository.findById(user.getId())
+                .orElseGet(() -> {
+                    UserStats newStats = new UserStats();
+                    newStats.setUserId(user.getId());
+                    newStats.setCurrentRank(1500); // Default rating
+                    newStats.setMaxRank(1500);
+                    return newStats;
+                });
 
-        // Calculate basic submission stats with efficient queries
-        stats.setTotalSubmissions(submissionRepository.countByUserId(userId));
-        stats.setAcceptedSubmissions(submissionRepository.countByUserIdAndStatusAC(userId));
-        stats.setProblemsSolved(submissionRepository.countDistinctProblemsByUserIdAndStatusAC(userId));
+        // Calculate basic submission stats using efficient queries
+        stats.setTotalSubmissions(submissionRepository.countByUserId(user.getId()));
+        stats.setAcceptedSubmissions(submissionRepository.countByUserIdAndStatusAC(user.getId()));
+        stats.setProblemsSolved(submissionRepository.countDistinctProblemsByUserIdAndStatusAC(user.getId()));
 
         // Calculate problems by difficulty
         Map<Difficulty, Integer> problemsByDifficulty = new HashMap<>();
-        submissionRepository.countProblemsByDifficultyForUser(userId).forEach(row -> {
+        problemsByDifficulty.put(Difficulty.EASY, 0);
+        problemsByDifficulty.put(Difficulty.MEDIUM, 0);
+        problemsByDifficulty.put(Difficulty.HARD, 0);
+
+        List<Object[]> difficultyStats = submissionRepository.countProblemsByDifficultyForUser(user.getId());
+        for (Object[] row : difficultyStats) {
             Difficulty difficulty = (Difficulty) row[0];
             Long count = (Long) row[1];
             problemsByDifficulty.put(difficulty, count.intValue());
-        });
+        }
 
-        // Calculate submission calendar
+        // Calculate submission calendar (submissions by date)
         Map<String, Integer> submissionCalendar = new HashMap<>();
-        submissionRepository.countSubmissionsByDateForUser(userId).forEach(row -> {
+        List<Object[]> calendarData = submissionRepository.countSubmissionsByDateForUser(user.getId());
+        for (Object[] row : calendarData) {
             String date = (String) row[0];
             Long count = (Long) row[1];
             submissionCalendar.put(date, count.intValue());
-        });
+        }
 
-        // Serialize to JSON
+        // Serialize maps to JSON
         try {
             stats.setProblemsByDifficultyJson(objectMapper.writeValueAsString(problemsByDifficulty));
             stats.setSubmissionCalendarJson(objectMapper.writeValueAsString(submissionCalendar));
         } catch (JsonProcessingException e) {
-            log.error("Error serializing statistics data for user {}", userId, e);
+            log.error("Error serializing statistics data for user {}", user.getId(), e);
+            // Set empty JSON objects on error
+            stats.setProblemsByDifficultyJson("{}");
+            stats.setSubmissionCalendarJson("{}");
         }
 
-        // Calculate contest stats (already have this from relations)
-        stats.setContests(user.getContestPoints().size());
+        stats.setContests(user.getContestPoints() != null ? user.getContestPoints().size() : 0);
 
-        // TODO: Implement real rating calculation based on Elo or similar algorithm
-        // For now, using placeholder values or previous values if they exist
-        if (stats.getCurrentRank() == 0) {
-            stats.setCurrentRank(1500);
-            stats.setMaxRank(1500);
+        // Update rating if user has contest points
+        if (user.getContestPoints() != null && !user.getContestPoints().isEmpty()) {
+            // Get the latest rating from contest points
+            int latestRating = user.getContestPoints().stream()
+                    .mapToInt(cp -> {
+                        // If ContestPoints doesn't have rating, calculate from rank
+                        // This is a placeholder - you should store actual rating in ContestPoints
+                        return cp.getRank() > 0 ? 3000 - (cp.getRank() * 10) : stats.getCurrentRank();
+                    })
+                    .max()
+                    .orElse(stats.getCurrentRank());
+
+            stats.setCurrentRank(latestRating);
+            stats.setMaxRank(Math.max(stats.getMaxRank(), latestRating));
         }
 
         // Update timestamp
         stats.setLastCalculated(LocalDateTime.now());
 
         // Save stats
-        userStatsRepository.save(stats);
+        UserStats savedStats = userStatsRepository.save(stats);
+        log.debug("Saved statistics for user: {}, problems solved: {}, acceptance rate: {}%",
+                user.getId(),
+                savedStats.getProblemsSolved(),
+                savedStats.getTotalSubmissions() > 0 ?
+                        (savedStats.getAcceptedSubmissions() * 100.0 / savedStats.getTotalSubmissions()) : 0);
 
-        // Invalidate cache
-        cacheService.invalidateCache(user.getUsername());
-
-        log.debug("Completed statistics calculation for user: {}", userId);
+        // Invalidate cache to ensure fresh data is loaded next time
+        try {
+            cacheService.invalidateCache(user.getUsername());
+            log.debug("Invalidated cache for user: {}", user.getUsername());
+        } catch (Exception e) {
+            log.warn("Failed to invalidate cache for user: {}", user.getUsername(), e);
+        }
     }
 }

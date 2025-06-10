@@ -72,4 +72,12 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
 
     @Query("SELECT COUNT(DISTINCT s.id) FROM Submission s WHERE s.problemId = :problemId AND s.status = 'AC'")
     int countByProblemIdAndStatusAC(@Param("problemId") String problemId);
+
+    @Query("SELECT DISTINCT s FROM Submission s " +
+            "LEFT JOIN FETCH s.testcases t " +
+            "WHERE s.state = :state AND s.createdAt < :cutoffTime")
+    List<Submission> findStalledSubmissionsWithTestcases(
+            @Param("state") SubmissionState state,
+            @Param("cutoffTime") LocalDateTime cutoffTime,
+            Pageable pageable);
 }

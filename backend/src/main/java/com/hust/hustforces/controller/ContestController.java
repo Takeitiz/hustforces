@@ -1,6 +1,10 @@
 package com.hust.hustforces.controller;
 
+import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.contest.*;
+import com.hust.hustforces.model.entity.Contest;
+import com.hust.hustforces.repository.ContestPointsRepository;
+import com.hust.hustforces.repository.ContestRepository;
 import com.hust.hustforces.service.ContestService;
 import com.hust.hustforces.utils.CurrentUserUtil;
 import jakarta.validation.Valid;
@@ -14,6 +18,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,7 +30,8 @@ import java.util.Map;
 public class ContestController {
     private final ContestService contestService;
     private final CurrentUserUtil currentUserUtil;
-
+    private final ContestRepository contestRepository;
+    private final ContestPointsRepository contestPointsRepository;
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ContestDto> createContest(@Valid @RequestBody CreateContestRequest request) {
@@ -127,5 +134,31 @@ public class ContestController {
     public ResponseEntity<Void> updateLeaderboard(@PathVariable String contestId) {
         contestService.updateLeaderboard(contestId);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{contestId}/registration-status")
+    public ResponseEntity<Map<String, Object>> checkRegistrationStatus(@PathVariable String contestId) {
+        String userId = currentUserUtil.getCurrentUserId();
+
+        Contest contest = contestRepository.findById(contestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
+
+        boolean isRegistered = contestPointsRepository
+                .findByContestIdAndUserId(contestId, userId)
+                .isPresent();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("registered", isRegistered);
+        response.put("contestId", contestId);
+        response.put("contestTitle", contest.getTitle());
+        response.put("userId", userId);
+
+        LocalDateTime now = LocalDateTime.now();
+        response.put("contestStatus",
+                now.isBefore(contest.getStartTime()) ? "UPCOMING" :
+                        now.isAfter(contest.getEndTime()) ? "ENDED" : "ACTIVE"
+        );
+
+        return ResponseEntity.ok(response);
     }
 }

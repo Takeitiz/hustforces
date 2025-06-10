@@ -11,10 +11,7 @@ import com.hust.hustforces.model.dto.submission.SubmissionDetailDto;
 import com.hust.hustforces.model.dto.submission.SubmissionResponseDto;
 import com.hust.hustforces.model.dto.submission.TestCaseDto;
 import com.hust.hustforces.model.entity.*;
-import com.hust.hustforces.repository.ProblemRepository;
-import com.hust.hustforces.repository.SubmissionRepository;
-import com.hust.hustforces.repository.TestCaseRepository;
-import com.hust.hustforces.repository.UserRepository;
+import com.hust.hustforces.repository.*;
 import com.hust.hustforces.service.ProblemService;
 import com.hust.hustforces.service.SubmissionService;
 import com.hust.hustforces.utils.LanguageMapping;
@@ -28,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -50,7 +48,9 @@ public class SubmissionServiceImpl implements SubmissionService {
     private final Judge0Client judge0Client;
     private final LanguageMapping languageMapping;
     private final RedisRateLimiter rateLimiter;
-
+    private final ContestRepository contestRepository;
+    private final ContestPointsRepository contestPointsRepository;
+    private final ContestProblemRepository contestProblemRepository;
 
     @Override
     @Transactional
@@ -63,6 +63,10 @@ public class SubmissionServiceImpl implements SubmissionService {
         Problem problem = problemRepository.findById(input.getProblemId()).orElseThrow(
                 () -> new ResourceNotFoundException("Problem", "id", input.getProblemId())
         );
+
+        if (input.getActiveContestId() != null) {
+            validateContestSubmission(input.getActiveContestId(), userId, input.getProblemId());
+        }
 
         // Create submission entity first
         Submission submission = new Submission();
@@ -279,5 +283,39 @@ public class SubmissionServiceImpl implements SubmissionService {
             submissionRepository.save(submission);
             log.debug("Updated submission {} state to {}", submissionId, state);
         });
+    }
+
+    private void validateContestSubmission(String contestId, String userId, String problemId) {
+        // Check if contest exists and is active
+        Contest contest = contestRepository.findById(contestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
+
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isBefore(contest.getStartTime())) {
+            throw new IllegalStateException("Contest has not started yet");
+        }
+        if (now.isAfter(contest.getEndTime())) {
+            throw new IllegalStateException("Contest has ended");
+        }
+
+        // Check if user is registered
+        Optional<ContestPoints> registration = contestPointsRepository
+                .findByContestIdAndUserId(contestId, userId);
+
+        if (registration.isEmpty()) {
+            throw new IllegalStateException(
+                    "You must register for the contest before submitting. " +
+                            "Please use POST /api/contests/" + contestId + "/register first."
+            );
+        }
+
+        // Check if problem is in contest
+        boolean problemInContest = contestProblemRepository
+                .findByContestIdAndProblemId(contestId, problemId)
+                .isPresent();
+
+        if (!problemInContest) {
+            throw new IllegalStateException("This problem is not part of the contest");
+        }
     }
 }

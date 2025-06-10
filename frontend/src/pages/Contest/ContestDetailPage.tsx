@@ -98,6 +98,33 @@ export function ContestDetailPage() {
         }
     };
 
+    const handleEnterContest = async () => {
+        if (!isLoggedIn) {
+            toast.info("Please log in to enter the contest");
+            navigate("/login");
+            return;
+        }
+
+        if (!id || !contest) return;
+
+        // TODO: Check if the user is registered for the contest
+        // The backend should provide information about whether the current user is registered
+        // For now, we'll check if the contest has problems and navigate to the first one
+
+        // You could also check contest.status === 'ACTIVE' to ensure contest is running
+        if (contest.status !== 'ACTIVE') {
+            toast.error("This contest is not currently active");
+            return;
+        }
+
+        // Navigate to the first problem of the contest
+        if (contest.problems.length > 0) {
+            navigate(`/contests/${id}/problem/0`);
+        } else {
+            toast.error("This contest has no problems");
+        }
+    };
+
     const getContestStatusClass = (status: string) => {
         switch (status) {
             case 'UPCOMING':
@@ -235,6 +262,7 @@ export function ContestDetailPage() {
                             {contest.status === 'ACTIVE' && (
                                 <Button
                                     className="px-6 flex items-center gap-2"
+                                    onClick={handleEnterContest}
                                 >
                                     <Trophy className="h-4 w-4" />
                                     Enter Contest

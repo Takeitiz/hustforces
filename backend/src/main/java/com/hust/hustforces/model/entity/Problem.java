@@ -1,5 +1,6 @@
 package com.hust.hustforces.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.hust.hustforces.enums.Difficulty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

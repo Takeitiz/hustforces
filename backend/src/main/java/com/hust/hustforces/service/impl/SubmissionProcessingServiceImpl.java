@@ -81,15 +81,17 @@ public class SubmissionProcessingServiceImpl implements SubmissionProcessingServ
 
     @Transactional
     @Override
-    public void updateContest(Submission submission) {
+    public ContestSubmission updateContest(Submission submission) {
+        log.info("Updating contest for submission: {}", submission.getId());
+
         Submission contestSubmission = submissionRepository.findByIdWithContestAndProblem(submission.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submission.getId()));
 
         if (contestSubmission.getActiveContestId() == null ||
-            contestSubmission.getActiveContest() == null ||
-            contestSubmission.getActiveContest().getStartTime() == null ||
-            submission.getActiveContestId() == null) {
-            return;
+                contestSubmission.getActiveContest() == null ||
+                contestSubmission.getActiveContest().getStartTime() == null) {
+            log.warn("Missing contest data for submission: {}", submission.getId());
+            return null;
         }
 
         double points = pointsService.calculatePoints(
@@ -101,6 +103,9 @@ public class SubmissionProcessingServiceImpl implements SubmissionProcessingServ
                 submission.getActiveContest().getEndTime()
         );
 
+        int pointsInt = (int) points;
+        log.info("Calculated {} points for submission: {}", pointsInt, submission.getId());
+
         Optional<ContestSubmission> optionalSubmission = contestSubmissionRepository
                 .findByUserIdAndProblemIdAndContestId(
                         submission.getUserId(),
@@ -108,18 +113,24 @@ public class SubmissionProcessingServiceImpl implements SubmissionProcessingServ
                         submission.getActiveContestId()
                 );
 
+        ContestSubmission contestSubmissionEntity;
         if (optionalSubmission.isPresent()) {
-            ContestSubmission existingSubmission = optionalSubmission.get();
-            existingSubmission.setPoints((int) points);
-            contestSubmissionRepository.save(existingSubmission);
+            contestSubmissionEntity = optionalSubmission.get();
+            contestSubmissionEntity.setPoints(pointsInt);
+            contestSubmissionEntity.setSubmissionId(submission.getId());
         } else {
-            ContestSubmission newContestSubmission = new ContestSubmission();
-            newContestSubmission.setSubmissionId(submission.getId());
-            newContestSubmission.setUserId(submission.getUserId());
-            newContestSubmission.setProblemId(submission.getProblemId());
-            newContestSubmission.setContestId(submission.getActiveContestId());
-            newContestSubmission.setPoints((int) points);
-            contestSubmissionRepository.save(newContestSubmission);
+            contestSubmissionEntity = ContestSubmission.builder()
+                    .submissionId(submission.getId())
+                    .userId(submission.getUserId())
+                    .problemId(submission.getProblemId())
+                    .contestId(submission.getActiveContestId())
+                    .points(pointsInt)
+                    .build();
         }
+
+        ContestSubmission saved = contestSubmissionRepository.saveAndFlush(contestSubmissionEntity);
+        log.info("Saved ContestSubmission with ID: {} and {} points", saved.getId(), saved.getPoints());
+
+        return saved;
     }
 }

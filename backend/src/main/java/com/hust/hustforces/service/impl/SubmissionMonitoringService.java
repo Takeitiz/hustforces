@@ -6,7 +6,9 @@ import com.hust.hustforces.enums.TestCaseProcessingState;
 import com.hust.hustforces.model.dto.Judge0Response;
 import com.hust.hustforces.model.dto.SubmissionCallback;
 import com.hust.hustforces.model.entity.Submission;
+import com.hust.hustforces.model.entity.TestCase;
 import com.hust.hustforces.repository.SubmissionRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -26,15 +28,13 @@ public class SubmissionMonitoringService {
     private final Judge0Client judge0Client;
     private final RabbitTemplate rabbitTemplate;
 
-    /**
-     * Scheduled task to check for stalled submissions and retry
-     */
-    @Scheduled(fixedDelay = 60000) // Every minute
+    @Scheduled(fixedDelay = 60000)
+    @Transactional  // ADD THIS
     public void checkStalledSubmissions() {
         LocalDateTime cutoffTime = LocalDateTime.now().minusMinutes(5);
 
         List<Submission> stalledSubmissions = submissionRepository
-                .findByStateAndCreatedAtBefore(
+                .findStalledSubmissionsWithTestcases(
                         SubmissionState.PROCESSING,
                         cutoffTime,
                         PageRequest.of(0, 50));
@@ -43,43 +43,43 @@ public class SubmissionMonitoringService {
             log.info("Found {} stalled submissions to retry", stalledSubmissions.size());
 
             for (Submission submission : stalledSubmissions) {
-                // Increment retry count
-                submission.setProcessingAttempts(submission.getProcessingAttempts() + 1);
-
-                if (submission.getProcessingAttempts() > 3) {
-                    // Too many retries, mark as failed
-                    submission.setState(SubmissionState.FAILED);
-                    submissionRepository.save(submission);
-                    continue;
-                }
-
-                // Retry processing by checking testcases directly
-                submission.getTestcases().stream()
-                        .filter(tc -> tc.getProcessingState() == TestCaseProcessingState.PENDING)
-                        .forEach(tc -> {
-                            try {
-                                // Query Judge0 for status
-                                Judge0Response response = judge0Client.getSubmissionStatus(tc.getToken());
-
-                                // Create callback and send to queue
-                                SubmissionCallback callback = createCallbackFromResponse(
-                                        response, submission.getId());
-
-                                rabbitTemplate.convertAndSend(
-                                        RabbitMQConfig.JUDGE_EXCHANGE_NAME,
-                                        RabbitMQConfig.JUDGE_RESULT_ROUTING_KEY,
-                                        callback
-                                );
-
-                                log.info("Re-queued result for submission: {}, testcase: {}",
-                                        submission.getId(), tc.getId());
-                            } catch (Exception e) {
-                                log.error("Error retrying testcase: {}", tc.getId(), e);
-                            }
-                        });
-
-                submissionRepository.save(submission);
+                processStalledSubmission(submission);
             }
+        }
+    }
+
+    private void processStalledSubmission(Submission submission) {
+        submission.setProcessingAttempts(submission.getProcessingAttempts() + 1);
+
+        if (submission.getProcessingAttempts() > 3) {
+            submission.setState(SubmissionState.FAILED);
+            submissionRepository.save(submission);
+            return;
+        }
+
+        // Retry processing testcases
+        submission.getTestcases().stream()
+                .filter(tc -> tc.getProcessingState() == TestCaseProcessingState.PENDING)
+                .forEach(tc -> retryTestCase(tc, submission.getId()));
+
+        submissionRepository.save(submission);
+    }
+
+    private void retryTestCase(TestCase testCase, String submissionId) {
+        try {
+            Judge0Response response = judge0Client.getSubmissionStatus(testCase.getToken());
+            SubmissionCallback callback = createCallbackFromResponse(response, submissionId);
+
+            rabbitTemplate.convertAndSend(
+                    RabbitMQConfig.JUDGE_EXCHANGE_NAME,
+                    RabbitMQConfig.JUDGE_RESULT_ROUTING_KEY,
+                    callback
+            );
+
+            log.info("Re-queued result for submission: {}, testcase: {}",
+                    submissionId, testCase.getId());
+        } catch (Exception e) {
+            log.error("Error retrying testcase: {}", testCase.getId(), e);
         }
     }
 

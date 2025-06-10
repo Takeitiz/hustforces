@@ -28,6 +28,7 @@ import { RoomBrowser } from "../components/CodeRoom/RoomBrowser.tsx"
 import CodeRoomPage from "../pages/CodeRoom/CodeRoomPage.tsx"
 import { ProblemsPage } from "../pages/Problem/ProblemsPage.tsx"
 import {UserSubmissionsPage} from "../pages/Profile/UserSubmissionsPage.tsx";
+import {ContestProblemPage} from "../pages/Contest/ContestProblemPage.tsx";
 
 const router = createBrowserRouter([
     {
@@ -74,6 +75,10 @@ const router = createBrowserRouter([
             {
                 path: "contests/:id",
                 element: <ContestDetailPage />,
+            },
+            {
+                path: "contests/:contestId/problem/:problemIndex",
+                element: <ContestProblemPage />,
             },
             {
                 path: "contests/:id/leaderboard",

@@ -7,6 +7,7 @@ import com.hust.hustforces.enums.TestCaseProcessingState;
 import com.hust.hustforces.event.SubmissionCompletedEvent;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.SubmissionCallback;
+import com.hust.hustforces.model.entity.ContestSubmission;
 import com.hust.hustforces.model.entity.Submission;
 import com.hust.hustforces.model.entity.TestCase;
 import com.hust.hustforces.repository.SubmissionRepository;
@@ -188,26 +189,31 @@ public class JudgeResultListener {
 
     private void processContestSuccess(Submission submission) {
         try {
-            // Update contest submission
-            submissionProcessingService.updateContest(submission);
+            log.info("Processing contest success for submission: {}", submission.getId());
 
-            // Find points from contest submission and update leaderboard
-            submissionRepository.findByIdWithContestSubmission(submission.getId())
-                    .ifPresent(submissionWithContestData -> {
-                        if (submissionWithContestData.getContestSubmission() != null) {
-                            leaderboardService.updateUserScore(
-                                    submissionWithContestData.getActiveContestId(),
-                                    submissionWithContestData.getUserId(),
-                                    submissionWithContestData.getProblemId(),
-                                    submissionWithContestData.getContestSubmission().getPoints(),
-                                    submission.getId()
-                            );
-                        }
-                    });
+            // Update contest submission and get the entity directly
+            ContestSubmission contestSubmission = submissionProcessingService.updateContest(submission);
+
+            if (contestSubmission != null) {
+                log.info("Updating leaderboard with {} points for user {} in contest {}",
+                        contestSubmission.getPoints(),
+                        contestSubmission.getUserId(),
+                        contestSubmission.getContestId());
+
+                leaderboardService.updateUserScore(
+                        contestSubmission.getContestId(),
+                        contestSubmission.getUserId(),
+                        contestSubmission.getProblemId(),
+                        contestSubmission.getPoints(),
+                        submission.getId()
+                );
+            } else {
+                log.error("Failed to create/update ContestSubmission for submission: {}",
+                        submission.getId());
+            }
         } catch (Exception e) {
             log.error("Error updating contest data for submission {}: {}",
                     submission.getId(), e.getMessage(), e);
-            // Record error but don't fail the submission processing
             submission.setContestProcessingError(e.getMessage());
             submissionRepository.save(submission);
         }

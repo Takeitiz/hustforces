@@ -2,8 +2,8 @@ package com.hust.hustforces.controller;
 
 import com.hust.hustforces.enums.Difficulty;
 import com.hust.hustforces.model.dto.admin.TestcaseDto;
+import com.hust.hustforces.model.dto.problem.ProblemDetailDto;
 import com.hust.hustforces.model.dto.problem.ProblemDto;
-import com.hust.hustforces.model.entity.Problem;
 import com.hust.hustforces.service.ProblemService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,22 +23,22 @@ public class ProblemController {
     private final ProblemService problemService;
 
     @GetMapping("/by-slug/{slug}")
-    public ResponseEntity<Problem> getProblemBySlug(
+    public ResponseEntity<ProblemDetailDto> getProblemBySlug(
             @PathVariable String slug,
             @RequestParam(required = false) String contestId) {
         log.info("Received request to get problem with slug: {}, contest context: {}",
                 slug, (contestId != null ? contestId : "none"));
 
-        Problem problem = problemService.getProblemBySlug(slug, contestId);
+        ProblemDetailDto problemDto = problemService.getProblemDetailBySlug(slug, contestId);
 
-        if (problem == null) {
+        if (problemDto == null) {
             log.warn("No problem found for slug: {} and contestId: {}",
                     slug, (contestId != null ? contestId : "none"));
             return ResponseEntity.notFound().build();
         }
 
         log.info("Successfully retrieved problem: {}", slug);
-        return ResponseEntity.ok(problem);
+        return ResponseEntity.ok(problemDto);
     }
 
     @GetMapping

@@ -16,7 +16,8 @@ function App() {
     const location = useLocation();
 
     // Check if we're on a problem page
-    const isProblemPage = location.pathname.startsWith('/problem/');
+    const isProblemPage = location.pathname.startsWith('/problem/') ||
+        (location.pathname.includes('/contests/') && location.pathname.includes('/problem/'));
 
     // Listen for auth errors and navigate to login
     useEffect(() => {

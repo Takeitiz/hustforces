@@ -533,10 +533,33 @@ public class LeaderboardServiceImpl implements LeaderboardService {
      * Publish user update via WebSocket
      */
     private void publishUserUpdate(String contestId, String userId) {
-        ContestLeaderboardEntryDto userRanking = getUserRanking(contestId, userId);
-        messagingTemplate.convertAndSend(
-                "/topic/contest/" + contestId + "/user/" + userId,
-                userRanking
-        );
+        try {
+            ContestLeaderboardEntryDto userRanking = getUserRanking(contestId, userId);
+
+            if (userRanking == null) {
+                // Create default entry for uninitialized users
+                User user = userRepository.findById(userId).orElse(null);
+                if (user == null) {
+                    log.warn("User not found for ID: {}", userId);
+                    return;
+                }
+
+                userRanking = ContestLeaderboardEntryDto.builder()
+                        .userId(userId)
+                        .username(user.getUsername())
+                        .rank(0)
+                        .totalPoints(0)
+                        .problemStatuses(new ArrayList<>())
+                        .build();
+            }
+
+            messagingTemplate.convertAndSend(
+                    "/topic/contest/" + contestId + "/user/" + userId,
+                    userRanking
+            );
+        } catch (Exception e) {
+            log.error("Error publishing user update for contest: {}, user: {}",
+                    contestId, userId, e);
+        }
     }
 }

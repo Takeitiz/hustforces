@@ -1,6 +1,7 @@
 package com.hust.hustforces.model.dto.problem;
 
-import com.hust.hustforces.enums.Difficulty;
+import com.hust.hustforces.enums.LanguageId;
+import com.hust.hustforces.enums.SubmissionResult;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,14 +13,12 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProblemDto {
+public class SubmissionDto {
     private String id;
-    private String title;
-    private String slug;
-    private Difficulty difficulty;
-    private int solved;
+    private String userId;
+    private SubmissionResult status;
+    private LanguageId languageId;
+    private double time;
+    private int memory;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private int totalSubmissions;
-    private double acceptanceRate;
 }

@@ -5,6 +5,7 @@ import com.hust.hustforces.enums.LanguageId;
 import com.hust.hustforces.mapper.ProblemMapper;
 import com.hust.hustforces.model.dto.ProblemDetails;
 import com.hust.hustforces.model.dto.admin.TestcaseDto;
+import com.hust.hustforces.model.dto.problem.ProblemDetailDto;
 import com.hust.hustforces.model.dto.problem.ProblemDto;
 import com.hust.hustforces.model.entity.Contest;
 import com.hust.hustforces.model.entity.Problem;
@@ -126,7 +127,7 @@ public class ProblemServiceImpl implements ProblemService {
 
     @Override
     @Cacheable(value = "problems", key = "'slug_' + #slug + '_' + #contestId")
-    public Problem getProblemBySlug(String slug, String contestId) {
+    public ProblemDetailDto getProblemDetailBySlug(String slug, String contestId) {
         log.info("Getting problem metadata for slug: {}, contestId: {}", slug, contestId);
 
         if (contestId != null && !contestId.isEmpty()) {
@@ -160,7 +161,7 @@ public class ProblemServiceImpl implements ProblemService {
             log.info("Problem found in contest: slug: {}, contestId: {}", slug, contestId);
             Problem foundProblem = problemInContest.get();
             problemMetadataCache.put(foundProblem.getId(), foundProblem);
-            return foundProblem;
+            return problemMapper.toProblemDetailDto(foundProblem);
         }
 
         log.debug("No contest specified, looking up problem directly by slug: {}", slug);
@@ -184,7 +185,7 @@ public class ProblemServiceImpl implements ProblemService {
         log.info("Problem found: slug: {}", slug);
         problemMetadataCache.put(foundProblem.getId(), foundProblem);
 
-        return foundProblem;
+        return problemMapper.toProblemDetailDto(foundProblem);
     }
 
     @Override
