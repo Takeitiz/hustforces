@@ -5,6 +5,7 @@ import { createContext, type ReactNode, useContext, useEffect, useState } from "
 import { toast } from "react-toastify"
 import authService, { type LoginCredentials, type User } from "../service/authService.ts"
 import { useNavigate } from "react-router-dom"
+import { AUTH_ERROR_EVENT } from "../api/client.ts"
 
 interface AuthContextType {
     user: User | null
@@ -12,6 +13,8 @@ interface AuthContextType {
     loading: boolean
     login: (credentials: LoginCredentials) => Promise<void>
     logout: () => void
+    getValidToken: () => string | null
+    refreshToken: () => Promise<string | null>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -27,7 +30,74 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUser(currentUser)
         }
         setLoading(false)
+
+        // Listen for auth errors from API client
+        const handleAuthError = () => {
+            console.log("[Auth] Authentication error detected, logging out user")
+            logout()
+        }
+
+        window.addEventListener(AUTH_ERROR_EVENT, handleAuthError)
+
+        return () => {
+            window.removeEventListener(AUTH_ERROR_EVENT, handleAuthError)
+        }
     }, [])
+
+    /**
+     * Get a valid token, refreshing if necessary
+     */
+    const getValidToken = (): string | null => {
+        const token = localStorage.getItem("token")
+        if (!token) {
+            return null
+        }
+
+        try {
+            // Parse JWT to check expiration
+            const parts = token.split(".")
+            if (parts.length !== 3) {
+                return null
+            }
+
+            const payload = JSON.parse(atob(parts[1]))
+            const currentTime = Math.floor(Date.now() / 1000)
+
+            // Check if token expires within the next 5 minutes
+            if (payload.exp && payload.exp < currentTime + 300) {
+                console.log("[Auth] Token is expired or expiring soon")
+                return null
+            }
+
+            return token
+        } catch (error) {
+            console.error("[Auth] Error validating token:", error)
+            return null
+        }
+    }
+
+    /**
+     * Attempt to refresh the token
+     */
+    const refreshToken = async (): Promise<string | null> => {
+        try {
+            // If your backend supports token refresh, implement it here
+            // For now, we'll just check if the current token is still valid
+            const currentToken = getValidToken()
+            if (currentToken) {
+                return currentToken
+            }
+
+            // If no valid token, user needs to log in again
+            console.log("[Auth] No valid token available, user needs to re-authenticate")
+            logout()
+            return null
+        } catch (error) {
+            console.error("[Auth] Error refreshing token:", error)
+            logout()
+            return null
+        }
+    }
 
     const login = async (credentials: LoginCredentials): Promise<void> => {
         try {
@@ -63,6 +133,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading,
         login,
         logout,
+        getValidToken,
+        refreshToken,
     }
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -1,8 +1,9 @@
 package com.hust.hustforces.controller;
 
 import com.hust.hustforces.model.dto.coderoom.*;
+import com.hust.hustforces.model.entity.User;
+import com.hust.hustforces.repository.UserRepository;
 import com.hust.hustforces.service.CodeRoomService;
-import com.hust.hustforces.utils.CurrentUserUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -21,7 +22,7 @@ import java.security.Principal;
 public class CodeRoomWebSocketController {
 
     private final CodeRoomService codeRoomService;
-    private final CurrentUserUtil currentUserUtil;
+    private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     @MessageMapping("/coderoom/{roomId}/code")
@@ -129,13 +130,20 @@ public class CodeRoomWebSocketController {
     }
 
     private String getUserIdFromPrincipal(Principal principal) {
-        // Extract user ID from principal
-        // This depends on your authentication implementation
-        try {
-            return currentUserUtil.getCurrentUserId();
-        } catch (Exception e) {
-            log.error("Error getting user ID from principal", e);
-            return principal.getName();
+        if (principal == null) {
+            throw new IllegalStateException("No principal found");
         }
+
+        String username = principal.getName();
+        log.debug("Getting user ID for username: {}", username);
+
+        // Look up user by username to get their ID
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> {
+                    log.error("User not found for username: {}", username);
+                    return new RuntimeException("User not found: " + username);
+                });
+
+        return user.getId();
     }
 }

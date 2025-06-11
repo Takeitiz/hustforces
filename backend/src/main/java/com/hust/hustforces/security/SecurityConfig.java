@@ -36,13 +36,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/callback/**").permitAll()
                         .requestMatchers("/api/submissions/user/**").permitAll()
 
-                        // WebSocket endpoints
+                        // WebSocket handshake endpoints (SockJS)
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/ws-coderoom/**").permitAll()
-
-                        .requestMatchers("/app/**").permitAll()
-                        .requestMatchers("/topic/**").permitAll()
-                        .requestMatchers("/queue/**").permitAll()
 
                         // Admin endpoints
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

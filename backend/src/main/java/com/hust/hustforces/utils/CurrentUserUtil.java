@@ -30,12 +30,25 @@ public class CurrentUserUtil {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
     }
 
-    /**
-     * Get the current authenticated user's ID
-     * @return The current user's ID
-     */
     public String getCurrentUserId() {
-        return getCurrentUser().getId();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null) {
+            throw new IllegalStateException("No authentication found");
+        }
+
+        // For WebSocket, the principal name is the username
+        String username = authentication.getName();
+
+        // If it's already a user ID (for REST endpoints), return it
+        if (username.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) {
+            return username;
+        }
+
+        // Otherwise, look up the user
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username))
+                .getId();
     }
 
     /**
