@@ -194,84 +194,135 @@ export function useCodeRoom() {
         participants,
     ])
 
-    // Join an existing room - FIXED VERSION
     const joinRoom = useCallback(
         async (roomCode: string) => {
+            console.log("[CodeRoom Hook] Starting join room process for:", roomCode)
+
             try {
-                console.log("[CodeRoom Hook] Starting room join process for:", roomCode)
                 setJoiningRoom(true)
                 setIsInitializing(true)
+                setConnectionError(null)
 
-                // First, join the room via REST API
+                // Step 1: Verify backend is available
+                const isHealthy = await codeRoomService.checkBackendHealth()
+                if (!isHealthy) {
+                    throw new Error("Backend server is not available. Please check if the server is running.")
+                }
+
+                // Step 2: Join room via REST API
                 console.log("[CodeRoom Hook] Joining room via API...")
                 await codeRoomService.joinRoom({ roomCode })
+                console.log("[CodeRoom Hook] Join API response received")
 
-                // Get full room details
-                console.log("[CodeRoom Hook] Getting room details...")
-                const roomDetails = await codeRoomService.getRoomByCode(roomCode)
+                // Step 3: Get room details with retry
+                console.log("[CodeRoom Hook] Fetching room details...")
+                let roomDetails = null
+                let lastError = null
+
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                    try {
+                        roomDetails = await codeRoomService.getRoomByCode(roomCode)
+                        console.log("[CodeRoom Hook] Room details retrieved successfully")
+                        break
+                    } catch (error) {
+                        lastError = error
+                        console.log(`[CodeRoom Hook] Attempt ${attempt} failed to get room details`)
+
+                        if (attempt < 3) {
+                            await new Promise(resolve => setTimeout(resolve, 1000 * attempt))
+                        }
+                    }
+                }
+
+                if (!roomDetails) {
+                    throw lastError || new Error("Failed to retrieve room details")
+                }
+
+                // Step 4: Set room details in store
                 setRoomDetails(roomDetails)
 
-                // Get auth token
+                // Step 5: Get authentication token
                 const token = getToken()
+                if (!token) {
+                    throw new Error("Authentication required")
+                }
 
-                // Connect to WebSocket with proper error handling
+                // Step 6: Connect to WebSocket
                 console.log("[CodeRoom Hook] Connecting to WebSocket...")
                 await codeRoomWebSocketService.connect({
                     roomId: roomDetails.room.id,
                     token,
                     onAuthError: () => {
-                        console.error("[CodeRoom Hook] WebSocket authentication error")
+                        console.error("[CodeRoom Hook] WebSocket authentication failed")
                         toast.error("Authentication failed. Please log in again.")
                         navigate("/login")
                     },
                     onConnectionError: (error) => {
                         console.error("[CodeRoom Hook] WebSocket connection error:", error)
                         setConnectionError(error.message)
+                        toast.error(`Connection error: ${error.message}`)
                     },
                     onReconnect: () => {
                         console.log("[CodeRoom Hook] WebSocket reconnected")
                         toast.success("Reconnected to room")
+                        setConnectionError(null)
                     },
                 })
 
-                // Verify connection is established
-                let connectionAttempts = 0
-                const maxAttempts = 20 // 2 seconds total
-                while (!codeRoomWebSocketService.isConnected() && connectionAttempts < maxAttempts) {
-                    await new Promise((resolve) => setTimeout(resolve, 100))
-                    connectionAttempts++
+                // Step 7: Wait for connection to establish
+                let connectionEstablished = false
+                for (let i = 0; i < 10; i++) {
+                    if (codeRoomWebSocketService.isConnected()) {
+                        connectionEstablished = true
+                        break
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 500))
                 }
 
-                if (!codeRoomWebSocketService.isConnected()) {
-                    throw new Error("Failed to establish WebSocket connection after multiple attempts")
+                if (!connectionEstablished) {
+                    throw new Error("Failed to establish WebSocket connection")
                 }
 
-                console.log("[CodeRoom Hook] WebSocket connection established, setting up listeners...")
+                console.log("[CodeRoom Hook] WebSocket connected successfully")
 
-                // Set up listeners AFTER connection is confirmed
+                // Step 8: Set up event listeners
                 await setupWebSocketListeners()
 
-                // Request initial sync
+                // Step 9: Request initial sync
                 console.log("[CodeRoom Hook] Requesting initial sync...")
                 await codeRoomWebSocketService.requestSync()
 
+                // Step 10: Mark as connected
                 setConnected(true)
-                console.log("[CodeRoom Hook] Room join process completed successfully")
+                setConnectionError(null)
+
+                console.log("[CodeRoom Hook] Room join completed successfully")
                 toast.success("Joined room successfully!")
 
                 return roomDetails
+
             } catch (error: any) {
                 console.error("[CodeRoom Hook] Failed to join room:", error)
-                const errorMessage = error.response?.data?.errorMessage || error.message || "Failed to join room"
-                toast.error(errorMessage)
+
+                const errorMessage =
+                    error.response?.data?.errorMessage ||
+                    error.message ||
+                    "Failed to join room"
+
                 setConnectionError(errorMessage)
+                toast.error(errorMessage)
+
+                // Cleanup on error
+                await codeRoomWebSocketService.disconnect()
+                reset()
+
                 throw error
             } finally {
                 setJoiningRoom(false)
                 setIsInitializing(false)
             }
         },
-        [getToken, setJoiningRoom, setRoomDetails, setConnected, setConnectionError, setupWebSocketListeners, navigate],
+        [getToken, navigate, setRoomDetails, setConnected, setConnectionError, setupWebSocketListeners, reset, setJoiningRoom, setIsInitializing]
     )
 
     // Leave the current room

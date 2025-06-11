@@ -113,19 +113,43 @@ export function CreateRoomModal({
             setCreatingRoom(true)
             setError(null)
 
+            // Step 1: Check backend health
+            console.log("[CreateRoomModal] Checking backend health...")
+            const isHealthy = await codeRoomService.checkBackendHealth()
+            if (!isHealthy) {
+                throw new Error("Backend server is not responding. Please try again.")
+            }
+
+            // Step 2: Create the room
+            console.log("[CreateRoomModal] Creating room...")
             const newRoom = await codeRoomService.createRoom(formData)
+            console.log("[CreateRoomModal] Room created:", newRoom.roomCode)
 
+            // Step 3: Store room data
             setRoom(newRoom)
-            toast.success("Room created successfully!")
 
-            // Close modal and navigate
+            // Step 4: Close modal first
             onClose()
             setShowCreateRoomModal(false)
 
-            // Navigate to the new room
-            navigate(`/code-room/${newRoom.roomCode}`)
+            // Step 5: Show success message
+            toast.success("Room created! Redirecting...")
+
+            // Step 6: Wait for room to be ready on backend
+            console.log("[CreateRoomModal] Waiting for room to be ready...")
+            const isReady = await codeRoomService.waitForRoomReady(newRoom.roomCode)
+            if (!isReady) {
+                console.warn("[CreateRoomModal] Room might not be fully ready")
+            }
+
+            // Step 7: Navigate with delay to ensure backend is ready
+            setTimeout(() => {
+                console.log("[CreateRoomModal] Navigating to room:", newRoom.roomCode)
+                navigate(`/code-room/${newRoom.roomCode}`)
+            }, 1000)
+
         } catch (error: any) {
-            console.error("Failed to create room:", error)
+            console.error("[CreateRoomModal] Failed to create room:", error)
             const errorMessage = error.response?.data?.errorMessage || error.message || "Failed to create room"
             toast.error(errorMessage)
             setError(errorMessage)
