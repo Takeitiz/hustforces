@@ -30,7 +30,6 @@ export enum LanguageId {
 export interface CreateCodeRoomRequest {
     name: string;
     description?: string;
-    problemId?: string;
     languageId: LanguageId;
     maxParticipants: number;
     isPublic: boolean;
@@ -88,8 +87,6 @@ export interface CodeRoomDto {
     roomCode: string;
     name: string;
     description?: string;
-    problemId?: string;
-    problemTitle?: string;
     hostUserId: string;
     hostUsername: string;
     status: CodeRoomStatus;
@@ -144,10 +141,6 @@ export interface SessionInfoDto {
     participantsCount: number;
 }
 
-export interface SubmitCodeResponse {
-    submissionId: string;
-}
-
 // WebSocket Event Types
 export interface ParticipantJoinedEvent {
     participant: ParticipantDto;
@@ -197,12 +190,6 @@ export interface CursorUpdateEvent {
     userId: string;
     position: CursorPositionDto;
     colorHex: string;
-}
-
-// Submission Event
-export interface CodeSubmittedEvent {
-    submissionId: string;
-    userId: string;
 }
 
 // Personal Events

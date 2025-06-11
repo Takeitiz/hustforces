@@ -15,7 +15,6 @@ import type {
     UserTypingEvent,
     UserMediaStateEvent,
     CursorUpdateEvent,
-    CodeSubmittedEvent,
     ParticipantKickedEvent,
     CodeRoomSyncResponse,
     ErrorMessage,
@@ -701,25 +700,6 @@ class CodeRoomWebSocketService {
         })
         this.subscriptions["room-settings"] = subscription
         debugLog("WEBSOCKET", "Subscribed to room settings updates")
-    }
-
-    /**
-     * Subscribe to submission notifications
-     */
-    async onCodeSubmitted(callback: EventCallback<CodeSubmittedEvent>): Promise<void> {
-        await this.ensureConnected()
-        if (!this.client || !this.roomId) return
-
-        const subscription = this.client.subscribe(`/topic/coderoom/${this.roomId}/submission`, (message: IMessage) => {
-            try {
-                const data = JSON.parse(message.body) as CodeSubmittedEvent
-                callback(data)
-            } catch (error) {
-                debugError("WEBSOCKET", "Error parsing code submission message:", error)
-            }
-        })
-        this.subscriptions["submission"] = subscription
-        debugLog("WEBSOCKET", "Subscribed to code submissions")
     }
 
     // ============ Personal Queue Subscriptions ============

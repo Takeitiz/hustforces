@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import MonacoEditor from 'react-monaco-editor';
-import { Loader2, Save, Play, Copy, Check } from 'lucide-react';
+import { Loader2, Save, Copy, Check } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { useCodeSync } from '../../hooks/useCodeSync';
 import useCodeRoomStore from '../../contexts/CodeRoomContext';
 import { LanguageId } from '../../types/codeRoom';
 
-interface CollaborativeEditorProps {
-    onSubmit?: () => void;
-}
+interface CollaborativeEditorProps {}
 
-export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
+export function CollaborativeEditor({}: CollaborativeEditorProps) {
     const editorRef = useRef<any>(null);
     const disposablesRef = useRef<any[]>([]);
     const decorationsRef = useRef<any[]>([]);
@@ -263,18 +261,6 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
                             </>
                         )}
                     </Button>
-
-                    {onSubmit && canEdit && (
-                        <Button
-                            size="sm"
-                            onClick={onSubmit}
-                            className="bg-green-600 hover:bg-green-700"
-                            disabled={!isConnected}
-                        >
-                            <Play size={16} className="mr-1" />
-                            Submit
-                        </Button>
-                    )}
                 </div>
             </div>
 

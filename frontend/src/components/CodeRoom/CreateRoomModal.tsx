@@ -10,22 +10,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { useNavigate } from "react-router-dom"
 import useCodeRoomStore from "../../contexts/CodeRoomContext"
 import { type CreateCodeRoomRequest, LanguageId } from "../../types/codeRoom"
-import type { ProblemDto } from "../../types/problem"
-import problemService from "../../service/problemService"
 import codeRoomService from "../../service/codeRoomService"
 import { toast } from "react-toastify"
 
 interface CreateRoomModalProps {
     isOpen: boolean
     onClose: () => void
-    problemId?: string
     initialCode?: string
 }
 
 export function CreateRoomModal({
                                     isOpen,
                                     onClose,
-                                    problemId: defaultProblemId,
                                     initialCode,
                                 }: CreateRoomModalProps) {
     const navigate = useNavigate()
@@ -34,7 +30,6 @@ export function CreateRoomModal({
     const [formData, setFormData] = useState<CreateCodeRoomRequest>({
         name: "",
         description: "",
-        problemId: defaultProblemId,
         languageId: LanguageId.cpp,
         maxParticipants: 2,
         isPublic: true,
@@ -44,32 +39,7 @@ export function CreateRoomModal({
         initialCode: initialCode || "",
     })
 
-    const [problems, setProblems] = useState<ProblemDto[]>([])
-    const [loadingProblems, setLoadingProblems] = useState(false)
     const [error, setError] = useState<string | null>(null)
-
-    // Load problems
-    useEffect(() => {
-        const loadProblems = async () => {
-            if (defaultProblemId) return // Skip if we have a default problem
-
-            setLoadingProblems(true)
-            setError(null)
-            try {
-                const response = await problemService.getProblems(0, 100)
-                setProblems(response.content || [])
-            } catch (error) {
-                console.error("Failed to load problems:", error)
-                setError("Failed to load problems")
-            } finally {
-                setLoadingProblems(false)
-            }
-        }
-
-        if (isOpen) {
-            loadProblems()
-        }
-    }, [isOpen, defaultProblemId])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -185,40 +155,6 @@ export function CreateRoomModal({
                             disabled={isCreatingRoom}
                         />
                     </div>
-
-                    {/* Problem Selection */}
-                    {!defaultProblemId && (
-                        <div className="space-y-2">
-                            <Label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Problem (Optional)</Label>
-                            <Select
-                                value={formData.problemId || "none"}
-                                onValueChange={(value) => handleInputChange("problemId", value === "none" ? undefined : value)}
-                                disabled={isCreatingRoom}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select a problem" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[200px]">
-                                    <SelectItem value="none">No problem</SelectItem>
-                                    {loadingProblems ? (
-                                        <SelectItem value="loading" disabled>
-                                            Loading problems...
-                                        </SelectItem>
-                                    ) : problems.length > 0 ? (
-                                        problems.map((problem) => (
-                                            <SelectItem key={problem.id} value={problem.id}>
-                                                {problem.title}
-                                            </SelectItem>
-                                        ))
-                                    ) : (
-                                        <SelectItem value="no-problems" disabled>
-                                            No problems available
-                                        </SelectItem>
-                                    )}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
 
                     {/* Language Selection */}
                     <div className="space-y-2">

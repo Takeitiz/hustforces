@@ -42,7 +42,7 @@ export function CodeRoomInterface() {
         reset,
     } = useCodeRoomStore()
 
-    const { joinRoom, leaveRoom, submitCode, isJoiningRoom, isLeavingRoom, isInitializing } = useCodeRoom()
+    const { joinRoom, leaveRoom, isJoiningRoom, isLeavingRoom, isInitializing } = useCodeRoom()
     const { initializeWebRTC, connectToUser, cleanup: cleanupWebRTC } = useWebRTCIntegration()
 
     const [isWebRTCReady, setIsWebRTCReady] = useState(false)
@@ -273,14 +273,6 @@ export function CodeRoomInterface() {
         }
     }
 
-    const handleSubmitCode = async () => {
-        try {
-            await submitCode()
-        } catch (error) {
-            // Error handled in useCodeRoom hook
-        }
-    }
-
     const toggleFullscreen = () => {
         setIsFullscreen(!isFullscreen)
     }
@@ -333,11 +325,6 @@ export function CodeRoomInterface() {
                         <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-sm font-mono">
                             #{room.roomCode}
                         </span>
-                        {room.problemTitle && (
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                                Problem: {room.problemTitle}
-                            </span>
-                        )}
                         {/* Display WebRTC Error if present */}
                         {webRTCError && (
                             <span className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
@@ -421,7 +408,7 @@ export function CodeRoomInterface() {
                 {activeView === "code" || (!isWebRTCReady && (activeView === "video" || activeView === "split")) ? (
                     <PanelGroup direction="horizontal" className="h-full">
                         <Panel defaultSize={showParticipants ? 75 : 100} minSize={50}>
-                            <CollaborativeEditor onSubmit={handleSubmitCode} />
+                            <CollaborativeEditor />
                         </Panel>
                         {showParticipants && (
                             <>
@@ -456,7 +443,7 @@ export function CodeRoomInterface() {
                         <Panel defaultSize={showParticipants ? 75 : 100} minSize={50}>
                             <PanelGroup direction="horizontal">
                                 <Panel defaultSize={60} minSize={30}>
-                                    <CollaborativeEditor onSubmit={handleSubmitCode} />
+                                    <CollaborativeEditor />
                                 </Panel>
                                 <PanelResizeHandle className="w-2 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 transition-colors flex items-center justify-center">
                                     <GripVertical className="h-4 w-4 text-gray-400" />

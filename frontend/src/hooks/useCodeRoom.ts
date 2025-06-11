@@ -167,14 +167,6 @@ export function useCodeRoom() {
                 setConnectionError(error.error)
             })
 
-            // Handle submission notifications
-            await codeRoomWebSocketService.onCodeSubmitted((event) => {
-                const participant = participants.get(event.userId)
-                if (participant) {
-                    toast.info(`${participant.username} submitted code`)
-                }
-            })
-
             console.log("[CodeRoom Hook] WebSocket listeners setup complete")
         } catch (error) {
             console.error("[CodeRoom Hook] Error setting up WebSocket listeners:", error)
@@ -487,29 +479,6 @@ export function useCodeRoom() {
         [room, isHost, updateParticipant],
     )
 
-    // Submit code
-    const submitCode = useCallback(async () => {
-        if (!room) {
-            toast.error("No active room")
-            return
-        }
-
-        try {
-            const response = await codeRoomService.submitCode(room.id)
-            toast.success("Code submitted successfully!")
-
-            // Navigate to submission page
-            navigate(`/submission/${response.submissionId}`)
-
-            return response
-        } catch (error: any) {
-            console.error("Failed to submit code:", error)
-            const errorMessage = error.response?.data?.errorMessage || error.message || "Failed to submit code"
-            toast.error(errorMessage)
-            throw error
-        }
-    }, [room, navigate])
-
     // Handle connection state changes
     useEffect(() => {
         if (connectionError) {
@@ -551,7 +520,6 @@ export function useCodeRoom() {
         deleteRoom,
         kickParticipant,
         updateParticipantRole,
-        submitCode,
         endSession,
 
         // Utility

@@ -57,10 +57,9 @@ export function RoomBrowser() {
     };
 
     const filteredRooms = (activeTab === 'public' ? rooms : myRooms).filter(room =>
-        room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        room.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        room.problemTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        room.roomCode.toLowerCase().includes(searchTerm.toLowerCase())
+            room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            room.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            room.roomCode.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const getStatusColor = (status: string) => {
@@ -199,25 +198,19 @@ export function RoomBrowser() {
                                     <div>
                                         <h3 className="font-semibold text-lg mb-1">{room.name}</h3>
                                         <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                                            <Hash size={14} />
+                                            <Hash size={14}/>
                                             {room.roomCode}
                                         </p>
                                     </div>
                                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(room.status)}`}>
-                    {room.status}
-                  </span>
+                                        {room.status}
+                                    </span>
                                 </div>
 
                                 {room.description && (
                                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
                                         {room.description}
                                     </p>
-                                )}
-
-                                {room.problemTitle && (
-                                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                                        <span className="font-medium">Problem:</span> {room.problemTitle}
-                                    </div>
                                 )}
 
                                 <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4">

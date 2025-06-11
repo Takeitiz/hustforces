@@ -9,8 +9,7 @@ import {
     SessionInfoDto,
     WebRTCConfigDto,
     PageResponse,
-    ParticipantRole,
-    SubmitCodeResponse
+    ParticipantRole
 } from "../types/codeRoom";
 import authService from "./authService.ts";
 
@@ -184,19 +183,6 @@ const codeRoomService = {
     },
 
     /**
-     * Get rooms by problem
-     */
-    getRoomsByProblem: async (problemId: string): Promise<CodeRoomDto[]> => {
-        try {
-            const response = await apiClient.get<CodeRoomDto[]>(`/coderooms/problem/${problemId}`);
-            return response.data;
-        } catch (error) {
-            console.error('Failed to get rooms by problem:', error);
-            throw error;
-        }
-    },
-
-    /**
      * Get user's active rooms
      */
     getMyRooms: async (): Promise<CodeRoomDto[]> => {
@@ -230,19 +216,6 @@ const codeRoomService = {
             return response.data;
         } catch (error) {
             console.error('Failed to get room sessions:', error);
-            throw error;
-        }
-    },
-
-    /**
-     * Submit code from room
-     */
-    submitCode: async (roomId: string): Promise<SubmitCodeResponse> => {
-        try {
-            const response = await apiClient.post<SubmitCodeResponse>(`/coderooms/${roomId}/submit`);
-            return response.data;
-        } catch (error) {
-            console.error('Failed to submit code:', error);
             throw error;
         }
     },

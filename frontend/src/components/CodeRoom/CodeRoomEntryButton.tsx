@@ -5,15 +5,11 @@ import { CreateRoomModal } from './CreateRoomModal';
 import { JoinRoomModal } from './JoinRoomModal';
 
 interface CodeRoomEntryButtonProps {
-    problemId?: string;
-    problemTitle?: string;
     initialCode?: string;
     variant?: 'default' | 'compact';
 }
 
 export function CodeRoomEntryButton({
-                                        problemId,
-                                        problemTitle,
                                         initialCode,
                                         variant = 'default'
                                     }: CodeRoomEntryButtonProps) {
@@ -38,7 +34,6 @@ export function CodeRoomEntryButton({
                 <CreateRoomModal
                     isOpen={showCreateModal}
                     onClose={() => setShowCreateModal(false)}
-                    problemId={problemId}
                     initialCode={initialCode}
                 />
                 <JoinRoomModal
@@ -60,12 +55,6 @@ export function CodeRoomEntryButton({
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
                     Work together in real-time with voice, video, and shared coding.
                 </p>
-
-                {problemTitle && (
-                    <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
-                        Problem: <span className="font-medium">{problemTitle}</span>
-                    </p>
-                )}
 
                 <div className="flex gap-3">
                     <Button
@@ -89,7 +78,6 @@ export function CodeRoomEntryButton({
             <CreateRoomModal
                 isOpen={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
-                problemId={problemId}
                 initialCode={initialCode}
             />
             <JoinRoomModal
