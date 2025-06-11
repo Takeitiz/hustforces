@@ -7,8 +7,6 @@ import { JoinRoomModal } from './JoinRoomModal';
 interface CodeRoomEntryButtonProps {
     problemId?: string;
     problemTitle?: string;
-    contestId?: string;
-    contestTitle?: string;
     initialCode?: string;
     variant?: 'default' | 'compact';
 }
@@ -16,8 +14,6 @@ interface CodeRoomEntryButtonProps {
 export function CodeRoomEntryButton({
                                         problemId,
                                         problemTitle,
-                                        contestId,
-                                        contestTitle,
                                         initialCode,
                                         variant = 'default'
                                     }: CodeRoomEntryButtonProps) {
@@ -43,7 +39,6 @@ export function CodeRoomEntryButton({
                     isOpen={showCreateModal}
                     onClose={() => setShowCreateModal(false)}
                     problemId={problemId}
-                    contestId={contestId}
                     initialCode={initialCode}
                 />
                 <JoinRoomModal
@@ -95,7 +90,6 @@ export function CodeRoomEntryButton({
                 isOpen={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
                 problemId={problemId}
-                contestId={contestId}
                 initialCode={initialCode}
             />
             <JoinRoomModal

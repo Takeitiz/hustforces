@@ -114,12 +114,6 @@ public class CodeRoomController {
         return ResponseEntity.ok(rooms);
     }
 
-    @GetMapping("/contest/{contestId}")
-    public ResponseEntity<List<CodeRoomDto>> getRoomsByContest(@PathVariable String contestId) {
-        List<CodeRoomDto> rooms = codeRoomService.getRoomsByContest(contestId);
-        return ResponseEntity.ok(rooms);
-    }
-
     @GetMapping("/my-rooms")
     public ResponseEntity<List<CodeRoomDto>> getMyActiveRooms() {
         String userId = currentUserUtil.getCurrentUserId();

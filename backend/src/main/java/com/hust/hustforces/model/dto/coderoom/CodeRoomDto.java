@@ -20,8 +20,6 @@ public class CodeRoomDto {
     private String description;
     private String problemId;
     private String problemTitle;
-    private String contestId;
-    private String contestTitle;
     private String hostUserId;
     private String hostUsername;
     private CodeRoomStatus status;

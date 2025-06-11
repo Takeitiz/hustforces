@@ -41,13 +41,6 @@ public class CodeRoom extends BaseEntity {
     @JoinColumn(name = "problem_id", referencedColumnName = "id", insertable = false, updatable = false)
     private Problem problem;
 
-    @Column(name = "contest_id")
-    private String contestId;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "contest_id", referencedColumnName = "id", insertable = false, updatable = false)
-    private Contest contest;
-
     @Column(name = "host_user_id", nullable = false)
     private String hostUserId;
 

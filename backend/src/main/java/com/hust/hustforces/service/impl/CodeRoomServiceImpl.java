@@ -41,7 +41,6 @@ public class CodeRoomServiceImpl implements CodeRoomService {
     private final CodeRoomSessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final ProblemRepository problemRepository;
-    private final ContestRepository contestRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final CodeRoomSyncService syncService;
     private final SubmissionService submissionService;
@@ -76,7 +75,6 @@ public class CodeRoomServiceImpl implements CodeRoomService {
                 .name(request.getName())
                 .description(request.getDescription())
                 .problemId(request.getProblemId())
-                .contestId(request.getContestId())
                 .hostUserId(hostUserId)
                 .status(CodeRoomStatus.ACTIVE)
                 .languageId(request.getLanguageId())
@@ -552,14 +550,6 @@ public class CodeRoomServiceImpl implements CodeRoomService {
     }
 
     @Override
-    public List<CodeRoomDto> getRoomsByContest(String contestId) {
-        return codeRoomRepository.findActiveRoomsByContestId(contestId)
-                .stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public List<CodeRoomDto> getUserActiveRooms(String userId) {
         return participantRepository.findByUserIdAndStatus(userId, ParticipantStatus.ACTIVE)
                 .stream()
@@ -695,7 +685,6 @@ public class CodeRoomServiceImpl implements CodeRoomService {
                 .code(currentCode)
                 .languageId(room.getLanguageId())
                 .problemId(room.getProblemId())
-                .activeContestId(room.getContestId())
                 .build();
 
         try {
@@ -833,13 +822,6 @@ public class CodeRoomServiceImpl implements CodeRoomService {
             problemTitle = room.getProblem() != null ? room.getProblem().getTitle() : null;
         }
 
-        String contestTitle = null;
-        if (room.getContestId() != null) {
-            contestRepository.findById(room.getContestId())
-                    .ifPresent(room::setContest);
-            contestTitle = room.getContest() != null ? room.getContest().getTitle() : null;
-        }
-
         String hostUsername = null;
         if (room.getHostUserId() != null) {
             userRepository.findById(room.getHostUserId())
@@ -856,8 +838,6 @@ public class CodeRoomServiceImpl implements CodeRoomService {
                 .description(room.getDescription())
                 .problemId(room.getProblemId())
                 .problemTitle(problemTitle)
-                .contestId(room.getContestId())
-                .contestTitle(contestTitle)
                 .hostUserId(room.getHostUserId())
                 .hostUsername(hostUsername)
                 .status(room.getStatus())

@@ -25,9 +25,6 @@ public interface CodeRoomRepository extends JpaRepository<CodeRoom, String> {
     @Query("SELECT cr FROM CodeRoom cr WHERE cr.problemId = :problemId AND cr.status = 'ACTIVE' AND cr.isPublic = true")
     List<CodeRoom> findActivePublicRoomsByProblemId(@Param("problemId") String problemId);
 
-    @Query("SELECT cr FROM CodeRoom cr WHERE cr.contestId = :contestId AND cr.status = 'ACTIVE'")
-    List<CodeRoom> findActiveRoomsByContestId(@Param("contestId") String contestId);
-
     Page<CodeRoom> findByStatusAndIsPublicOrderByCreatedAtDesc(CodeRoomStatus status, boolean isPublic, Pageable pageable);
 
     @Query("SELECT cr FROM CodeRoom cr WHERE cr.status = 'ACTIVE' AND cr.lastActivityAt < :inactiveTime")

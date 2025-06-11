@@ -172,19 +172,6 @@ const codeRoomService = {
     },
 
     /**
-     * Get rooms by contest
-     */
-    getRoomsByContest: async (contestId: string): Promise<CodeRoomDto[]> => {
-        try {
-            const response = await apiClient.get<CodeRoomDto[]>(`/coderooms/contest/${contestId}`);
-            return response.data;
-        } catch (error) {
-            console.error('Failed to get rooms by contest:', error);
-            throw error;
-        }
-    },
-
-    /**
      * Get user's active rooms
      */
     getMyRooms: async (): Promise<CodeRoomDto[]> => {

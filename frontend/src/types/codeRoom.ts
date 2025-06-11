@@ -31,9 +31,8 @@ export interface CreateCodeRoomRequest {
     name: string;
     description?: string;
     problemId?: string;
-    contestId?: string;
     languageId: LanguageId;
-    maxParticipants: number; // 2-10
+    maxParticipants: number;
     isPublic: boolean;
     allowVoiceChat: boolean;
     allowVideoChat: boolean;
@@ -91,8 +90,6 @@ export interface CodeRoomDto {
     description?: string;
     problemId?: string;
     problemTitle?: string;
-    contestId?: string;
-    contestTitle?: string;
     hostUserId: string;
     hostUsername: string;
     status: CodeRoomStatus;

@@ -22,8 +22,6 @@ public class CreateCodeRoomRequest {
 
     private String problemId;
 
-    private String contestId;
-
     @NotNull(message = "Language is required")
     private LanguageId languageId;
 

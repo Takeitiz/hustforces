@@ -11,9 +11,7 @@ import { useNavigate } from "react-router-dom"
 import useCodeRoomStore from "../../contexts/CodeRoomContext"
 import { type CreateCodeRoomRequest, LanguageId } from "../../types/codeRoom"
 import type { ProblemDto } from "../../types/problem"
-import type { ContestDto } from "../../types/contest"
 import problemService from "../../service/problemService"
-import contestService from "../../service/contestService"
 import codeRoomService from "../../service/codeRoomService"
 import { toast } from "react-toastify"
 
@@ -21,7 +19,6 @@ interface CreateRoomModalProps {
     isOpen: boolean
     onClose: () => void
     problemId?: string
-    contestId?: string
     initialCode?: string
 }
 
@@ -29,7 +26,6 @@ export function CreateRoomModal({
                                     isOpen,
                                     onClose,
                                     problemId: defaultProblemId,
-                                    contestId: defaultContestId,
                                     initialCode,
                                 }: CreateRoomModalProps) {
     const navigate = useNavigate()
@@ -39,7 +35,6 @@ export function CreateRoomModal({
         name: "",
         description: "",
         problemId: defaultProblemId,
-        contestId: defaultContestId,
         languageId: LanguageId.cpp,
         maxParticipants: 2,
         isPublic: true,
@@ -50,9 +45,7 @@ export function CreateRoomModal({
     })
 
     const [problems, setProblems] = useState<ProblemDto[]>([])
-    const [contests, setContests] = useState<ContestDto[]>([])
     const [loadingProblems, setLoadingProblems] = useState(false)
-    const [loadingContests, setLoadingContests] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     // Load problems
@@ -77,29 +70,6 @@ export function CreateRoomModal({
             loadProblems()
         }
     }, [isOpen, defaultProblemId])
-
-    // Load contests
-    useEffect(() => {
-        const loadContests = async () => {
-            if (defaultContestId) return // Skip if we have a default contest
-
-            setLoadingContests(true)
-            setError(null)
-            try {
-                const activeContests = await contestService.getActiveContests()
-                setContests(activeContests)
-            } catch (error) {
-                console.error("Failed to load contests:", error)
-                setError("Failed to load contests")
-            } finally {
-                setLoadingContests(false)
-            }
-        }
-
-        if (isOpen) {
-            loadContests()
-        }
-    }, [isOpen, defaultContestId])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -243,40 +213,6 @@ export function CreateRoomModal({
                                     ) : (
                                         <SelectItem value="no-problems" disabled>
                                             No problems available
-                                        </SelectItem>
-                                    )}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
-
-                    {/* Contest Selection */}
-                    {!defaultContestId && (
-                        <div className="space-y-2">
-                            <Label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Contest (Optional)</Label>
-                            <Select
-                                value={formData.contestId || "none"}
-                                onValueChange={(value) => handleInputChange("contestId", value === "none" ? undefined : value)}
-                                disabled={isCreatingRoom}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select a contest" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-[200px]">
-                                    <SelectItem value="none">No contest</SelectItem>
-                                    {loadingContests ? (
-                                        <SelectItem value="loading" disabled>
-                                            Loading contests...
-                                        </SelectItem>
-                                    ) : contests.length > 0 ? (
-                                        contests.map((contest) => (
-                                            <SelectItem key={contest.id} value={contest.id}>
-                                                {contest.title}
-                                            </SelectItem>
-                                        ))
-                                    ) : (
-                                        <SelectItem value="no-contests" disabled>
-                                            No contests available
                                         </SelectItem>
                                     )}
                                 </SelectContent>

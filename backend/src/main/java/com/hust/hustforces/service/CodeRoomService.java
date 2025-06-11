@@ -41,8 +41,6 @@ public interface CodeRoomService {
 
     List<CodeRoomDto> getRoomsByProblem(String problemId);
 
-    List<CodeRoomDto> getRoomsByContest(String contestId);
-
     List<CodeRoomDto> getUserActiveRooms(String userId);
 
     // Session Management
