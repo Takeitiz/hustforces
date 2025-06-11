@@ -20,6 +20,21 @@ import java.util.Map;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(AlreadyInRoomException.class)
+    public ResponseEntity<ErrorResponseDto> handleAlreadyInRoomException(
+            AlreadyInRoomException exception,
+            WebRequest request) {
+
+        ErrorResponseDto errorResponseDto = new ErrorResponseDto(
+                request.getDescription(false),
+                HttpStatus.CONFLICT,
+                exception.getMessage(),
+                LocalDateTime.now()
+        );
+
+        return new ResponseEntity<>(errorResponseDto, HttpStatus.CONFLICT);
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponseDto> handleResourceNotFound(
             ResourceNotFoundException ex, WebRequest request) {
