@@ -108,12 +108,6 @@ public class CodeRoomController {
         return ResponseEntity.ok(rooms);
     }
 
-    @GetMapping("/problem/{problemId}")
-    public ResponseEntity<List<CodeRoomDto>> getRoomsByProblem(@PathVariable String problemId) {
-        List<CodeRoomDto> rooms = codeRoomService.getRoomsByProblem(problemId);
-        return ResponseEntity.ok(rooms);
-    }
-
     @GetMapping("/my-rooms")
     public ResponseEntity<List<CodeRoomDto>> getMyActiveRooms() {
         String userId = currentUserUtil.getCurrentUserId();
@@ -132,13 +126,6 @@ public class CodeRoomController {
     public ResponseEntity<List<SessionInfoDto>> getRoomSessions(@PathVariable String roomId) {
         List<SessionInfoDto> sessions = codeRoomService.getRoomSessions(roomId);
         return ResponseEntity.ok(sessions);
-    }
-
-    @PostMapping("/{roomId}/submit")
-    public ResponseEntity<SubmitCodeResponse> submitCode(@PathVariable String roomId) {
-        String userId = currentUserUtil.getCurrentUserId();
-        String submissionId = codeRoomService.submitCode(roomId, userId);
-        return ResponseEntity.ok(new SubmitCodeResponse(submissionId));
     }
 
     @GetMapping("/webrtc-config")

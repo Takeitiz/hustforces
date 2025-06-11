@@ -39,8 +39,6 @@ public interface CodeRoomService {
     // Room Discovery
     Page<CodeRoomDto> getPublicRooms(Pageable pageable);
 
-    List<CodeRoomDto> getRoomsByProblem(String problemId);
-
     List<CodeRoomDto> getUserActiveRooms(String userId);
 
     // Session Management
@@ -49,9 +47,6 @@ public interface CodeRoomService {
     SessionInfoDto getCurrentSession(String roomId);
 
     List<SessionInfoDto> getRoomSessions(String roomId);
-
-    // Submission
-    String submitCode(String roomId, String userId);
 
     // WebRTC Configuration
     WebRTCConfigDto getWebRTCConfig();

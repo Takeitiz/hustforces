@@ -20,8 +20,6 @@ public class CreateCodeRoomRequest {
 
     private String description;
 
-    private String problemId;
-
     @NotNull(message = "Language is required")
     private LanguageId languageId;
 

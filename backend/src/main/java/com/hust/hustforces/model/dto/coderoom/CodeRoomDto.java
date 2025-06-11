@@ -18,8 +18,6 @@ public class CodeRoomDto {
     private String roomCode;
     private String name;
     private String description;
-    private String problemId;
-    private String problemTitle;
     private String hostUserId;
     private String hostUsername;
     private CodeRoomStatus status;

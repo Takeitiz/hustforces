@@ -40,13 +40,6 @@ public class CodeRoomSession extends BaseEntity {
     @Column(name = "final_code", columnDefinition = "TEXT")
     private String finalCode;
 
-    @Column(name = "submission_id")
-    private String submissionId;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "submission_id", referencedColumnName = "id", insertable = false, updatable = false)
-    private Submission submission;
-
     @Column(name = "total_edits")
     private Integer totalEdits = 0;
 

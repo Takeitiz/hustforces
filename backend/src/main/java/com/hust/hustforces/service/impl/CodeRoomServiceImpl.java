@@ -5,9 +5,7 @@ import com.hust.hustforces.enums.ParticipantRole;
 import com.hust.hustforces.enums.ParticipantStatus;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.exception.AlreadyInRoomException;
-import com.hust.hustforces.model.dto.SubmissionRequest;
 import com.hust.hustforces.model.dto.coderoom.*;
-import com.hust.hustforces.model.dto.submission.SubmissionDetailDto;
 import com.hust.hustforces.model.entity.CodeRoom;
 import com.hust.hustforces.model.entity.CodeRoomParticipant;
 import com.hust.hustforces.model.entity.CodeRoomSession;
@@ -15,7 +13,6 @@ import com.hust.hustforces.model.entity.User;
 import com.hust.hustforces.repository.*;
 import com.hust.hustforces.service.CodeRoomService;
 import com.hust.hustforces.service.CodeRoomSyncService;
-import com.hust.hustforces.service.SubmissionService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +22,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -41,10 +37,8 @@ public class CodeRoomServiceImpl implements CodeRoomService {
     private final CodeRoomParticipantRepository participantRepository;
     private final CodeRoomSessionRepository sessionRepository;
     private final UserRepository userRepository;
-    private final ProblemRepository problemRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final CodeRoomSyncService syncService;
-    private final SubmissionService submissionService;
 
     @Value("${coderoom.stun.server:stun:stun.l.google.com:19302}")
     private String stunServer;
@@ -75,7 +69,6 @@ public class CodeRoomServiceImpl implements CodeRoomService {
                 .roomCode(roomCode)
                 .name(request.getName())
                 .description(request.getDescription())
-                .problemId(request.getProblemId())
                 .hostUserId(hostUserId)
                 .status(CodeRoomStatus.ACTIVE)
                 .languageId(request.getLanguageId())
@@ -560,14 +553,6 @@ public class CodeRoomServiceImpl implements CodeRoomService {
     }
 
     @Override
-    public List<CodeRoomDto> getRoomsByProblem(String problemId) {
-        return codeRoomRepository.findActivePublicRoomsByProblemId(problemId)
-                .stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public List<CodeRoomDto> getUserActiveRooms(String userId) {
         return participantRepository.findByUserIdAndStatus(userId, ParticipantStatus.ACTIVE)
                 .stream()
@@ -671,68 +656,6 @@ public class CodeRoomServiceImpl implements CodeRoomService {
     }
 
     @Override
-    public String submitCode(String roomId, String userId) {
-        log.info("User {} submitting code from room {}", userId, roomId);
-
-        CodeRoom room = codeRoomRepository.findById(roomId)
-                .orElseThrow(() -> new ResourceNotFoundException("CodeRoom", "id", roomId));
-
-        // Verify user is in the room
-        CodeRoomParticipant participant = participantRepository
-                .findByCodeRoomIdAndUserId(roomId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("User is not in the room"));
-
-        if (participant.getStatus() != ParticipantStatus.ACTIVE) {
-            throw new IllegalStateException("User is not active in the room");
-        }
-
-        // Get current code from sync service
-        String currentCode = syncService.getCurrentCode(roomId);
-
-        if (currentCode == null || currentCode.trim().isEmpty()) {
-            throw new IllegalStateException("No code to submit");
-        }
-
-        // Verify problem exists
-        if (room.getProblemId() == null) {
-            throw new IllegalStateException("Room is not associated with a problem");
-        }
-
-        // Create submission request
-        SubmissionRequest submissionRequest = SubmissionRequest.builder()
-                .code(currentCode)
-                .languageId(room.getLanguageId())
-                .problemId(room.getProblemId())
-                .build();
-
-        try {
-            // Submit using existing submission service
-            SubmissionDetailDto submission = submissionService.createSubmission(submissionRequest, userId);
-
-            // Update session with submission ID
-            sessionRepository.findTopByCodeRoomIdAndEndedAtIsNullOrderByStartedAtDesc(roomId)
-                    .ifPresent(session -> {
-                        session.setSubmissionId(submission.getId());
-                        session.setFinalCode(currentCode);
-                        sessionRepository.save(session);
-                    });
-
-            // Notify all participants
-            messagingTemplate.convertAndSend(
-                    "/topic/coderoom/" + roomId + "/submission",
-                    new CodeSubmittedEvent(submission.getId(), userId)
-            );
-
-            log.info("Code submitted successfully. Submission ID: {}", submission.getId());
-            return submission.getId();
-
-        } catch (IOException e) {
-            log.error("Error submitting code from room {}: {}", roomId, e.getMessage(), e);
-            throw new RuntimeException("Failed to submit code", e);
-        }
-    }
-
-    @Override
     public WebRTCConfigDto getWebRTCConfig() {
         List<String> iceServers = new ArrayList<>();
         iceServers.add(stunServer);
@@ -833,13 +756,6 @@ public class CodeRoomServiceImpl implements CodeRoomService {
     }
 
     private CodeRoomDto convertToDto(CodeRoom room) {
-        String problemTitle = null;
-        if (room.getProblemId() != null) {
-            problemRepository.findById(room.getProblemId())
-                    .ifPresent(room::setProblem);
-            problemTitle = room.getProblem() != null ? room.getProblem().getTitle() : null;
-        }
-
         String hostUsername = null;
         if (room.getHostUserId() != null) {
             userRepository.findById(room.getHostUserId())
@@ -854,8 +770,6 @@ public class CodeRoomServiceImpl implements CodeRoomService {
                 .roomCode(room.getRoomCode())
                 .name(room.getName())
                 .description(room.getDescription())
-                .problemId(room.getProblemId())
-                .problemTitle(problemTitle)
                 .hostUserId(room.getHostUserId())
                 .hostUsername(hostUsername)
                 .status(room.getStatus())
