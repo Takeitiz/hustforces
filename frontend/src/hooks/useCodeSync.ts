@@ -32,7 +32,7 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
     const isApplyingRemoteChange = useRef(false);
     const lastCursorPosition = useRef<CursorPositionDto | null>(null);
 
-    // Cursor position adjustment logic - NEW
+    // Cursor position adjustment logic
     const adjustCursorPosition = (
         position: CursorPositionDto,
         change: CodeChangeDto
@@ -102,7 +102,7 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
         };
     };
 
-    // Apply remote code change to editor - UPDATED WITH CURSOR ADJUSTMENT
+    // Apply remote code change to editor
     const applyRemoteChange = useCallback((change: CodeChangeDto) => {
         if (!editorRef.current || !change.userId || change.userId === currentUser?.userId) {
             return;
@@ -201,7 +201,17 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
         if (batchChanges) {
             changeQueueRef.current.push(change);
         } else {
-            codeRoomWebSocketService.sendCodeChange(change);
+            // Try to send immediately if connected
+            if (codeRoomWebSocketService.isConnected()) {
+                codeRoomWebSocketService.sendCodeChange(change).catch(error => {
+                    console.error('Failed to send code change:', error);
+                    // Queue for retry
+                    changeQueueRef.current.push(change);
+                });
+            } else {
+                // Queue if not connected
+                changeQueueRef.current.push(change);
+            }
         }
     }, [canEdit, batchChanges]);
 
@@ -209,9 +219,17 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
     const flushChangeQueue = useCallback(() => {
         if (changeQueueRef.current.length === 0) return;
 
+        // Check WebSocket connection
+        if (!codeRoomWebSocketService.isConnected()) {
+            console.warn('WebSocket not connected, cannot flush changes');
+            return;
+        }
+
         // Send all queued changes
         changeQueueRef.current.forEach(change => {
-            codeRoomWebSocketService.sendCodeChange(change);
+            codeRoomWebSocketService.sendCodeChange(change).catch(error => {
+                console.error('Failed to send queued change:', error);
+            });
         });
 
         // Clear queue
@@ -237,22 +255,30 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
         }
 
         // Convert Monaco change event to our format
-        event.changes.forEach((change: any) => {
-            const codeChange: CodeChangeDto = {
-                operation: change.text ? (change.rangeLength > 0 ? 'replace' : 'insert') : 'delete',
-                startLine: change.range.startLineNumber,
-                startColumn: change.range.startColumn,
-                endLine: change.range.endLineNumber,
-                endColumn: change.range.endColumn,
-                text: change.text || ''
-            };
+        if (event && event.changes) {
+            event.changes.forEach((change: any) => {
+                // Ensure we have valid range data
+                if (!change.range) {
+                    console.warn('Invalid change event - no range:', change);
+                    return;
+                }
 
-            sendCodeChange(codeChange);
-        });
+                const codeChange: CodeChangeDto = {
+                    operation: change.text ? (change.rangeLength > 0 ? 'replace' : 'insert') : 'delete',
+                    startLine: change.range.startLineNumber,
+                    startColumn: change.range.startColumn,
+                    endLine: change.range.endLineNumber,
+                    endColumn: change.range.endColumn,
+                    text: change.text || ''
+                };
 
-        // Trigger batched send if enabled
-        if (batchChanges) {
-            debouncedFlush();
+                sendCodeChange(codeChange);
+            });
+
+            // Trigger batched send if enabled
+            if (batchChanges) {
+                debouncedFlush();
+            }
         }
 
         // Send typing indicator
@@ -265,16 +291,40 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
             return;
         }
 
-        const position = event.position;
-        const selection = event.selection;
+        // Monaco editor provides different event types for position and selection changes
+        let position: any;
+        let selection: any;
+
+        // Handle cursor position change event
+        if (event && event.position) {
+            position = event.position;
+            // For position change events, get selection from editor
+            const selections = editorRef.current.getSelections();
+            selection = selections && selections.length > 0 ? selections[0] : null;
+        }
+        // Handle selection change event
+        else if (event && event.selection) {
+            selection = event.selection;
+            position = selection.getStartPosition();
+        }
+        // If neither, try to get from editor directly
+        else {
+            position = editorRef.current.getPosition();
+            const selections = editorRef.current.getSelections();
+            selection = selections && selections.length > 0 ? selections[0] : null;
+        }
+
+        if (!position) {
+            return;
+        }
 
         const cursorPosition: CursorPositionDto = {
-            line: position.lineNumber,
-            column: position.column,
-            selectionStartLine: selection.startLineNumber,
-            selectionStartColumn: selection.startColumn,
-            selectionEndLine: selection.endLineNumber,
-            selectionEndColumn: selection.endColumn
+            line: position.lineNumber || 1,
+            column: position.column || 1,
+            selectionStartLine: selection ? selection.startLineNumber : position.lineNumber || 1,
+            selectionStartColumn: selection ? selection.startColumn : position.column || 1,
+            selectionEndLine: selection ? selection.endLineNumber : position.lineNumber || 1,
+            selectionEndColumn: selection ? selection.endColumn : position.column || 1
         };
 
         // Only send if position actually changed
@@ -288,7 +338,13 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
             lastCursorPosition.current.selectionEndColumn !== cursorPosition.selectionEndColumn
         ) {
             lastCursorPosition.current = cursorPosition;
-            codeRoomWebSocketService.sendCursorPosition(cursorPosition);
+
+            // Check WebSocket connection before sending
+            if (codeRoomWebSocketService.isConnected()) {
+                codeRoomWebSocketService.sendCursorPosition(cursorPosition).catch(error => {
+                    console.error('Failed to send cursor position:', error);
+                });
+            }
         }
     }, [currentUser]);
 
@@ -304,48 +360,93 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
             typingTimeoutRef.current = null;
         }
 
+        // Check WebSocket connection
+        if (!codeRoomWebSocketService.isConnected()) {
+            return;
+        }
+
         if (isTyping) {
             // Send typing status
-            codeRoomWebSocketService.sendTypingStatus(true);
+            codeRoomWebSocketService.sendTypingStatus(true).catch(error => {
+                console.error('Failed to send typing status:', error);
+            });
 
             // Set timeout to clear typing status
             typingTimeoutRef.current = setTimeout(() => {
-                codeRoomWebSocketService.sendTypingStatus(false);
+                if (codeRoomWebSocketService.isConnected()) {
+                    codeRoomWebSocketService.sendTypingStatus(false).catch(error => {
+                        console.error('Failed to clear typing status:', error);
+                    });
+                }
             }, 3000);
         } else {
-            codeRoomWebSocketService.sendTypingStatus(false);
+            codeRoomWebSocketService.sendTypingStatus(false).catch(error => {
+                console.error('Failed to send typing status:', error);
+            });
         }
     }, [currentUser]);
 
-    // Set up WebSocket listeners for code sync - UPDATED WITH CLEANUP
+    // Set up WebSocket listeners for code sync
     useEffect(() => {
+        let reconnectInterval: NodeJS.Timeout | null = null;
+
         const setupListeners = async () => {
-            // Listen for code changes
-            await codeRoomWebSocketService.onCodeChange((change) => {
-                applyRemoteChange(change);
-            });
+            try {
+                // Listen for code changes
+                await codeRoomWebSocketService.onCodeChange((change) => {
+                    applyRemoteChange(change);
+                });
 
-            // Listen for cursor updates
-            await codeRoomWebSocketService.onCursorUpdate((event) => {
-                if (event.userId !== currentUser?.userId) {
-                    updateCursor(event.userId, event.position, event.colorHex);
-                }
-            });
+                // Listen for cursor updates
+                await codeRoomWebSocketService.onCursorUpdate((event) => {
+                    if (event.userId !== currentUser?.userId) {
+                        updateCursor(event.userId, event.position, event.colorHex);
+                    }
+                });
 
-            // Listen for typing indicators
-            await codeRoomWebSocketService.onTypingIndicator((event) => {
-                if (event.userId !== currentUser?.userId) {
-                    setUserTyping(event.userId, event.isTyping);
+                // Listen for typing indicators
+                await codeRoomWebSocketService.onTypingIndicator((event) => {
+                    if (event.userId !== currentUser?.userId) {
+                        setUserTyping(event.userId, event.isTyping);
+                    }
+                });
+
+                // Clear reconnect interval if connected
+                if (reconnectInterval) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
                 }
-            });
+
+                // Flush any queued changes
+                if (changeQueueRef.current.length > 0) {
+                    console.log(`Flushing ${changeQueueRef.current.length} queued changes`);
+                    flushChangeQueue();
+                }
+            } catch (error) {
+                console.error('Failed to setup WebSocket listeners:', error);
+            }
         };
 
+        // Setup listeners if connected
         if (codeRoomWebSocketService.isConnected()) {
             setupListeners();
+        } else {
+            // Set up reconnection check
+            reconnectInterval = setInterval(() => {
+                if (codeRoomWebSocketService.isConnected()) {
+                    console.log('WebSocket reconnected, setting up listeners');
+                    setupListeners();
+                }
+            }, 1000);
         }
 
         // Cleanup
         return () => {
+            // Clear reconnect interval
+            if (reconnectInterval) {
+                clearInterval(reconnectInterval);
+            }
+
             // Cancel any pending debounced calls
             if (debouncedFlush) {
                 debouncedFlush.cancel();
@@ -357,8 +458,8 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
                 typingTimeoutRef.current = null;
             }
 
-            // Send final typing status
-            if (currentUser) {
+            // Send final typing status if connected
+            if (currentUser && codeRoomWebSocketService.isConnected()) {
                 codeRoomWebSocketService.sendTypingStatus(false).catch(() => {
                     // Ignore errors during cleanup
                 });
@@ -367,27 +468,34 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
             // Clear change queue
             changeQueueRef.current = [];
         };
-    }, [currentUser, applyRemoteChange, updateCursor, setUserTyping, debouncedFlush]);
+    }, [currentUser, applyRemoteChange, updateCursor, setUserTyping, debouncedFlush, flushChangeQueue]);
 
     // Initialize editor reference
     const initializeEditor = useCallback((editor: any) => {
         editorRef.current = editor;
 
         // Set up change listener
-        editor.onDidChangeModelContent((event: any) => {
+        const changeDisposable = editor.onDidChangeModelContent((event: any) => {
             handleContentChange(editor.getValue(), event);
         });
 
         // Set up cursor listener
-        editor.onDidChangeCursorPosition(handleCursorChange);
+        const cursorDisposable = editor.onDidChangeCursorPosition(handleCursorChange);
 
         // Set up selection listener
-        editor.onDidChangeCursorSelection(handleCursorChange);
+        const selectionDisposable = editor.onDidChangeCursorSelection(handleCursorChange);
 
         // Make editor read-only if user can't edit
         editor.updateOptions({
             readOnly: !canEdit()
         });
+
+        // Return cleanup function
+        return () => {
+            changeDisposable.dispose();
+            cursorDisposable.dispose();
+            selectionDisposable.dispose();
+        };
     }, [canEdit, handleContentChange, handleCursorChange]);
 
     // Sync editor options when permissions change
@@ -402,7 +510,11 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
     // Force sync
     const forceSync = useCallback(async () => {
         try {
-            await codeRoomWebSocketService.requestSync();
+            if (codeRoomWebSocketService.isConnected()) {
+                await codeRoomWebSocketService.requestSync();
+            } else {
+                console.warn('Cannot sync - WebSocket not connected');
+            }
         } catch (error) {
             console.error('Failed to sync:', error);
         }
@@ -478,7 +590,5 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
 
         // Decorations
         getDecoratedCode,
-
-        // Only return what's actually used
     };
 }

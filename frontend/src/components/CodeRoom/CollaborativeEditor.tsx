@@ -16,8 +16,9 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
     const decorationsRef = useRef<any[]>([]);
     const [isEditorReady, setIsEditorReady] = useState(false);
     const [copied, setCopied] = useState(false);
+    const cleanupRef = useRef<(() => void) | null>(null);
 
-    const { room, currentUser, cursors, participants } = useCodeRoomStore();
+    const { room, currentUser, cursors, participants, isConnected } = useCodeRoomStore();
     const {
         initializeEditor,
         currentCode,
@@ -26,7 +27,7 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
         getDecoratedCode,
     } = useCodeSync();
 
-    // Handle editor mount - UPDATED WITH PROPER CLEANUP
+    // Handle editor mount
     const handleEditorDidMount = (editor: any, monaco: any) => {
         editorRef.current = editor;
         setIsEditorReady(true);
@@ -34,9 +35,6 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
         // Clear any existing disposables
         disposablesRef.current.forEach(d => d?.dispose?.());
         disposablesRef.current = [];
-
-        // Store all disposables for cleanup
-        const disposables: any[] = [];
 
         // Configure editor options
         editor.updateOptions({
@@ -52,11 +50,8 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
             theme: 'vs-dark'
         });
 
-        // Initialize code sync
-        initializeEditor(editor);
-
-        // Store disposables
-        disposablesRef.current = disposables;
+        // Initialize code sync and store cleanup function
+        cleanupRef.current = initializeEditor(editor);
 
         // Define custom theme
         monaco.editor.defineTheme('coderoom-dark', {
@@ -68,9 +63,15 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
         monaco.editor.setTheme('coderoom-dark');
     };
 
-    // Cleanup on unmount - UPDATED
+    // Cleanup on unmount
     useEffect(() => {
         return () => {
+            // Call cleanup function from initializeEditor
+            if (cleanupRef.current) {
+                cleanupRef.current();
+                cleanupRef.current = null;
+            }
+
             // Dispose all event listeners
             disposablesRef.current.forEach(d => d?.dispose?.());
             disposablesRef.current = [];
@@ -91,13 +92,17 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
     useEffect(() => {
         if (!editorRef.current || !isEditorReady) return;
 
-        const decorations = getDecoratedCode();
+        try {
+            const decorations = getDecoratedCode();
 
-        // Apply decorations
-        decorationsRef.current = editorRef.current.deltaDecorations(
-            decorationsRef.current,
-            decorations
-        );
+            // Apply decorations
+            decorationsRef.current = editorRef.current.deltaDecorations(
+                decorationsRef.current,
+                decorations
+            );
+        } catch (error) {
+            console.error('Failed to update decorations:', error);
+        }
     }, [cursors, getDecoratedCode, isEditorReady]);
 
     // Update read-only state when permissions change
@@ -220,6 +225,11 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
                             Read Only
                         </span>
                     )}
+                    {!isConnected && (
+                        <span className="px-2 py-1 bg-red-900/50 text-red-400 text-xs rounded">
+                            Disconnected
+                        </span>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -229,6 +239,7 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
                         onClick={forceSync}
                         title="Force sync with server"
                         className="text-gray-400 hover:text-white"
+                        disabled={!isConnected}
                     >
                         <Save size={16} className="mr-1" />
                         Sync
@@ -258,6 +269,7 @@ export function CollaborativeEditor({ onSubmit }: CollaborativeEditorProps) {
                             size="sm"
                             onClick={onSubmit}
                             className="bg-green-600 hover:bg-green-700"
+                            disabled={!isConnected}
                         >
                             <Play size={16} className="mr-1" />
                             Submit

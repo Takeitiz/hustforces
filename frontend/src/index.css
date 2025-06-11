@@ -346,3 +346,264 @@
     }
 }
 
+/* Code Room Specific Styles - Add to index.css */
+
+/* React Resizable Panels - Custom Styles */
+[data-panel] {
+    overflow: hidden;
+}
+
+[data-panel-group] {
+    display: flex;
+}
+
+[data-panel-group][data-orientation="horizontal"] {
+    flex-direction: row;
+}
+
+[data-panel-group][data-orientation="vertical"] {
+    flex-direction: column;
+}
+
+[data-panel-resize-handle] {
+    flex: 0 0 auto;
+    position: relative;
+    outline: none;
+
+    /* Prevent text selection */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+[data-panel-resize-handle][data-orientation="horizontal"] {
+    cursor: col-resize;
+}
+
+[data-panel-resize-handle][data-orientation="vertical"] {
+    cursor: row-resize;
+}
+
+/* Disabled state */
+[data-panel-resize-handle][data-disabled] {
+    cursor: default;
+    pointer-events: none;
+}
+
+/* Code Room Fullscreen Mode */
+.code-room-fullscreen {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 9999 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+}
+
+/* Code Room Resizable Panels */
+.code-room-panel-group {
+    height: 100%;
+    width: 100%;
+}
+
+.code-room-panel {
+    overflow: hidden;
+    height: 100%;
+}
+
+.code-room-resize-handle {
+    position: relative;
+    flex-shrink: 0;
+    cursor: col-resize;
+    user-select: none;
+    transition: background-color 0.2s ease;
+}
+
+.code-room-resize-handle:hover {
+    background-color: rgb(59, 130, 246) !important;
+}
+
+.code-room-resize-handle:active {
+    background-color: rgb(37, 99, 235) !important;
+}
+
+.code-room-resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -2px;
+    right: -2px;
+}
+
+/* Smooth panel transitions */
+.code-room-panel-transition {
+    transition: flex-basis 0.2s ease-out;
+}
+
+/* Media Panel Enhancements */
+.code-room-media-panel {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.code-room-media-grid {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+    height: 100%;
+    overflow: auto;
+}
+
+.code-room-media-grid.grid-1 {
+    grid-template-columns: 1fr;
+}
+
+.code-room-media-grid.grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.code-room-media-grid.grid-3,
+.code-room-media-grid.grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.code-room-media-grid.grid-5,
+.code-room-media-grid.grid-6 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+/* Participants Sidebar */
+.code-room-participants {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.code-room-participants-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* Code Editor Container */
+.code-room-editor {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.code-room-editor-content {
+    flex: 1;
+    min-height: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    /* Force single column layout on tablets */
+    .code-room-split-view {
+        flex-direction: column !important;
+    }
+
+    .code-room-resize-handle-horizontal {
+        cursor: row-resize;
+        width: 100%;
+        height: 8px;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Hide certain features on mobile */
+    .code-room-split-button {
+        display: none !important;
+    }
+
+    /* Adjust header for mobile */
+    .code-room-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* Stack controls vertically on mobile */
+    .code-room-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+
+/* Animation for panel resizing */
+@keyframes panel-resize-hint {
+    0%, 100% {
+        opacity: 0.3;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+.code-room-resize-handle:hover .resize-hint {
+    animation: panel-resize-hint 1.5s ease-in-out infinite;
+}
+
+/* Custom scrollbars for code room */
+.code-room-scrollable {
+    scrollbar-width: thin;
+    scrollbar-color: #4b5563 #1f2937;
+}
+
+.code-room-scrollable::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.code-room-scrollable::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+
+.code-room-scrollable::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 3px;
+}
+
+.code-room-scrollable::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+/* Enhanced focus states */
+.code-room-panel:focus-within {
+    outline: 2px solid rgb(59, 130, 246);
+    outline-offset: -2px;
+}
+
+/* Panel shadow for depth */
+.code-room-panel-shadow {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1),
+    0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+/* Dark mode enhancements */
+.dark .code-room-panel-shadow {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3),
+    0 1px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Transition effects for view changes */
+.code-room-view-transition {
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+.code-room-view-entering {
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.code-room-view-entered {
+    opacity: 1;
+    transform: translateY(0);
+}
+

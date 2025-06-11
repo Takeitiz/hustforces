@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { Settings, Users, Code, Video, LogOut, Loader2, AlertCircle, MicOff, VideoOff } from "lucide-react"
+import { Settings, Users, Code, Video, LogOut, Loader2, AlertCircle, MicOff, VideoOff, Maximize2, Minimize2, GripVertical } from "lucide-react"
 import { Button } from "../ui/Button"
 import { CollaborativeEditor } from "./CollaborativeEditor"
 import { MediaPanel } from "./MediaPanel"
@@ -16,6 +16,7 @@ import codeRoomService from "../../service/codeRoomService"
 import { toast } from "react-toastify"
 import { debugLog, debugError } from "../../utils/debug"
 import { performanceMonitor } from "../../utils/performance"
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels"
 
 export function CodeRoomInterface() {
     const { roomCode } = useParams<{ roomCode: string }>()
@@ -46,6 +47,7 @@ export function CodeRoomInterface() {
 
     const [isWebRTCReady, setIsWebRTCReady] = useState(false)
     const [webRTCError, setWebRTCError] = useState<string | null>(null)
+    const [isFullscreen, setIsFullscreen] = useState(false)
 
     // Track mounted state
     useEffect(() => {
@@ -273,6 +275,10 @@ export function CodeRoomInterface() {
         }
     }
 
+    const toggleFullscreen = () => {
+        setIsFullscreen(!isFullscreen)
+    }
+
     // Loading state
     if (isInitializing || isJoiningRoom) {
         return (
@@ -311,9 +317,9 @@ export function CodeRoomInterface() {
         return null
     }
 
-    // Main interface
+    // Main interface with resizable panels
     return (
-        <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
+        <div className={`h-screen flex flex-col bg-gray-100 dark:bg-gray-900 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
             <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -359,7 +365,7 @@ export function CodeRoomInterface() {
                                         }`}
                                         disabled={!isWebRTCReady && (room.allowVideoChat || room.allowVoiceChat)}
                                     >
-                                        <Video size={16} className="inline mr-1" /> Video
+                                        <Video size={16} className="inline mr-1" /> Media
                                     </button>
                                     <button
                                         onClick={() => setActiveView("split")}
@@ -387,6 +393,14 @@ export function CodeRoomInterface() {
                                {participants.size}
                            </span>
                         </Button>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={toggleFullscreen}
+                            title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                        >
+                            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => setShowSettings(true)}>
                             <Settings size={18} />
                         </Button>
@@ -399,32 +413,64 @@ export function CodeRoomInterface() {
 
             <div className="flex-1 flex overflow-hidden">
                 {activeView === "code" || (!isWebRTCReady && (activeView === "video" || activeView === "split")) ? (
-                    <div className="flex-1 flex">
-                        <div className="flex-1">
+                    <PanelGroup direction="horizontal" className="h-full">
+                        <Panel defaultSize={showParticipants ? 75 : 100} minSize={50}>
                             <CollaborativeEditor onSubmit={handleSubmitCode} />
-                        </div>
-                        {showParticipants && <ParticipantsSidebar />}
-                    </div>
+                        </Panel>
+                        {showParticipants && (
+                            <>
+                                <PanelResizeHandle className="w-2 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 transition-colors flex items-center justify-center">
+                                    <GripVertical className="h-4 w-4 text-gray-400" />
+                                </PanelResizeHandle>
+                                <Panel defaultSize={25} minSize={15} maxSize={40}>
+                                    <ParticipantsSidebar />
+                                </Panel>
+                            </>
+                        )}
+                    </PanelGroup>
                 ) : activeView === "video" ? (
-                    <div className="flex-1 flex">
-                        <div className="flex-1">
+                    <PanelGroup direction="horizontal" className="h-full">
+                        <Panel defaultSize={showParticipants ? 75 : 100} minSize={50}>
                             <MediaPanel />
-                        </div>
-                        {showParticipants && <ParticipantsSidebar />}
-                    </div>
+                        </Panel>
+                        {showParticipants && (
+                            <>
+                                <PanelResizeHandle className="w-2 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 transition-colors flex items-center justify-center">
+                                    <GripVertical className="h-4 w-4 text-gray-400" />
+                                </PanelResizeHandle>
+                                <Panel defaultSize={25} minSize={15} maxSize={40}>
+                                    <ParticipantsSidebar />
+                                </Panel>
+                            </>
+                        )}
+                    </PanelGroup>
                 ) : (
-                    // Split view
-                    <div className="flex-1 flex">
-                        <div className="flex-1 flex">
-                            <div className="flex-1 lg:w-3/5">
-                                <CollaborativeEditor onSubmit={handleSubmitCode} />
-                            </div>
-                            <div className="hidden lg:block lg:w-2/5 border-l border-gray-200 dark:border-gray-700">
-                                <MediaPanel />
-                            </div>
-                        </div>
-                        {showParticipants && <ParticipantsSidebar />}
-                    </div>
+                    // Split view with nested resizable panels
+                    <PanelGroup direction="horizontal" className="h-full">
+                        <Panel defaultSize={showParticipants ? 75 : 100} minSize={50}>
+                            <PanelGroup direction="horizontal">
+                                <Panel defaultSize={60} minSize={30}>
+                                    <CollaborativeEditor onSubmit={handleSubmitCode} />
+                                </Panel>
+                                <PanelResizeHandle className="w-2 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 transition-colors flex items-center justify-center">
+                                    <GripVertical className="h-4 w-4 text-gray-400" />
+                                </PanelResizeHandle>
+                                <Panel defaultSize={40} minSize={20}>
+                                    <MediaPanel />
+                                </Panel>
+                            </PanelGroup>
+                        </Panel>
+                        {showParticipants && (
+                            <>
+                                <PanelResizeHandle className="w-2 bg-gray-200 dark:bg-gray-700 hover:bg-blue-500 transition-colors flex items-center justify-center">
+                                    <GripVertical className="h-4 w-4 text-gray-400" />
+                                </PanelResizeHandle>
+                                <Panel defaultSize={25} minSize={15} maxSize={40}>
+                                    <ParticipantsSidebar />
+                                </Panel>
+                            </>
+                        )}
+                    </PanelGroup>
                 )}
             </div>
 
