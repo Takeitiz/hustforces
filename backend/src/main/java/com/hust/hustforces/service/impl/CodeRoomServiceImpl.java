@@ -4,6 +4,7 @@ import com.hust.hustforces.enums.CodeRoomStatus;
 import com.hust.hustforces.enums.ParticipantRole;
 import com.hust.hustforces.enums.ParticipantStatus;
 import com.hust.hustforces.exception.ResourceNotFoundException;
+import com.hust.hustforces.exception.AlreadyInRoomException;
 import com.hust.hustforces.model.dto.SubmissionRequest;
 import com.hust.hustforces.model.dto.coderoom.*;
 import com.hust.hustforces.model.dto.submission.SubmissionDetailDto;
@@ -283,23 +284,36 @@ public class CodeRoomServiceImpl implements CodeRoomService {
             throw new IllegalStateException("Room is not active");
         }
 
-        // Check if room is full
-        int currentParticipants = participantRepository.countActiveParticipants(room.getId());
-        if (currentParticipants >= room.getMaxParticipants()) {
-            throw new IllegalStateException("Room is full");
-        }
-
         // Check if user is already in the room
         Optional<CodeRoomParticipant> existingParticipant =
                 participantRepository.findByCodeRoomIdAndUserId(room.getId(), userId);
 
+        // If user is already an active participant, throw conflict exception
+        if (existingParticipant.isPresent() && existingParticipant.get().getStatus() == ParticipantStatus.ACTIVE) {
+            log.info("User {} is already an active participant in room {}", userId, roomCode);
+            throw new AlreadyInRoomException("You are already an active participant in this room");
+        }
+
+        // Check if room is full only for new participants or rejoining participants
+        int currentParticipants = participantRepository.countActiveParticipants(room.getId());
+        boolean isNewParticipant = existingParticipant.isEmpty();
+
+        // Only check capacity if this is truly a new participant
+        if (isNewParticipant && currentParticipants >= room.getMaxParticipants()) {
+            throw new IllegalStateException("Room is full");
+        }
+
         CodeRoomParticipant participant;
+        boolean shouldIncrementCount = false;
+
         if (existingParticipant.isPresent()) {
-            // Rejoin
+            // Rejoin - user was in the room before but left or disconnected
             participant = existingParticipant.get();
             participant.setStatus(ParticipantStatus.ACTIVE);
             participant.setJoinedAt(LocalDateTime.now());
             participant.setLastActivityAt(LocalDateTime.now());
+            shouldIncrementCount = true; // They're rejoining, so increment count
+            log.info("User {} rejoining room {}", userId, roomCode);
         } else {
             // New participant
             String color = PARTICIPANT_COLORS[currentParticipants % PARTICIPANT_COLORS.length];
@@ -313,6 +327,8 @@ public class CodeRoomServiceImpl implements CodeRoomService {
                     .lastActivityAt(LocalDateTime.now())
                     .colorHex(color)
                     .build();
+            shouldIncrementCount = true;
+            log.info("New participant {} joining room {}", userId, roomCode);
         }
 
         participant = participantRepository.save(participant);
@@ -321,21 +337,23 @@ public class CodeRoomServiceImpl implements CodeRoomService {
         room.setLastActivityAt(LocalDateTime.now());
         codeRoomRepository.save(room);
 
-        // Update session participant count
-        sessionRepository.findTopByCodeRoomIdAndEndedAtIsNullOrderByStartedAtDesc(room.getId())
-                .ifPresent(session -> {
-                    session.setParticipantsCount(currentParticipants + 1);
-                    sessionRepository.save(session);
-                });
+        // Update session participant count only if we're adding a new active participant
+        if (shouldIncrementCount) {
+            sessionRepository.findTopByCodeRoomIdAndEndedAtIsNullOrderByStartedAtDesc(room.getId())
+                    .ifPresent(session -> {
+                        session.setParticipantsCount(currentParticipants + 1);
+                        sessionRepository.save(session);
+                    });
 
-        // Notify other participants
-        ParticipantDto participantDto = convertToParticipantDto(participant);
-        messagingTemplate.convertAndSend(
-                "/topic/coderoom/" + room.getId() + "/participants",
-                new ParticipantJoinedEvent(participantDto)
-        );
+            // Notify other participants only for new joins/rejoins
+            ParticipantDto participantDto = convertToParticipantDto(participant);
+            messagingTemplate.convertAndSend(
+                    "/topic/coderoom/" + room.getId() + "/participants",
+                    new ParticipantJoinedEvent(participantDto)
+            );
+        }
 
-        return participantDto;
+        return convertToParticipantDto(participant);
     }
 
     @Override

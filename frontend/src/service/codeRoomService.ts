@@ -12,6 +12,7 @@ import {
     ParticipantRole,
     SubmitCodeResponse
 } from "../types/codeRoom";
+import authService from "./authService.ts";
 
 /**
  * Service for handling code room-related API calls
@@ -74,7 +75,31 @@ const codeRoomService = {
         try {
             const response = await apiClient.post<ParticipantDto>('/coderooms/join', request);
             return response.data;
-        } catch (error) {
+        } catch (error: any) {
+            // If the error is 409 (Conflict), it might mean user is already in the room
+            if (error.response?.status === 409) {
+                console.log('User might already be in the room, checking...');
+
+                // Try to get room details to confirm
+                try {
+                    const roomDetails = await codeRoomService.getRoomByCode(request.roomCode);
+                    const currentUser = authService.getCurrentUser();
+
+                    if (currentUser && roomDetails.participants) {
+                        const existingParticipant = roomDetails.participants.find(
+                            p => p.userId === currentUser.id
+                        );
+
+                        if (existingParticipant) {
+                            console.log('User is already a participant in this room');
+                            return existingParticipant;
+                        }
+                    }
+                } catch (checkError) {
+                    console.error('Failed to check if user is already in room:', checkError);
+                }
+            }
+
             console.error('Failed to join code room:', error);
             throw error;
         }

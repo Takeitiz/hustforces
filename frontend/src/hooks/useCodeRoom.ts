@@ -198,6 +198,12 @@ export function useCodeRoom() {
         async (roomCode: string) => {
             console.log("[CodeRoom Hook] Starting join room process for:", roomCode)
 
+            // Check if already joining to prevent duplicate attempts
+            if (isJoiningRoom) {
+                console.log("[CodeRoom Hook] Already joining room, skipping duplicate attempt")
+                return
+            }
+
             try {
                 setJoiningRoom(true)
                 setIsInitializing(true)
@@ -211,8 +217,21 @@ export function useCodeRoom() {
 
                 // Step 2: Join room via REST API
                 console.log("[CodeRoom Hook] Joining room via API...")
-                await codeRoomService.joinRoom({ roomCode })
-                console.log("[CodeRoom Hook] Join API response received")
+                try {
+                    await codeRoomService.joinRoom({ roomCode })
+                    console.log("[CodeRoom Hook] Join API response received")
+                } catch (error: any) {
+                    // Check if the error is because user is already in the room
+                    if (error.response?.status === 409 || error.response?.data?.errorMessage?.includes("already in")) {
+                        console.log("[CodeRoom Hook] User already in room, continuing...")
+                        // Continue with the flow as the user is already in the room
+                    } else if (error.response?.data?.errorMessage?.includes("full")) {
+                        // Room is actually full
+                        throw new Error("Room is full")
+                    } else {
+                        throw error
+                    }
+                }
 
                 // Step 3: Get room details with retry
                 console.log("[CodeRoom Hook] Fetching room details...")
@@ -247,7 +266,13 @@ export function useCodeRoom() {
                     throw new Error("Authentication required")
                 }
 
-                // Step 6: Connect to WebSocket
+                // Step 6: Disconnect any existing WebSocket connection first
+                if (codeRoomWebSocketService.isConnected()) {
+                    console.log("[CodeRoom Hook] Disconnecting existing WebSocket connection...")
+                    await codeRoomWebSocketService.disconnect()
+                }
+
+                // Step 7: Connect to WebSocket
                 console.log("[CodeRoom Hook] Connecting to WebSocket...")
                 await codeRoomWebSocketService.connect({
                     roomId: roomDetails.room.id,
@@ -269,7 +294,7 @@ export function useCodeRoom() {
                     },
                 })
 
-                // Step 7: Wait for connection to establish
+                // Step 8: Wait for connection to establish
                 let connectionEstablished = false
                 for (let i = 0; i < 10; i++) {
                     if (codeRoomWebSocketService.isConnected()) {
@@ -285,14 +310,14 @@ export function useCodeRoom() {
 
                 console.log("[CodeRoom Hook] WebSocket connected successfully")
 
-                // Step 8: Set up event listeners
+                // Step 9: Set up event listeners
                 await setupWebSocketListeners()
 
-                // Step 9: Request initial sync
+                // Step 10: Request initial sync
                 console.log("[CodeRoom Hook] Requesting initial sync...")
                 await codeRoomWebSocketService.requestSync()
 
-                // Step 10: Mark as connected
+                // Step 11: Mark as connected
                 setConnected(true)
                 setConnectionError(null)
 
@@ -312,9 +337,12 @@ export function useCodeRoom() {
                 setConnectionError(errorMessage)
                 toast.error(errorMessage)
 
-                // Cleanup on error
-                await codeRoomWebSocketService.disconnect()
-                reset()
+                // Only reset if it's a critical error
+                if (!errorMessage.includes("already in")) {
+                    // Cleanup on error
+                    await codeRoomWebSocketService.disconnect()
+                    reset()
+                }
 
                 throw error
             } finally {
@@ -322,7 +350,7 @@ export function useCodeRoom() {
                 setIsInitializing(false)
             }
         },
-        [getToken, navigate, setRoomDetails, setConnected, setConnectionError, setupWebSocketListeners, reset, setJoiningRoom, setIsInitializing]
+        [getToken, navigate, setRoomDetails, setConnected, setConnectionError, setupWebSocketListeners, reset, setJoiningRoom, setIsInitializing, isJoiningRoom]
     )
 
     // Leave the current room

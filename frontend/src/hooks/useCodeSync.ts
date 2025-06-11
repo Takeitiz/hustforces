@@ -31,6 +31,8 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
     const changeQueueRef = useRef<CodeChangeDto[]>([]);
     const isApplyingRemoteChange = useRef(false);
     const lastCursorPosition = useRef<CursorPositionDto | null>(null);
+    const listenersSetupRef = useRef(false);
+    const cleanupFunctionsRef = useRef<(() => void)[]>([]);
 
     // Cursor position adjustment logic
     const adjustCursorPosition = (
@@ -388,10 +390,19 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
 
     // Set up WebSocket listeners for code sync
     useEffect(() => {
-        let reconnectInterval: NodeJS.Timeout | null = null;
+        // Skip if already setup or no connection
+        if (listenersSetupRef.current || !codeRoomWebSocketService.isConnected()) {
+            return;
+        }
 
         const setupListeners = async () => {
             try {
+                console.log('[CodeSync] Setting up WebSocket listeners');
+                listenersSetupRef.current = true;
+
+                // Store cleanup functions
+                const cleanupFunctions: (() => void)[] = [];
+
                 // Listen for code changes
                 await codeRoomWebSocketService.onCodeChange((change) => {
                     applyRemoteChange(change);
@@ -411,41 +422,30 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
                     }
                 });
 
-                // Clear reconnect interval if connected
-                if (reconnectInterval) {
-                    clearInterval(reconnectInterval);
-                    reconnectInterval = null;
-                }
+                // Store cleanup functions
+                cleanupFunctionsRef.current = cleanupFunctions;
 
                 // Flush any queued changes
                 if (changeQueueRef.current.length > 0) {
-                    console.log(`Flushing ${changeQueueRef.current.length} queued changes`);
+                    console.log(`[CodeSync] Flushing ${changeQueueRef.current.length} queued changes`);
                     flushChangeQueue();
                 }
             } catch (error) {
-                console.error('Failed to setup WebSocket listeners:', error);
+                console.error('[CodeSync] Failed to setup WebSocket listeners:', error);
+                listenersSetupRef.current = false;
             }
         };
 
-        // Setup listeners if connected
-        if (codeRoomWebSocketService.isConnected()) {
-            setupListeners();
-        } else {
-            // Set up reconnection check
-            reconnectInterval = setInterval(() => {
-                if (codeRoomWebSocketService.isConnected()) {
-                    console.log('WebSocket reconnected, setting up listeners');
-                    setupListeners();
-                }
-            }, 1000);
-        }
+        setupListeners();
 
         // Cleanup
         return () => {
-            // Clear reconnect interval
-            if (reconnectInterval) {
-                clearInterval(reconnectInterval);
-            }
+            console.log('[CodeSync] Cleaning up listeners');
+            listenersSetupRef.current = false;
+
+            // Call cleanup functions
+            cleanupFunctionsRef.current.forEach(cleanup => cleanup());
+            cleanupFunctionsRef.current = [];
 
             // Cancel any pending debounced calls
             if (debouncedFlush) {
@@ -468,7 +468,7 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
             // Clear change queue
             changeQueueRef.current = [];
         };
-    }, [currentUser, applyRemoteChange, updateCursor, setUserTyping, debouncedFlush, flushChangeQueue]);
+    }, [currentUser?.userId, applyRemoteChange, updateCursor, setUserTyping, debouncedFlush, flushChangeQueue]);
 
     // Initialize editor reference
     const initializeEditor = useCallback((editor: any) => {

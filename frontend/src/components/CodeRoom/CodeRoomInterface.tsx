@@ -62,15 +62,21 @@ export function CodeRoomInterface() {
 
     // Main initialization effect
     useEffect(() => {
-        // Skip if already initializing or component unmounted
-        if (initializationRef.current || !mountedRef.current) {
-            debugLog("CODE_ROOM", "Skipping initialization (already running or unmounted)")
+        // Skip if component unmounted
+        if (!mountedRef.current) {
+            debugLog("CODE_ROOM", "Component not mounted, skipping initialization")
             return
         }
 
         if (!roomCode) {
             debugError("CODE_ROOM", "No room code provided")
             navigate("/code-rooms")
+            return
+        }
+
+        // Skip if already initializing or if we already have room data for this code
+        if (initializationRef.current || (room && room.roomCode === roomCode)) {
+            debugLog("CODE_ROOM", "Skipping initialization (already running or room already loaded)")
             return
         }
 
@@ -180,7 +186,7 @@ export function CodeRoomInterface() {
                     // Cancel any pending operations
                     initializationRef.current = false
 
-                    // Disconnect WebSocket
+                    // Disconnect WebSocket only if connected
                     if (codeRoomWebSocketService.isConnected()) {
                         await codeRoomWebSocketService.disconnect()
                     }

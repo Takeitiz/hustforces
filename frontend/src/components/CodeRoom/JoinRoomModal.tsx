@@ -17,7 +17,7 @@ interface JoinRoomModalProps {
 
 export function JoinRoomModal({ isOpen, onClose, roomCode: defaultRoomCode }: JoinRoomModalProps) {
     const navigate = useNavigate();
-    const { joinRoom, isJoiningRoom } = useCodeRoom();
+    const {isJoiningRoom } = useCodeRoom();
     const { setShowJoinRoomModal } = useCodeRoomStore();
 
     const [roomCode, setRoomCode] = useState(defaultRoomCode || '');
@@ -43,6 +43,7 @@ export function JoinRoomModal({ isOpen, onClose, roomCode: defaultRoomCode }: Jo
         }
     };
 
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -52,12 +53,16 @@ export function JoinRoomModal({ isOpen, onClose, roomCode: defaultRoomCode }: Jo
         }
 
         try {
-            await joinRoom(roomCode);
+            // First close the modal
             onClose();
             setShowJoinRoomModal(false);
+
+            // Then navigate to the room
+            // The CodeRoomInterface will handle the actual joining
             navigate(`/code-room/${roomCode}`);
         } catch (error) {
-            // Error is handled in the hook
+            console.error('Navigation error:', error);
+            toast.error('Failed to navigate to room');
         }
     };
 

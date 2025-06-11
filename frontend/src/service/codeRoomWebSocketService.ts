@@ -49,8 +49,6 @@ class CodeRoomWebSocketService {
     // New properties for better connection management
     private isConnecting: boolean = false
     private connectionTimeout: NodeJS.Timeout | null = null
-    private heartbeatInterval: NodeJS.Timeout | null = null
-    private lastHeartbeat: number = 0
 
     constructor() {
         this.baseUrl = import.meta.env.VITE_SOCKET || "http://localhost:8080"
@@ -174,7 +172,7 @@ class CodeRoomWebSocketService {
             try {
                 debugLog("WEBSOCKET", "Creating STOMP client")
 
-                // Create STOMP client
+                // Create STOMP client with heartbeats disabled
                 this.client = new Client({
                     webSocketFactory: () => {
                         const socketUrl = `${this.baseUrl}/ws`
@@ -199,8 +197,8 @@ class CodeRoomWebSocketService {
                         }
                     },
                     reconnectDelay: 5000,
-                    heartbeatIncoming: 4000,
-                    heartbeatOutgoing: 4000,
+                    heartbeatIncoming: 0,  // Disable incoming heartbeats
+                    heartbeatOutgoing: 0,  // Disable outgoing heartbeats
                     connectionTimeout: 5000,
                 })
 
@@ -219,9 +217,6 @@ class CodeRoomWebSocketService {
                     debugLog("WEBSOCKET", "Connected successfully")
                     debugLog("WEBSOCKET", "Session ID:", frame.headers['session'])
                     debugLog("WEBSOCKET", "Server:", frame.headers['server'])
-
-                    // Start heartbeat monitoring
-                    this.startHeartbeatMonitoring()
 
                     this.onReconnect?.()
                     resolve()
@@ -280,7 +275,6 @@ class CodeRoomWebSocketService {
                 // Handle disconnection
                 this.client.onDisconnect = (frame) => {
                     this.isConnecting = false
-                    this.stopHeartbeatMonitoring()
 
                     debugLog("WEBSOCKET", "Disconnected", frame)
 
@@ -321,37 +315,6 @@ class CodeRoomWebSocketService {
         })
 
         return this.connectionPromise
-    }
-
-    /**
-     * Start heartbeat monitoring
-     */
-    private startHeartbeatMonitoring(): void {
-        this.stopHeartbeatMonitoring()
-
-        this.lastHeartbeat = Date.now()
-
-        this.heartbeatInterval = setInterval(() => {
-            const timeSinceLastHeartbeat = Date.now() - this.lastHeartbeat
-
-            if (timeSinceLastHeartbeat > 10000) { // 10 seconds without heartbeat
-                debugWarn("WEBSOCKET", "Heartbeat timeout detected")
-                // Trigger reconnection
-                if (this.client) {
-                    this.client.forceDisconnect()
-                }
-            }
-        }, 5000)
-    }
-
-    /**
-     * Stop heartbeat monitoring
-     */
-    private stopHeartbeatMonitoring(): void {
-        if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval)
-            this.heartbeatInterval = null
-        }
     }
 
     /**
@@ -398,9 +361,6 @@ class CodeRoomWebSocketService {
             clearTimeout(this.connectionTimeout)
             this.connectionTimeout = null
         }
-
-        // Stop heartbeat monitoring
-        this.stopHeartbeatMonitoring()
 
         // Unsubscribe from all subscriptions
         Object.keys(this.subscriptions).forEach((key) => {
@@ -605,7 +565,6 @@ class CodeRoomWebSocketService {
         const subscription = this.client.subscribe(`/topic/coderoom/${this.roomId}/code`, (message: IMessage) => {
             try {
                 const data = JSON.parse(message.body) as CodeChangeDto
-                this.lastHeartbeat = Date.now()
                 callback(data)
             } catch (error) {
                 debugError("WEBSOCKET", "Error parsing code change message:", error)
@@ -625,7 +584,6 @@ class CodeRoomWebSocketService {
         const subscription = this.client.subscribe(`/topic/coderoom/${this.roomId}/cursors`, (message: IMessage) => {
             try {
                 const data = JSON.parse(message.body) as CursorUpdateEvent
-                this.lastHeartbeat = Date.now()
                 callback(data)
             } catch (error) {
                 debugError("WEBSOCKET", "Error parsing cursor update message:", error)
@@ -650,7 +608,6 @@ class CodeRoomWebSocketService {
         const subscription = this.client.subscribe(`/topic/coderoom/${this.roomId}/participants`, (message: IMessage) => {
             try {
                 const data = JSON.parse(message.body)
-                this.lastHeartbeat = Date.now()
 
                 // Determine event type and call appropriate callback
                 if (data.participant) {
@@ -680,7 +637,6 @@ class CodeRoomWebSocketService {
         const subscription = this.client.subscribe(`/topic/coderoom/${this.roomId}/typing`, (message: IMessage) => {
             try {
                 const data = JSON.parse(message.body) as UserTypingEvent
-                this.lastHeartbeat = Date.now()
                 callback(data)
             } catch (error) {
                 debugError("WEBSOCKET", "Error parsing typing indicator message:", error)
@@ -700,7 +656,6 @@ class CodeRoomWebSocketService {
         const subscription = this.client.subscribe(`/topic/coderoom/${this.roomId}/media-state`, (message: IMessage) => {
             try {
                 const data = JSON.parse(message.body) as UserMediaStateEvent
-                this.lastHeartbeat = Date.now()
                 callback(data)
             } catch (error) {
                 debugError("WEBSOCKET", "Error parsing media state message:", error)
@@ -720,7 +675,6 @@ class CodeRoomWebSocketService {
         const subscription = this.client.subscribe(`/topic/coderoom/${this.roomId}/status`, (message: IMessage) => {
             try {
                 const data = JSON.parse(message.body) as RoomClosedEvent | RoomDeletedEvent
-                this.lastHeartbeat = Date.now()
                 callback(data)
             } catch (error) {
                 debugError("WEBSOCKET", "Error parsing room status message:", error)
@@ -740,7 +694,6 @@ class CodeRoomWebSocketService {
         const subscription = this.client.subscribe(`/topic/coderoom/${this.roomId}/settings`, (message: IMessage) => {
             try {
                 const data = JSON.parse(message.body) as RoomSettingsUpdatedEvent
-                this.lastHeartbeat = Date.now()
                 callback(data)
             } catch (error) {
                 debugError("WEBSOCKET", "Error parsing room settings message:", error)
@@ -760,7 +713,6 @@ class CodeRoomWebSocketService {
         const subscription = this.client.subscribe(`/topic/coderoom/${this.roomId}/submission`, (message: IMessage) => {
             try {
                 const data = JSON.parse(message.body) as CodeSubmittedEvent
-                this.lastHeartbeat = Date.now()
                 callback(data)
             } catch (error) {
                 debugError("WEBSOCKET", "Error parsing code submission message:", error)
@@ -782,7 +734,6 @@ class CodeRoomWebSocketService {
         const subscription = this.client.subscribe(`/user/queue/coderoom/${this.roomId}/webrtc`, (message: IMessage) => {
             try {
                 const data = JSON.parse(message.body) as WebRTCSignalDto
-                this.lastHeartbeat = Date.now()
                 callback(data)
             } catch (error) {
                 debugError("WEBSOCKET", "Error parsing WebRTC signal message:", error)
@@ -802,7 +753,6 @@ class CodeRoomWebSocketService {
         const subscription = this.client.subscribe(`/user/queue/coderoom/kicked`, (message: IMessage) => {
             try {
                 const data = JSON.parse(message.body) as ParticipantKickedEvent
-                this.lastHeartbeat = Date.now()
                 callback(data)
             } catch (error) {
                 debugError("WEBSOCKET", "Error parsing kicked notification message:", error)
@@ -822,7 +772,6 @@ class CodeRoomWebSocketService {
         const subscription = this.client.subscribe(`/user/queue/coderoom/sync-response`, (message: IMessage) => {
             try {
                 const data = JSON.parse(message.body) as CodeRoomSyncResponse
-                this.lastHeartbeat = Date.now()
                 debugLog("WEBSOCKET", "Received sync response")
                 callback(data)
             } catch (error) {
@@ -843,7 +792,6 @@ class CodeRoomWebSocketService {
         const subscription = this.client.subscribe(`/user/queue/errors`, (message: IMessage) => {
             try {
                 const data = JSON.parse(message.body) as ErrorMessage
-                this.lastHeartbeat = Date.now()
                 callback(data)
             } catch (error) {
                 debugError("WEBSOCKET", "Error parsing error message:", error)
