@@ -4,11 +4,11 @@ import {
     PhoneOff, Maximize2, Minimize2,
     Settings, Users
 } from 'lucide-react';
-import { Button } from '../ui/Button';
-import useCodeRoomStore from '../../contexts/CodeRoomContext';
-import { useMediaDevices } from '../../hooks/useMediaDevices';
-import { useWebRTCIntegration } from '../../hooks/useWebRTCIntegration';
 import { toast } from 'react-toastify';
+import useCodeRoomStore from "../../../contexts/CodeRoomContext.tsx";
+import { useMediaDevices } from '../../../hooks/useMediaDevices.ts';
+import {useWebRTCIntegration} from "../../../hooks/useWebRTCIntegration.ts";
+import { Button } from '../../ui/Button.tsx';
 
 interface MediaPanelProps {
     isFullscreen?: boolean;

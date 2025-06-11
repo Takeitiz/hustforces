@@ -24,7 +24,7 @@ import { AdminContestsPage } from "../pages/Admin/Contests/AdminContestsPage"
 import { CreateContestPage } from "../pages/Admin/Contests/CreateContestPage"
 import { AdminImportPage } from "../pages/Admin/Import/AdminImportPage"
 import { EditProblemPage } from "../pages/Admin/Problems/EditProblemPage.tsx"
-import { RoomBrowser } from "../components/CodeRoom/RoomBrowser.tsx"
+import { RoomBrowser } from "../components/features/coderoom/RoomBrowser.tsx"
 import CodeRoomPage from "../pages/CodeRoom/CodeRoomPage.tsx"
 import { ProblemsPage } from "../pages/Problem/ProblemsPage.tsx"
 import {UserSubmissionsPage} from "../pages/Profile/UserSubmissionsPage.tsx";

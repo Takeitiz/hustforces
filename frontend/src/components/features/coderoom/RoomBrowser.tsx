@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Users, Globe, Lock, Clock, ArrowRight, Plus, Hash } from 'lucide-react';
-import { Button } from '../ui/Button';
-import { CreateRoomModal } from './CreateRoomModal';
-import { JoinRoomModal } from './JoinRoomModal';
-import codeRoomService from '../../service/codeRoomService';
-import { CodeRoomDto } from '../../types/codeRoom';
+import { CreateRoomModal } from './CreateRoomModal.tsx';
+import { JoinRoomModal } from './JoinRoomModal.tsx';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'react-toastify';
+import {CodeRoomDto} from "../../../types/codeRoom.ts";
+import codeRoomService from '../../../service/codeRoomService.ts';
+import {Button} from "../../ui/Button.tsx";
 
 export function RoomBrowser() {
     const navigate = useNavigate();

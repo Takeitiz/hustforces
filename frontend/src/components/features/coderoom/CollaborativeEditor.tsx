@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import MonacoEditor from 'react-monaco-editor';
 import { Loader2, Save, Copy, Check } from 'lucide-react';
-import { Button } from '../ui/Button';
-import { useCodeSync } from '../../hooks/useCodeSync';
-import useCodeRoomStore from '../../contexts/CodeRoomContext';
-import { LanguageId } from '../../types/codeRoom';
+import useCodeRoomStore from "../../../contexts/CodeRoomContext.tsx";
+import {useCodeSync} from "../../../hooks/useCodeSync.ts";
+import {LanguageId} from "../../../types/codeRoom.ts";
+import {Button} from "../../ui/Button.tsx";
 
 interface CollaborativeEditorProps {}
 

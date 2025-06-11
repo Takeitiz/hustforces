@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Settings, Globe, Lock, Mic, Video, Monitor, Trash2, Copy, Check } from 'lucide-react';
-import { Modal } from '../ui/Modal';
-import { Button } from '../ui/Button';
-import { Label } from '../ui/Label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select';
-import useCodeRoomStore from '../../contexts/CodeRoomContext';
-import { useCodeRoom } from '../../hooks/useCodeRoom';
-import { UpdateCodeRoomRequest } from '../../types/codeRoom';
 import { toast } from 'react-toastify';
+import useCodeRoomStore from '../../../contexts/CodeRoomContext';
+import { useCodeRoom } from '../../../hooks/useCodeRoom';
+import { UpdateCodeRoomRequest } from '../../../types/codeRoom';
+import { Modal } from '../../ui/Modal';
+import { Button } from '../../ui/Button';
+import { Label } from '../../ui/Label';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "../../ui/Select.tsx";
 
 interface RoomSettingsModalProps {
     isOpen: boolean;

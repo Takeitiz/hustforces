@@ -3,20 +3,20 @@
 import { useEffect, useState, useRef } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Settings, Users, Code, Video, LogOut, Loader2, AlertCircle, MicOff, VideoOff, Maximize2, Minimize2, GripVertical } from "lucide-react"
-import { Button } from "../ui/Button"
-import { CollaborativeEditor } from "./CollaborativeEditor"
-import { MediaPanel } from "./MediaPanel"
-import { ParticipantsSidebar } from "./ParticipantsSidebar"
-import { RoomSettingsModal } from "./RoomSettingsModal"
-import useCodeRoomStore from "../../contexts/CodeRoomContext"
-import { useCodeRoom } from "../../hooks/useCodeRoom"
-import { useWebRTCIntegration } from "../../hooks/useWebRTCIntegration"
-import codeRoomWebSocketService from "../../service/codeRoomWebSocketService"
-import codeRoomService from "../../service/codeRoomService"
+import { CollaborativeEditor } from "./CollaborativeEditor.tsx"
+import { MediaPanel } from "./MediaPanel.tsx"
+import { ParticipantsSidebar } from "./ParticipantsSidebar.tsx"
+import { RoomSettingsModal } from "./RoomSettingsModal.tsx"
 import { toast } from "react-toastify"
-import { debugLog, debugError } from "../../utils/debug"
-import { performanceMonitor } from "../../utils/performance"
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels"
+import useCodeRoomStore from "../../../contexts/CodeRoomContext.tsx";
+import {useCodeRoom} from "../../../hooks/useCodeRoom.ts";
+import {useWebRTCIntegration} from "../../../hooks/useWebRTCIntegration.ts";
+import {debugError, debugLog } from "../../../utils/debug.ts"
+import { performanceMonitor } from "../../../utils/performance.ts"
+import codeRoomService from "../../../service/codeRoomService.ts"
+import codeRoomWebSocketService from "../../../service/codeRoomWebSocketService.ts";
+import {Button} from "../../ui/Button.tsx";
 
 export function CodeRoomInterface() {
     const { roomCode } = useParams<{ roomCode: string }>()

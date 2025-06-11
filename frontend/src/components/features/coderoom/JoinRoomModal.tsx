@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Hash, ArrowRight, Users } from 'lucide-react';
-import { Modal } from '../ui/Modal';
-import { Button } from '../ui/Button';
-import { Label } from '../ui/Label';
-import useCodeRoomStore from '../../contexts/CodeRoomContext';
-import { useCodeRoom } from '../../hooks/useCodeRoom';
-import codeRoomService from '../../service/codeRoomService';
 import { toast } from 'react-toastify';
+import { useCodeRoom } from '../../../hooks/useCodeRoom';
+import useCodeRoomStore from "../../../contexts/CodeRoomContext.tsx";
+import codeRoomService from '../../../service/codeRoomService.ts';
+import {Modal} from "../../ui/Modal.tsx";
+import {Label} from "../../ui/Label.tsx";
+import {Button} from "../../ui/Button.tsx";
 
 interface JoinRoomModalProps {
     isOpen: boolean;
