@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useCallback, useState } from "react"
+import { useEffect, useCallback, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
 import useCodeRoomStore from "../contexts/CodeRoomContext"
@@ -17,6 +17,7 @@ import {
 export function useCodeRoom() {
     const navigate = useNavigate()
     const [isInitializing, setIsInitializing] = useState(false)
+    const participantNamesRef = useRef<Map<string, string>>(new Map())
 
     // Get all state and actions from store
     const {
@@ -45,6 +46,12 @@ export function useCodeRoom() {
         canEdit,
         setCurrentCode,
     } = useCodeRoomStore()
+
+    useEffect(() => {
+        participants.forEach((participant, userId) => {
+            participantNamesRef.current.set(userId, participant.username)
+        })
+    }, [participants])
 
     // Get auth token
     const getToken = useCallback(() => {
@@ -80,7 +87,7 @@ export function useCodeRoom() {
         [navigate, setCreatingRoom, setRoom],
     )
 
-    // Set up WebSocket event listeners - FIXED VERSION
+    // Set up WebSocket event listeners
     const setupWebSocketListeners = useCallback(async () => {
         console.log("[CodeRoom Hook] Setting up WebSocket listeners...")
 
@@ -89,28 +96,46 @@ export function useCodeRoom() {
             await codeRoomWebSocketService.onParticipantEvents({
                 onJoined: (event) => {
                     console.log("[CodeRoom Hook] Participant joined:", event.participant.username)
+                    // Store the name immediately
+                    participantNamesRef.current.set(event.participant.userId, event.participant.username)
                     addParticipant(event.participant)
                     toast.info(`${event.participant.username} joined the room`)
                 },
                 onLeft: (event) => {
-                    // Get current participant info before removing
-                    const participant = participants.get(event.userId)
-                    if (participant) {
-                        console.log("[CodeRoom Hook] Participant left:", participant.username)
-                        removeParticipant(event.userId)
-                        toast.info(`${participant.username} left the room`)
+                    // Get the username from our ref
+                    const username = participantNamesRef.current.get(event.userId)
+
+                    if (username) {
+                        console.log("[CodeRoom Hook] Participant left:", username)
+                        toast.info(`${username} left the room`)
+                        // Clean up the ref
+                        participantNamesRef.current.delete(event.userId)
+                    } else {
+                        console.log("[CodeRoom Hook] Unknown participant left:", event.userId)
+                        toast.info(`A participant left the room`)
                     }
+
+                    removeParticipant(event.userId)
                 },
                 onStatusChange: (event) => {
                     console.log("[CodeRoom Hook] Participant status changed:", event.userId, event.newStatus)
                     updateParticipant(event.userId, { status: event.newStatus })
+
+                    // Show disconnection notifications
+                    if (event.newStatus === 'DISCONNECTED') {
+                        const username = participantNamesRef.current.get(event.userId)
+                        if (username) {
+                            toast.warning(`${username} disconnected`)
+                        }
+                    }
                 },
                 onRoleChange: (event) => {
                     console.log("[CodeRoom Hook] Participant role changed:", event.userId, event.newRole)
                     updateParticipant(event.userId, { role: event.newRole })
-                    const participant = participants.get(event.userId)
-                    if (participant) {
-                        toast.info(`${participant.username}'s role changed to ${event.newRole}`)
+
+                    const username = participantNamesRef.current.get(event.userId)
+                    if (username) {
+                        toast.info(`${username}'s role changed to ${event.newRole}`)
                     }
                 },
             })
@@ -152,8 +177,9 @@ export function useCodeRoom() {
                 // Update current code and participants
                 setCurrentCode(response.currentCode)
 
-                // Update participants
+                // Update participant names ref from sync
                 response.participants.forEach((participant) => {
+                    participantNamesRef.current.set(participant.userId, participant.username)
                     addParticipant(participant)
                 })
 
@@ -183,7 +209,6 @@ export function useCodeRoom() {
         setConnectionError,
         setCurrentCode,
         room,
-        participants,
     ])
 
     const joinRoom = useCallback(
@@ -472,6 +497,13 @@ export function useCodeRoom() {
         },
         [room, isHost, updateParticipant],
     )
+
+    // Add cleanup for the ref on unmount
+    useEffect(() => {
+        return () => {
+            participantNamesRef.current.clear()
+        }
+    }, [])
 
     // Handle connection state changes
     useEffect(() => {

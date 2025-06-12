@@ -167,22 +167,51 @@ function codeRoomReducer(state: CodeRoomState, action: CodeRoomAction): CodeRoom
         case 'REMOVE_PARTICIPANT': {
             const userId = action.payload;
             const participants = new Map(state.participants);
+
+            // Log the removal
+            const removedParticipant = participants.get(userId);
+            if (removedParticipant) {
+                console.log(`[CodeRoomContext] Removing participant: ${removedParticipant.username} (${userId})`);
+            }
+
             participants.delete(userId);
 
+            // Clean up related data
             const cursors = new Map(state.cursors);
             cursors.delete(userId);
 
             const typingUsers = new Set(state.typingUsers);
             typingUsers.delete(userId);
 
+            const remoteMediaStates = new Map(state.remoteMediaStates);
+            remoteMediaStates.delete(userId);
+
             const remoteStreams = new Map(state.remoteStreams);
             const stream = remoteStreams.get(userId);
             if (stream) {
-                stream.getTracks().forEach(track => track.stop());
+                // Stop all tracks before removing
+                stream.getTracks().forEach(track => {
+                    track.stop();
+                    console.log(`[CodeRoomContext] Stopped ${track.kind} track for ${userId}`);
+                });
                 remoteStreams.delete(userId);
             }
 
-            return { ...state, participants, cursors, typingUsers, remoteStreams };
+            // Update room participant count if room exists
+            const updatedRoom = state.room ? {
+                ...state.room,
+                currentParticipants: Math.max(0, participants.size)
+            } : state.room;
+
+            return {
+                ...state,
+                participants,
+                cursors,
+                typingUsers,
+                remoteMediaStates,
+                remoteStreams,
+                room: updatedRoom
+            };
         }
 
         case 'UPDATE_PARTICIPANT': {
