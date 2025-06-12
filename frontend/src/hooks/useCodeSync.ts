@@ -31,8 +31,7 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
     const changeQueueRef = useRef<CodeChangeDto[]>([]);
     const isApplyingRemoteChange = useRef(false);
     const lastCursorPosition = useRef<CursorPositionDto | null>(null);
-    const listenersSetupRef = useRef(false);
-    const cleanupFunctionsRef = useRef<(() => void)[]>([]);
+    const hasSetupListeners = useRef(false);
 
     // Cursor position adjustment logic
     const adjustCursorPosition = (
@@ -390,18 +389,15 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
 
     // Set up WebSocket listeners for code sync
     useEffect(() => {
-        // Skip if already setup or no connection
-        if (listenersSetupRef.current || !codeRoomWebSocketService.isConnected()) {
+        // Only set up listeners once when connected and user is set
+        if (!codeRoomWebSocketService.isConnected() || !currentUser || hasSetupListeners.current) {
             return;
         }
 
         const setupListeners = async () => {
             try {
                 console.log('[CodeSync] Setting up WebSocket listeners');
-                listenersSetupRef.current = true;
-
-                // Store cleanup functions
-                const cleanupFunctions: (() => void)[] = [];
+                hasSetupListeners.current = true;
 
                 // Listen for code changes
                 await codeRoomWebSocketService.onCodeChange((change) => {
@@ -422,9 +418,6 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
                     }
                 });
 
-                // Store cleanup functions
-                cleanupFunctionsRef.current = cleanupFunctions;
-
                 // Flush any queued changes
                 if (changeQueueRef.current.length > 0) {
                     console.log(`[CodeSync] Flushing ${changeQueueRef.current.length} queued changes`);
@@ -432,7 +425,7 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
                 }
             } catch (error) {
                 console.error('[CodeSync] Failed to setup WebSocket listeners:', error);
-                listenersSetupRef.current = false;
+                hasSetupListeners.current = false;
             }
         };
 
@@ -440,12 +433,8 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
 
         // Cleanup
         return () => {
-            console.log('[CodeSync] Cleaning up listeners');
-            listenersSetupRef.current = false;
-
-            // Call cleanup functions
-            cleanupFunctionsRef.current.forEach(cleanup => cleanup());
-            cleanupFunctionsRef.current = [];
+            // Don't reset hasSetupListeners here as we want to keep the listeners
+            // They will be cleaned up when the WebSocket disconnects
 
             // Cancel any pending debounced calls
             if (debouncedFlush) {
@@ -468,7 +457,26 @@ export function useCodeSync(options: CodeSyncOptions = {}) {
             // Clear change queue
             changeQueueRef.current = [];
         };
-    }, [currentUser?.userId, applyRemoteChange, updateCursor, setUserTyping, debouncedFlush, flushChangeQueue]);
+    }, [currentUser?.userId]); // Only depend on user id
+
+    // Reset listeners flag when disconnected
+    useEffect(() => {
+        const checkConnection = () => {
+            const isConnected = codeRoomWebSocketService.isConnected();
+            if (!isConnected && hasSetupListeners.current) {
+                hasSetupListeners.current = false;
+                console.log('[CodeSync] WebSocket disconnected, resetting listeners flag');
+            }
+        };
+
+        // Check immediately
+        checkConnection();
+
+        // Check periodically
+        const interval = setInterval(checkConnection, 1000);
+
+        return () => clearInterval(interval);
+    }, []);
 
     // Initialize editor reference
     const initializeEditor = useCallback((editor: any) => {

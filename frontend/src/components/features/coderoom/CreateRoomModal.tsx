@@ -25,7 +25,7 @@ export function CreateRoomModal({
                                     initialCode,
                                 }: CreateRoomModalProps) {
     const navigate = useNavigate()
-    const { setRoom, setShowCreateRoomModal, setCreatingRoom, isCreatingRoom } = useCodeRoomStore()
+    const { setRoom } = useCodeRoomStore()
 
     const [formData, setFormData] = useState<CreateCodeRoomRequest>({
         name: "",
@@ -40,6 +40,26 @@ export function CreateRoomModal({
     })
 
     const [error, setError] = useState<string | null>(null)
+    const [isCreating, setIsCreating] = useState(false)
+
+    // Reset form when modal opens/closes
+    useEffect(() => {
+        if (!isOpen) {
+            // Reset form when modal closes
+            setFormData({
+                name: "",
+                description: "",
+                languageId: LanguageId.cpp,
+                maxParticipants: 2,
+                isPublic: true,
+                allowVoiceChat: true,
+                allowVideoChat: true,
+                allowScreenShare: true,
+                initialCode: initialCode || "",
+            })
+            setError(null)
+        }
+    }, [isOpen, initialCode])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -50,51 +70,33 @@ export function CreateRoomModal({
         }
 
         try {
-            setCreatingRoom(true)
+            setIsCreating(true)
             setError(null)
 
-            // Step 1: Check backend health
-            console.log("[CreateRoomModal] Checking backend health...")
-            const isHealthy = await codeRoomService.checkBackendHealth()
-            if (!isHealthy) {
-                throw new Error("Backend server is not responding. Please try again.")
-            }
-
-            // Step 2: Create the room
+            // Create the room
             console.log("[CreateRoomModal] Creating room...")
             const newRoom = await codeRoomService.createRoom(formData)
             console.log("[CreateRoomModal] Room created:", newRoom.roomCode)
 
-            // Step 3: Store room data
+            // Store room data
             setRoom(newRoom)
 
-            // Step 4: Close modal first
-            onClose()
-            setShowCreateRoomModal(false)
+            // Navigate first, then close modal to prevent unmounting issues
+            console.log("[CreateRoomModal] Navigating to room:", newRoom.roomCode)
+            navigate(`/code-room/${newRoom.roomCode}`)
 
-            // Step 5: Show success message
-            toast.success("Room created! Redirecting...")
-
-            // Step 6: Wait for room to be ready on backend
-            console.log("[CreateRoomModal] Waiting for room to be ready...")
-            const isReady = await codeRoomService.waitForRoomReady(newRoom.roomCode)
-            if (!isReady) {
-                console.warn("[CreateRoomModal] Room might not be fully ready")
-            }
-
-            // Step 7: Navigate with delay to ensure backend is ready
+            // Show success message after a brief delay to ensure navigation starts
             setTimeout(() => {
-                console.log("[CreateRoomModal] Navigating to room:", newRoom.roomCode)
-                navigate(`/code-room/${newRoom.roomCode}`)
-            }, 1000)
+                toast.success("Room created successfully!")
+                onClose()
+            }, 300)
 
         } catch (error: any) {
             console.error("[CreateRoomModal] Failed to create room:", error)
             const errorMessage = error.response?.data?.errorMessage || error.message || "Failed to create room"
             toast.error(errorMessage)
             setError(errorMessage)
-        } finally {
-            setCreatingRoom(false)
+            setIsCreating(false)
         }
     }
 
@@ -106,15 +108,16 @@ export function CreateRoomModal({
         setFormData((prev) => ({ ...prev, [field]: !prev[field] }))
     }
 
-    // Reset form when modal closes
-    useEffect(() => {
-        if (!isOpen) {
-            setError(null)
-        }
-    }, [isOpen])
-
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Create Code Room">
+        <Modal
+            isOpen={isOpen}
+            onClose={() => {
+                if (!isCreating) {
+                    onClose()
+                }
+            }}
+            title="Create Code Room"
+        >
             <div className="p-6">
                 {error && (
                     <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-md">
@@ -136,7 +139,7 @@ export function CreateRoomModal({
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             placeholder="Enter room name"
                             required
-                            disabled={isCreatingRoom}
+                            disabled={isCreating}
                         />
                     </div>
 
@@ -152,7 +155,7 @@ export function CreateRoomModal({
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                             placeholder="Describe your coding session"
                             rows={3}
-                            disabled={isCreatingRoom}
+                            disabled={isCreating}
                         />
                     </div>
 
@@ -162,7 +165,7 @@ export function CreateRoomModal({
                         <Select
                             value={formData.languageId}
                             onValueChange={(value) => handleInputChange("languageId", value as LanguageId)}
-                            disabled={isCreatingRoom}
+                            disabled={isCreating}
                         >
                             <SelectTrigger className="w-full">
                                 <SelectValue />
@@ -182,7 +185,7 @@ export function CreateRoomModal({
                         <Select
                             value={formData.maxParticipants.toString()}
                             onValueChange={(value) => handleInputChange("maxParticipants", Number.parseInt(value))}
-                            disabled={isCreatingRoom}
+                            disabled={isCreating}
                         >
                             <SelectTrigger className="w-full">
                                 <SelectValue />
@@ -212,10 +215,10 @@ export function CreateRoomModal({
                         <button
                             type="button"
                             onClick={() => handleToggle("isPublic")}
-                            disabled={isCreatingRoom}
+                            disabled={isCreating}
                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                                 formData.isPublic ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-700"
-                            } ${isCreatingRoom ? "opacity-50 cursor-not-allowed" : ""}`}
+                            } ${isCreating ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
               <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -239,10 +242,10 @@ export function CreateRoomModal({
                                 <button
                                     type="button"
                                     onClick={() => handleToggle("allowVoiceChat")}
-                                    disabled={isCreatingRoom}
+                                    disabled={isCreating}
                                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                                         formData.allowVoiceChat ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-700"
-                                    } ${isCreatingRoom ? "opacity-50 cursor-not-allowed" : ""}`}
+                                    } ${isCreating ? "opacity-50 cursor-not-allowed" : ""}`}
                                 >
                   <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -261,10 +264,10 @@ export function CreateRoomModal({
                                 <button
                                     type="button"
                                     onClick={() => handleToggle("allowVideoChat")}
-                                    disabled={isCreatingRoom}
+                                    disabled={isCreating}
                                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                                         formData.allowVideoChat ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-700"
-                                    } ${isCreatingRoom ? "opacity-50 cursor-not-allowed" : ""}`}
+                                    } ${isCreating ? "opacity-50 cursor-not-allowed" : ""}`}
                                 >
                   <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -283,10 +286,10 @@ export function CreateRoomModal({
                                 <button
                                     type="button"
                                     onClick={() => handleToggle("allowScreenShare")}
-                                    disabled={isCreatingRoom}
+                                    disabled={isCreating}
                                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                                         formData.allowScreenShare ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-700"
-                                    } ${isCreatingRoom ? "opacity-50 cursor-not-allowed" : ""}`}
+                                    } ${isCreating ? "opacity-50 cursor-not-allowed" : ""}`}
                                 >
                   <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -300,15 +303,24 @@ export function CreateRoomModal({
 
                     {/* Action Buttons */}
                     <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
-                        <Button type="button" variant="outline" onClick={onClose} disabled={isCreatingRoom}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                if (!isCreating) {
+                                    onClose()
+                                }
+                            }}
+                            disabled={isCreating}
+                        >
                             Cancel
                         </Button>
                         <Button
                             type="submit"
-                            disabled={!formData.name.trim() || isCreatingRoom}
+                            disabled={!formData.name.trim() || isCreating}
                             className="flex items-center gap-2"
                         >
-                            {isCreatingRoom ? (
+                            {isCreating ? (
                                 <>
                                     <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
                                     Creating...

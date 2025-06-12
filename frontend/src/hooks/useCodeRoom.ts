@@ -201,13 +201,7 @@ export function useCodeRoom() {
                 setIsInitializing(true)
                 setConnectionError(null)
 
-                // Step 1: Verify backend is available
-                const isHealthy = await codeRoomService.checkBackendHealth()
-                if (!isHealthy) {
-                    throw new Error("Backend server is not available. Please check if the server is running.")
-                }
-
-                // Step 2: Join room via REST API
+                // Step 1: Join room via REST API
                 console.log("[CodeRoom Hook] Joining room via API...")
                 try {
                     await codeRoomService.joinRoom({ roomCode })
@@ -225,7 +219,7 @@ export function useCodeRoom() {
                     }
                 }
 
-                // Step 3: Get room details with retry
+                // Step 2: Get room details with retry
                 console.log("[CodeRoom Hook] Fetching room details...")
                 let roomDetails = null
                 let lastError = null
@@ -249,22 +243,22 @@ export function useCodeRoom() {
                     throw lastError || new Error("Failed to retrieve room details")
                 }
 
-                // Step 4: Set room details in store
+                // Step 3: Set room details in store
                 setRoomDetails(roomDetails)
 
-                // Step 5: Get authentication token
+                // Step 4: Get authentication token
                 const token = getToken()
                 if (!token) {
                     throw new Error("Authentication required")
                 }
 
-                // Step 6: Disconnect any existing WebSocket connection first
+                // Step 5: Disconnect any existing WebSocket connection first
                 if (codeRoomWebSocketService.isConnected()) {
                     console.log("[CodeRoom Hook] Disconnecting existing WebSocket connection...")
                     await codeRoomWebSocketService.disconnect()
                 }
 
-                // Step 7: Connect to WebSocket
+                // Step 6: Connect to WebSocket
                 console.log("[CodeRoom Hook] Connecting to WebSocket...")
                 await codeRoomWebSocketService.connect({
                     roomId: roomDetails.room.id,
@@ -286,7 +280,7 @@ export function useCodeRoom() {
                     },
                 })
 
-                // Step 8: Wait for connection to establish
+                // Step 7: Wait for connection to establish
                 let connectionEstablished = false
                 for (let i = 0; i < 10; i++) {
                     if (codeRoomWebSocketService.isConnected()) {
@@ -302,14 +296,14 @@ export function useCodeRoom() {
 
                 console.log("[CodeRoom Hook] WebSocket connected successfully")
 
-                // Step 9: Set up event listeners
+                // Step 8: Set up event listeners
                 await setupWebSocketListeners()
 
-                // Step 10: Request initial sync
+                // Step 9: Request initial sync
                 console.log("[CodeRoom Hook] Requesting initial sync...")
                 await codeRoomWebSocketService.requestSync()
 
-                // Step 11: Mark as connected
+                // Step 10: Mark as connected
                 setConnected(true)
                 setConnectionError(null)
 
@@ -486,18 +480,6 @@ export function useCodeRoom() {
             toast.error(`Connection error: ${connectionError}`)
         }
     }, [connectionError])
-
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            console.log("[CodeRoom Hook] Component unmounting, cleaning up...")
-            if (isConnected) {
-                codeRoomWebSocketService.disconnect().catch((error) => {
-                    console.error("[CodeRoom Hook] Error during cleanup:", error)
-                })
-            }
-        }
-    }, [isConnected])
 
     return {
         // State

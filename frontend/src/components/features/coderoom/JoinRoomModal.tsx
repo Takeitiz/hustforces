@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Hash, ArrowRight, Users } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { useCodeRoom } from '../../../hooks/useCodeRoom';
-import useCodeRoomStore from "../../../contexts/CodeRoomContext.tsx";
 import codeRoomService from '../../../service/codeRoomService.ts';
 import {Modal} from "../../ui/Modal.tsx";
 import {Label} from "../../ui/Label.tsx";
@@ -17,12 +15,11 @@ interface JoinRoomModalProps {
 
 export function JoinRoomModal({ isOpen, onClose, roomCode: defaultRoomCode }: JoinRoomModalProps) {
     const navigate = useNavigate();
-    const {isJoiningRoom } = useCodeRoom();
-    const { setShowJoinRoomModal } = useCodeRoomStore();
 
     const [roomCode, setRoomCode] = useState(defaultRoomCode || '');
     const [roomPreview, setRoomPreview] = useState<any>(null);
     const [isCheckingRoom, setIsCheckingRoom] = useState(false);
+    const [isNavigating, setIsNavigating] = useState(false);
 
     const handleRoomCodeChange = async (code: string) => {
         setRoomCode(code.toUpperCase());
@@ -43,7 +40,6 @@ export function JoinRoomModal({ isOpen, onClose, roomCode: defaultRoomCode }: Jo
         }
     };
 
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -53,16 +49,20 @@ export function JoinRoomModal({ isOpen, onClose, roomCode: defaultRoomCode }: Jo
         }
 
         try {
-            // First close the modal
-            onClose();
-            setShowJoinRoomModal(false);
+            setIsNavigating(true);
 
-            // Then navigate to the room
-            // The CodeRoomInterface will handle the actual joining
+            // Navigate first to prevent unmounting issues
             navigate(`/code-room/${roomCode}`);
+
+            // Close modal after navigation
+            setTimeout(() => {
+                onClose();
+                setIsNavigating(false);
+            }, 100);
         } catch (error) {
             console.error('Navigation error:', error);
             toast.error('Failed to navigate to room');
+            setIsNavigating(false);
         }
     };
 
@@ -96,7 +96,15 @@ export function JoinRoomModal({ isOpen, onClose, roomCode: defaultRoomCode }: Jo
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Join Code Room">
+        <Modal
+            isOpen={isOpen}
+            onClose={() => {
+                if (!isNavigating) {
+                    onClose();
+                }
+            }}
+            title="Join Code Room"
+        >
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
                 {/* Room Code Input */}
                 <div>
@@ -117,6 +125,7 @@ export function JoinRoomModal({ isOpen, onClose, roomCode: defaultRoomCode }: Jo
                             maxLength={6}
                             required
                             autoFocus
+                            disabled={isNavigating}
                         />
                     </div>
                     <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -130,8 +139,8 @@ export function JoinRoomModal({ isOpen, onClose, roomCode: defaultRoomCode }: Jo
                         <div className="flex items-center justify-center">
                             <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500"></div>
                             <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                Checking room...
-              </span>
+                                Checking room...
+                            </span>
                         </div>
                     </div>
                 )}
@@ -150,16 +159,16 @@ export function JoinRoomModal({ isOpen, onClose, roomCode: defaultRoomCode }: Jo
                                 )}
                             </div>
                             <span className={`text-sm font-medium ${getStatusColor(roomPreview.status)}`}>
-                {getStatusIcon(roomPreview.status)} {roomPreview.status}
-              </span>
+                                {getStatusIcon(roomPreview.status)} {roomPreview.status}
+                            </span>
                         </div>
 
                         <div className="flex items-center gap-4 text-sm">
                             <div className="flex items-center gap-1">
                                 <Users size={16} className="text-gray-500" />
                                 <span className="text-gray-600 dark:text-gray-400">
-                  {roomPreview.currentParticipants}/{roomPreview.maxParticipants}
-                </span>
+                                    {roomPreview.currentParticipants}/{roomPreview.maxParticipants}
+                                </span>
                             </div>
 
                             {roomPreview.problemTitle && (
@@ -172,22 +181,22 @@ export function JoinRoomModal({ isOpen, onClose, roomCode: defaultRoomCode }: Jo
                         <div className="flex gap-2 text-xs">
                             {roomPreview.allowVoiceChat && (
                                 <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                  🎤 Voice
-                </span>
+                                    🎤 Voice
+                                </span>
                             )}
                             {roomPreview.allowVideoChat && (
                                 <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                  📹 Video
-                </span>
+                                    📹 Video
+                                </span>
                             )}
                             {roomPreview.allowScreenShare && (
                                 <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                  🖥️ Screen Share
-                </span>
+                                    🖥️ Screen Share
+                                </span>
                             )}
                             <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded">
-                {roomPreview.languageId.toUpperCase()}
-              </span>
+                                {roomPreview.languageId.toUpperCase()}
+                            </span>
                         </div>
 
                         {roomPreview.status !== 'ACTIVE' && (
@@ -217,6 +226,7 @@ export function JoinRoomModal({ isOpen, onClose, roomCode: defaultRoomCode }: Jo
                             navigate('/code-rooms');
                         }}
                         className="w-full"
+                        disabled={isNavigating}
                     >
                         Browse Public Rooms
                     </Button>
@@ -227,17 +237,21 @@ export function JoinRoomModal({ isOpen, onClose, roomCode: defaultRoomCode }: Jo
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={onClose}
-                        disabled={isJoiningRoom}
+                        onClick={() => {
+                            if (!isNavigating) {
+                                onClose();
+                            }
+                        }}
+                        disabled={isNavigating}
                     >
                         Cancel
                     </Button>
                     <Button
                         type="submit"
-                        disabled={!roomCode || roomCode.length !== 6 || isJoiningRoom || (roomPreview && roomPreview.status !== 'ACTIVE')}
+                        disabled={!roomCode || roomCode.length !== 6 || isNavigating || (roomPreview && roomPreview.status !== 'ACTIVE')}
                         className="flex items-center gap-2"
                     >
-                        {isJoiningRoom ? (
+                        {isNavigating ? (
                             <>
                                 <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
                                 Joining...

@@ -18,43 +18,6 @@ import authService from "./authService.ts";
  */
 const codeRoomService = {
     /**
-     * Check if backend is healthy and responding
-     */
-    checkBackendHealth: async (): Promise<boolean> => {
-        try {
-            const response = await apiClient.get('/health', {
-                timeout: 3000
-            });
-            return response.status === 200;
-        } catch (error) {
-            console.error('Backend health check failed:', error);
-            return false;
-        }
-    },
-
-    /**
-     * Wait for room to be ready on the backend
-     */
-    waitForRoomReady: async (roomCode: string, maxAttempts: number = 5): Promise<boolean> => {
-        for (let i = 0; i < maxAttempts; i++) {
-            try {
-                // Try to get room details as a way to check if it's ready
-                const response = await apiClient.get(`/coderooms/code/${roomCode}`);
-                if (response.data && response.data.room) {
-                    return true;
-                }
-            } catch (error) {
-                console.log(`Room not ready yet, attempt ${i + 1}/${maxAttempts}`);
-            }
-
-            if (i < maxAttempts - 1) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-        }
-        return false;
-    },
-
-    /**
      * Create a new code room
      */
     createRoom: async (request: CreateCodeRoomRequest): Promise<CodeRoomDto> => {

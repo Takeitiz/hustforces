@@ -14,7 +14,6 @@ import {useCodeRoom} from "../../../hooks/useCodeRoom.ts";
 import {useWebRTCIntegration} from "../../../hooks/useWebRTCIntegration.ts";
 import {debugError, debugLog } from "../../../utils/debug.ts"
 import { performanceMonitor } from "../../../utils/performance.ts"
-import codeRoomService from "../../../service/codeRoomService.ts"
 import codeRoomWebSocketService from "../../../service/codeRoomWebSocketService.ts";
 import {Button} from "../../ui/Button.tsx";
 
@@ -22,10 +21,8 @@ export function CodeRoomInterface() {
     const { roomCode } = useParams<{ roomCode: string }>()
     const navigate = useNavigate()
 
-    // Use refs to track initialization state
-    const initializationRef = useRef(false)
-    const mountedRef = useRef(true)
-    const retryCountRef = useRef(0)
+    // Single flag to track if we've initialized
+    const hasInitialized = useRef(false)
 
     const {
         room,
@@ -49,107 +46,49 @@ export function CodeRoomInterface() {
     const [webRTCError, setWebRTCError] = useState<string | null>(null)
     const [isFullscreen, setIsFullscreen] = useState(false)
 
-    // Track mounted state
+    // Main initialization effect - simplified
     useEffect(() => {
-        mountedRef.current = true
-        debugLog("CODE_ROOM", "CodeRoomInterface mounted")
-
-        return () => {
-            mountedRef.current = false
-            debugLog("CODE_ROOM", "CodeRoomInterface unmounting")
-        }
-    }, [])
-
-    // Main initialization effect
-    useEffect(() => {
-        // Skip if component unmounted
-        if (!mountedRef.current) {
-            debugLog("CODE_ROOM", "Component not mounted, skipping initialization")
+        if (!roomCode || hasInitialized.current) {
             return
         }
 
-        if (!roomCode) {
-            debugError("CODE_ROOM", "No room code provided")
-            navigate("/code-rooms")
-            return
-        }
-
-        // Skip if already initializing or if we already have room data for this code
-        if (initializationRef.current || (room && room.roomCode === roomCode)) {
-            debugLog("CODE_ROOM", "Skipping initialization (already running or room already loaded)")
-            return
-        }
+        hasInitialized.current = true
+        performanceMonitor.startTimer("room_initialization")
+        debugLog("CODE_ROOM", "Starting room initialization for:", roomCode)
 
         const initRoom = async () => {
-            initializationRef.current = true
-            performanceMonitor.startTimer("room_initialization")
-            debugLog("CODE_ROOM", "Starting room initialization for:", roomCode)
-
             try {
-                // Step 1: Check backend health
-                debugLog("CODE_ROOM", "Checking backend health...")
-                const isHealthy = await codeRoomService.checkBackendHealth()
-                if (!isHealthy) {
-                    throw new Error("Backend is not available")
+                // Join room
+                const roomDetails = await joinRoom(roomCode)
+
+                if (!roomDetails) {
+                    throw new Error("Failed to join room")
                 }
 
-                // Step 2: Join room with retry logic
-                let roomDetails = null
-                const maxRetries = 3
-
-                for (let i = 0; i < maxRetries; i++) {
-                    try {
-                        debugLog("CODE_ROOM", `Join attempt ${i + 1}/${maxRetries}`)
-                        roomDetails = await joinRoom(roomCode)
-                        debugLog("CODE_ROOM", "Successfully joined room")
-                        break
-                    } catch (error) {
-                        retryCountRef.current = i + 1
-                        debugError("CODE_ROOM", `Join attempt ${i + 1} failed:`, error)
-
-                        if (i < maxRetries - 1 && mountedRef.current) {
-                            await new Promise(resolve => setTimeout(resolve, 2000))
-                        } else {
-                            throw error
-                        }
-                    }
-                }
-
-                if (!roomDetails || !mountedRef.current) {
-                    throw new Error("Failed to join room after retries")
-                }
-
-                // Step 3: Initialize WebRTC if needed
+                // Initialize WebRTC if media features are allowed
                 if (roomDetails.room.allowVoiceChat ||
                     roomDetails.room.allowVideoChat ||
                     roomDetails.room.allowScreenShare) {
 
-                    if (mountedRef.current) {
-                        try {
-                            debugLog("CODE_ROOM", "Initializing WebRTC...")
-                            await initializeWebRTC(roomDetails.room.id)
-                            setIsWebRTCReady(true)
-                            setWebRTCError(null)
-                            debugLog("CODE_ROOM", "WebRTC initialized successfully")
-                        } catch (error: any) {
-                            debugError("CODE_ROOM", "WebRTC initialization failed:", error)
+                    try {
+                        debugLog("CODE_ROOM", "Initializing WebRTC...")
+                        await initializeWebRTC(roomDetails.room.id)
+                        setIsWebRTCReady(true)
+                        setWebRTCError(null)
+                        debugLog("CODE_ROOM", "WebRTC initialized successfully")
+                    } catch (error: any) {
+                        debugError("CODE_ROOM", "WebRTC initialization failed:", error)
 
-                            let userFriendlyMessage = "Voice/Video features unavailable."
-                            if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
-                                userFriendlyMessage = "No camera/microphone found. Voice/Video disabled."
-                            } else if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
-                                userFriendlyMessage = "Permission to access camera/microphone denied. Voice/Video disabled."
-                            } else if (error.name === "OverconstrainedError" || error.name === "ConstraintNotSatisfiedError") {
-                                userFriendlyMessage = "Camera/microphone does not meet requirements. Voice/Video disabled."
-                            }
-
-                            toast.warning(userFriendlyMessage, { autoClose: 7000 })
-                            setWebRTCError(userFriendlyMessage)
+                        let userFriendlyMessage = "Voice/Video features unavailable."
+                        if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
+                            userFriendlyMessage = "No camera/microphone found. Voice/Video disabled."
+                        } else if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+                            userFriendlyMessage = "Permission to access camera/microphone denied. Voice/Video disabled."
                         }
+
+                        toast.warning(userFriendlyMessage, { autoClose: 7000 })
+                        setWebRTCError(userFriendlyMessage)
                     }
-                } else {
-                    debugLog("CODE_ROOM", "Media features not allowed for this room")
-                    setIsWebRTCReady(false)
                 }
 
                 performanceMonitor.endTimer("room_initialization", { status: "success" })
@@ -159,34 +98,25 @@ export function CodeRoomInterface() {
                 performanceMonitor.endTimer("room_initialization", { status: "error" })
                 debugError("CODE_ROOM", "Room initialization failed:", error)
 
-                if (mountedRef.current) {
-                    toast.error("Failed to join room. Redirecting...")
-                    setTimeout(() => {
-                        if (mountedRef.current) {
-                            navigate("/code-rooms")
-                        }
-                    }, 2000)
-                }
-            } finally {
-                if (mountedRef.current) {
-                    initializationRef.current = false
-                }
+                toast.error("Failed to join room. Redirecting...")
+                setTimeout(() => {
+                    navigate("/code-rooms")
+                }, 2000)
             }
         }
 
-        // Start initialization
         initRoom()
 
-        // Cleanup function
+        // Cleanup on unmount
         return () => {
-            debugLog("CODE_ROOM", "Component unmounting, starting cleanup")
+            if (!hasInitialized.current) return;
 
+            debugLog("CODE_ROOM", "Component unmounting, starting cleanup...")
+
+            // Clean up everything when component unmounts
             const cleanup = async () => {
                 try {
-                    // Cancel any pending operations
-                    initializationRef.current = false
-
-                    // Disconnect WebSocket only if connected
+                    // Disconnect WebSocket
                     if (codeRoomWebSocketService.isConnected()) {
                         await codeRoomWebSocketService.disconnect()
                     }
@@ -197,76 +127,47 @@ export function CodeRoomInterface() {
                     // Reset store state
                     reset()
                 } catch (error) {
-                    debugError("CODE_ROOM", "Cleanup error:", error)
+                    debugError("CODE_ROOM", "Error during cleanup:", error)
                 }
             }
 
             cleanup()
-        }
-    }, [roomCode]) // Only depend on roomCode
 
-    // Handle WebRTC connections for existing participants
+            // Reset initialization flag
+            hasInitialized.current = false
+        }
+    }, [roomCode, navigate]) // Minimal dependencies
+
+    // Handle WebRTC connections for participants
     useEffect(() => {
         if (!isWebRTCReady || !currentUser || !room || participants.size === 0) {
             return
         }
 
-        debugLog("CODE_ROOM", "WebRTC is ready. Checking for existing participants to connect to.")
+        debugLog("CODE_ROOM", "Setting up WebRTC connections for participants")
 
-        const connectToExistingParticipants = async () => {
-            // Small delay to ensure all systems are ready
+        const connectToParticipants = async () => {
+            // Wait a bit for systems to be ready
             await new Promise((resolve) => setTimeout(resolve, 1000))
 
-            const participantsArray = Array.from(participants.values())
-            debugLog("CODE_ROOM", `Attempting to connect to ${participantsArray.length} existing participants.`)
-
-            for (const participant of participantsArray) {
-                if (participant.userId !== currentUser.userId && participant.status === "ACTIVE") {
-                    debugLog("CODE_ROOM", `Initiating WebRTC connection to: ${participant.username}`)
+            for (const [userId, participant] of participants) {
+                if (userId !== currentUser.userId && participant.status === "ACTIVE") {
+                    debugLog("CODE_ROOM", `Connecting to participant: ${participant.username}`)
                     try {
-                        await connectToUser(participant.userId)
-                        await new Promise((resolve) => setTimeout(resolve, 200)) // Stagger connections
+                        await connectToUser(userId)
+                        // Small delay between connections
+                        await new Promise((resolve) => setTimeout(resolve, 200))
                     } catch (error) {
-                        debugError("CODE_ROOM", `Failed to connect WebRTC to ${participant.username}:`, error)
+                        debugError("CODE_ROOM", `Failed to connect to ${participant.username}:`, error)
                     }
                 }
             }
         }
 
-        connectToExistingParticipants()
-    }, [isWebRTCReady, currentUser?.userId, room?.id, participants.size])
+        connectToParticipants()
+    }, [isWebRTCReady, currentUser?.userId, room?.id, participants.size, connectToUser])
 
-    // Handle new participants joining (WebSocket driven)
-    useEffect(() => {
-        if (!isWebRTCReady || !currentUser) {
-            return
-        }
-
-        debugLog("CODE_ROOM", "WebRTC ready. Setting up listener for new participant WebRTC connections.")
-
-        const setupNewParticipantListener = async () => {
-            try {
-                await codeRoomWebSocketService.onParticipantEvents({
-                    onJoined: async (event) => {
-                        if (event.participant.userId !== currentUser.userId) {
-                            debugLog("CODE_ROOM", `New participant ${event.participant.username} joined. Attempting WebRTC connection.`)
-                            await new Promise((resolve) => setTimeout(resolve, 1500)) // Give new user time to init their WebRTC
-                            try {
-                                await connectToUser(event.participant.userId)
-                            } catch (error) {
-                                debugError("CODE_ROOM", `Failed to connect WebRTC to new participant ${event.participant.username}:`, error)
-                            }
-                        }
-                    },
-                })
-            } catch (error) {
-                debugError("CODE_ROOM", "Error setting up onParticipantEvents for WebRTC:", error)
-            }
-        }
-
-        setupNewParticipantListener()
-    }, [isWebRTCReady, currentUser?.userId, connectToUser])
-
+    // Handle leave room
     const handleLeaveRoom = async () => {
         if (confirm("Are you sure you want to leave this room?")) {
             await leaveRoom()
@@ -285,11 +186,6 @@ export function CodeRoomInterface() {
                     <Loader2 className="animate-spin h-12 w-12 text-blue-500 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold mb-2">Joining Room...</h2>
                     <p className="text-gray-600 dark:text-gray-400">Setting up your collaborative environment</p>
-                    {retryCountRef.current > 0 && (
-                        <p className="text-sm text-gray-500 mt-2">
-                            Retry attempt {retryCountRef.current}/3
-                        </p>
-                    )}
                 </div>
             </div>
         )
@@ -311,11 +207,10 @@ export function CodeRoomInterface() {
 
     // No room state
     if (!room || !currentUser) {
-        debugLog("CODE_ROOM", "No room or current user details available")
         return null
     }
 
-    // Main interface with resizable panels
+    // Main interface
     return (
         <div className={`h-screen flex flex-col bg-gray-100 dark:bg-gray-900 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
             <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
@@ -325,7 +220,6 @@ export function CodeRoomInterface() {
                         <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-sm font-mono">
                             #{room.roomCode}
                         </span>
-                        {/* Display WebRTC Error if present */}
                         {webRTCError && (
                             <span className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
                                 {(webRTCError.includes("camera") || webRTCError.includes("video")) && <VideoOff size={14} />}
@@ -356,7 +250,7 @@ export function CodeRoomInterface() {
                                                 ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400"
                                                 : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                                         }`}
-                                        disabled={!isWebRTCReady && (room.allowVideoChat || room.allowVoiceChat)}
+                                        disabled={!isWebRTCReady}
                                     >
                                         <Video size={16} className="inline mr-1" /> Media
                                     </button>
@@ -367,7 +261,7 @@ export function CodeRoomInterface() {
                                                 ? "bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400"
                                                 : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                                         }`}
-                                        disabled={!isWebRTCReady && (room.allowVideoChat || room.allowVoiceChat)}
+                                        disabled={!isWebRTCReady}
                                     >
                                         Split
                                     </button>
@@ -438,7 +332,7 @@ export function CodeRoomInterface() {
                         )}
                     </PanelGroup>
                 ) : (
-                    // Split view with nested resizable panels
+                    // Split view
                     <PanelGroup direction="horizontal" className="h-full">
                         <Panel defaultSize={showParticipants ? 75 : 100} minSize={50}>
                             <PanelGroup direction="horizontal">

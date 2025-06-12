@@ -4,7 +4,7 @@ import type React from "react"
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react"
 import { toast } from "react-toastify"
 import authService, { type LoginCredentials, type User } from "../service/authService.ts"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { AUTH_ERROR_EVENT } from "../api/client.ts"
 
 interface AuthContextType {
@@ -23,6 +23,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [user, setUser] = useState<User | null>(null)
     const [loading, setLoading] = useState(true)
     const navigate = useNavigate()
+    const location = useLocation()
 
     useEffect(() => {
         const currentUser = authService.getCurrentUser()
@@ -34,7 +35,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Listen for auth errors from API client
         const handleAuthError = () => {
             console.log("[Auth] Authentication error detected, logging out user")
-            logout()
+            // Only logout if not already on login page to prevent loops
+            if (location.pathname !== '/login') {
+                logout()
+            }
         }
 
         window.addEventListener(AUTH_ERROR_EVENT, handleAuthError)
@@ -42,7 +46,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return () => {
             window.removeEventListener(AUTH_ERROR_EVENT, handleAuthError)
         }
-    }, [])
+    }, [location.pathname])
 
     /**
      * Get a valid token, refreshing if necessary
@@ -90,11 +94,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
             // If no valid token, user needs to log in again
             console.log("[Auth] No valid token available, user needs to re-authenticate")
-            logout()
+            // Only logout if not already on login page
+            if (location.pathname !== '/login') {
+                logout()
+            }
             return null
         } catch (error) {
             console.error("[Auth] Error refreshing token:", error)
-            logout()
+            if (location.pathname !== '/login') {
+                logout()
+            }
             return null
         }
     }
