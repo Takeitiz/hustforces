@@ -42,4 +42,6 @@ public interface UserRepository extends JpaRepository<User, String> {
             "LEFT JOIN FETCH u.contestPoints " +
             "ORDER BY u.createdAt")
     List<User> findAllWithContestPoints();
+
+    List<User> findByUsernameContainingIgnoreCase(String username);
 }

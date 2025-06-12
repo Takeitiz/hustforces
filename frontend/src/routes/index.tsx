@@ -29,6 +29,7 @@ import CodeRoomPage from "../pages/CodeRoom/CodeRoomPage.tsx"
 import { ProblemsPage } from "../pages/Problem/ProblemsPage.tsx"
 import {UserSubmissionsPage} from "../pages/Profile/UserSubmissionsPage.tsx";
 import {ContestProblemPage} from "../pages/Contest/ContestProblemPage.tsx";
+import {StandingsPage} from "../pages/Standings/StandingsPage.tsx";
 
 const router = createBrowserRouter([
     {
@@ -63,6 +64,10 @@ const router = createBrowserRouter([
             {
                 path: "profile/:username",
                 element: <ProfilePage />,
+            },
+            {
+                path: "standings",
+                element: <StandingsPage />,
             },
             {
                 path: "profile/:username/submissions",

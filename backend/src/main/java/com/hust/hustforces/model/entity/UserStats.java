@@ -38,4 +38,7 @@ public class UserStats extends BaseEntity {
     // Many users might look at profiles that haven't been updated recently
     // This timestamp helps us prioritize which stats to update first
     private LocalDateTime lastCalculated;
+
+    @Column(name = "rating_change")
+    private Integer ratingChange = 0;
 }
