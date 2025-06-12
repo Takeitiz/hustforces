@@ -10,6 +10,7 @@ interface CollaborativeEditorProps {}
 
 export function CollaborativeEditor({}: CollaborativeEditorProps) {
     const editorRef = useRef<any>(null);
+    const monacoRef = useRef<typeof monaco | null>(null);
     const disposablesRef = useRef<any[]>([]);
     const decorationsRef = useRef<any[]>([]);
     const [isEditorReady, setIsEditorReady] = useState(false);
@@ -25,56 +26,414 @@ export function CollaborativeEditor({}: CollaborativeEditorProps) {
         getDecoratedCode,
     } = useCodeSync();
 
+    // Configure Monaco before editor mounts
+    const configureMonaco = () => {
+        if (!monacoRef.current) return;
+
+        const monaco = monacoRef.current;
+
+        // Define a custom theme with better cursor visibility
+        monaco.editor.defineTheme('coderoom-dark', {
+            base: 'vs-dark',
+            inherit: true,
+            rules: [
+                // Add syntax highlighting rules for better visibility
+                { token: 'comment', foreground: '608B4E', fontStyle: 'italic' },
+                { token: 'keyword', foreground: '569CD6' },
+                { token: 'string', foreground: 'CE9178' },
+                { token: 'number', foreground: 'B5CEA8' },
+                { token: 'function', foreground: 'DCDCAA' },
+                { token: 'variable', foreground: '9CDCFE' },
+                { token: 'type', foreground: '4EC9B0' },
+                { token: 'class', foreground: '4EC9B0' },
+                { token: 'interface', foreground: '4EC9B0' },
+                { token: 'namespace', foreground: '4EC9B0' },
+                { token: 'parameter', foreground: '9CDCFE' },
+                { token: 'property', foreground: '9CDCFE' },
+                { token: 'constant', foreground: '4FC1FF' },
+                { token: 'regexp', foreground: 'D16969' },
+            ],
+            colors: {
+                'editor.background': '#1E1E1E',
+                'editor.foreground': '#D4D4D4',
+                'editor.lineHighlightBackground': '#2A2A2A',
+                'editorCursor.foreground': '#FFFFFF', // Bright white cursor
+                'editorCursor.background': '#000000', // Black background for contrast
+                'editor.selectionBackground': '#264F78',
+                'editor.inactiveSelectionBackground': '#3A3D41',
+                'editorWhitespace.foreground': '#3B3B3B',
+                'editorIndentGuide.background': '#404040',
+                'editorIndentGuide.activeBackground': '#707070',
+            }
+        });
+
+        // Configure language-specific settings only if TypeScript is available
+        try {
+            if (monaco.languages && monaco.languages.typescript) {
+                // Configure TypeScript/JavaScript defaults
+                if (monaco.languages.typescript.javascriptDefaults) {
+                    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+                        noSemanticValidation: false,
+                        noSyntaxValidation: false,
+                    });
+
+                    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+                        target: monaco.languages.typescript.ScriptTarget.Latest,
+                        allowNonTsExtensions: true,
+                        moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+                        module: monaco.languages.typescript.ModuleKind.CommonJS,
+                        noEmit: true,
+                        esModuleInterop: true,
+                        jsx: monaco.languages.typescript.JsxEmit.React,
+                        allowJs: true,
+                        typeRoots: ["node_modules/@types"]
+                    });
+
+                    // Add some common type definitions for better IntelliSense
+                    monaco.languages.typescript.javascriptDefaults.addExtraLib(
+                        `declare class Console {
+                            log(...args: any[]): void;
+                            error(...args: any[]): void;
+                            warn(...args: any[]): void;
+                            info(...args: any[]): void;
+                            debug(...args: any[]): void;
+                            trace(...args: any[]): void;
+                            table(data: any): void;
+                            time(label: string): void;
+                            timeEnd(label: string): void;
+                        }
+                        declare var console: Console;
+                        declare function setTimeout(callback: () => void, ms: number): number;
+                        declare function setInterval(callback: () => void, ms: number): number;
+                        declare function clearTimeout(id: number): void;
+                        declare function clearInterval(id: number): void;
+                        declare function alert(message: string): void;
+                        declare function confirm(message: string): boolean;
+                        declare function prompt(message: string, defaultValue?: string): string | null;`,
+                        'ts:globals'
+                    );
+                }
+
+                // Configure TypeScript defaults if available
+                if (monaco.languages.typescript.typescriptDefaults) {
+                    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+                        noSemanticValidation: false,
+                        noSyntaxValidation: false,
+                    });
+                }
+            }
+        } catch (error) {
+            console.warn('[Monaco] Failed to configure TypeScript features:', error);
+            // Continue without TypeScript features
+        }
+
+        // Register completion providers for all languages
+        registerCompletionProviders(monaco);
+    };
+
+    // Register custom completion providers
+    const registerCompletionProviders = (monaco: any) => {
+        const languages = ['javascript', 'typescript', 'java', 'cpp', 'rust'];
+
+        languages.forEach(language => {
+            monaco.languages.registerCompletionItemProvider(language, {
+                provideCompletionItems: (model: any, position: any) => {
+                    const word = model.getWordUntilPosition(position);
+                    const range = {
+                        startLineNumber: position.lineNumber,
+                        endLineNumber: position.lineNumber,
+                        startColumn: word.startColumn,
+                        endColumn: word.endColumn
+                    };
+
+                    // Language-specific suggestions
+                    const suggestions = getLanguageSuggestions(language, range, monaco);
+
+                    return {
+                        suggestions: suggestions
+                    };
+                }
+            });
+        });
+    };
+
+    // Get language-specific suggestions
+    const getLanguageSuggestions = (language: string, range: any, monaco: any) => {
+        const commonSuggestions = [
+            {
+                label: 'console.log',
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                insertText: 'console.log(${1:message});',
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'Log output to console',
+                range: range
+            },
+            {
+                label: 'function',
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                insertText: 'function ${1:name}(${2:params}) {\n\t${3:// body}\n}',
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'Function declaration',
+                range: range
+            },
+            {
+                label: 'if',
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                insertText: 'if (${1:condition}) {\n\t${2:// body}\n}',
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'If statement',
+                range: range
+            },
+            {
+                label: 'for',
+                kind: monaco.languages.CompletionItemKind.Snippet,
+                insertText: 'for (let ${1:i} = 0; ${1:i} < ${2:length}; ${1:i}++) {\n\t${3:// body}\n}',
+                insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                documentation: 'For loop',
+                range: range
+            }
+        ];
+
+        // Add language-specific suggestions
+        if (language === 'javascript' || language === 'typescript') {
+            commonSuggestions.push(
+                {
+                    label: 'const',
+                    kind: monaco.languages.CompletionItemKind.Snippet,
+                    insertText: 'const ${1:name} = ${2:value};',
+                    insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    documentation: 'Constant declaration',
+                    range: range
+                },
+                {
+                    label: 'arrow',
+                    kind: monaco.languages.CompletionItemKind.Snippet,
+                    insertText: 'const ${1:name} = (${2:params}) => {\n\t${3:// body}\n};',
+                    insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    documentation: 'Arrow function',
+                    range: range
+                }
+            );
+        } else if (language === 'java') {
+            commonSuggestions.push(
+                {
+                    label: 'sout',
+                    kind: monaco.languages.CompletionItemKind.Snippet,
+                    insertText: 'System.out.println(${1:message});',
+                    insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    documentation: 'Print to console',
+                    range: range
+                },
+                {
+                    label: 'main',
+                    kind: monaco.languages.CompletionItemKind.Snippet,
+                    insertText: 'public static void main(String[] args) {\n\t${1:// body}\n}',
+                    insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    documentation: 'Main method',
+                    range: range
+                }
+            );
+        } else if (language === 'cpp') {
+            commonSuggestions.push(
+                {
+                    label: 'cout',
+                    kind: monaco.languages.CompletionItemKind.Snippet,
+                    insertText: 'std::cout << ${1:message} << std::endl;',
+                    insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    documentation: 'Print to console',
+                    range: range
+                },
+                {
+                    label: 'main',
+                    kind: monaco.languages.CompletionItemKind.Snippet,
+                    insertText: 'int main() {\n\t${1:// body}\n\treturn 0;\n}',
+                    insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                    documentation: 'Main function',
+                    range: range
+                }
+            );
+        }
+
+        return commonSuggestions;
+    };
+
     // Handle editor mount
     const handleEditorDidMount = (editor: any, monaco: any) => {
         editorRef.current = editor;
+        monacoRef.current = monaco;
         setIsEditorReady(true);
+
+        // Configure Monaco if not already done
+        configureMonaco();
 
         // Clear any existing disposables
         disposablesRef.current.forEach(d => d?.dispose?.());
         disposablesRef.current = [];
 
-        // Configure editor options
+        // Configure editor options with enhanced settings
         editor.updateOptions({
             fontSize: 14,
             minimap: { enabled: true },
             lineNumbers: 'on',
             wordWrap: 'on',
             automaticLayout: true,
-            fontFamily: "'Fira Code', monospace",
+            fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
             fontLigatures: true,
             scrollBeyondLastLine: false,
             readOnly: !canEdit,
-            theme: 'vs-dark'
+            theme: 'coderoom-dark',
+            cursorStyle: 'block', // Make cursor more visible
+            cursorBlinking: 'blink',
+            cursorSmoothCaretAnimation: true,
+            renderWhitespace: 'selection',
+            renderLineHighlight: 'all',
+            scrollbar: {
+                useShadows: false,
+                verticalHasArrows: false,
+                horizontalHasArrows: false,
+                vertical: 'visible',
+                horizontal: 'visible',
+                verticalScrollbarSize: 10,
+                horizontalScrollbarSize: 10,
+            },
+            // Enable IntelliSense and suggestions
+            quickSuggestions: {
+                other: true,
+                comments: false,
+                strings: true
+            },
+            parameterHints: {
+                enabled: true
+            },
+            suggestOnTriggerCharacters: true,
+            acceptSuggestionOnEnter: 'smart',
+            tabCompletion: 'on',
+            wordBasedSuggestions: true,
+            suggestSelection: 'first',
+            snippetSuggestions: 'inline',
+            suggest: {
+                snippetsPreventQuickSuggestions: false,
+                showWords: true,
+                showSnippets: true,
+                showClasses: true,
+                showFunctions: true,
+                showVariables: true,
+                showConstants: true,
+                showKeywords: true,
+                showModules: true,
+            },
+            // Enhanced cursor and selection visibility
+            cursorWidth: 3,
+            roundedSelection: false,
+            mouseWheelZoom: true,
+        });
+
+        // Add keyboard shortcuts
+        editor.addAction({
+            id: 'trigger-suggest',
+            label: 'Trigger Suggest',
+            keybindings: [
+                monaco.KeyMod.CtrlCmd | monaco.KeyCode.Space,
+            ],
+            run: () => {
+                editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
+            }
         });
 
         // Initialize code sync and store cleanup function
         cleanupRef.current = initializeEditor(editor);
 
-        // Define custom theme
-        monaco.editor.defineTheme('coderoom-dark', {
-            base: 'vs-dark',
-            inherit: true,
-            rules: [],
-            colors: {}
-        });
+        // Apply theme
         monaco.editor.setTheme('coderoom-dark');
+
+        // Add custom CSS for even better cursor visibility
+        const style = document.createElement('style');
+        style.textContent = `
+            .monaco-editor .cursor {
+                background-color: #FFFFFF !important;
+                width: 3px !important;
+                animation: monaco-cursor-blink 1s steps(2) infinite !important;
+            }
+            
+            @keyframes monaco-cursor-blink {
+                0%, 50% { opacity: 1; }
+                51%, 100% { opacity: 0; }
+            }
+            
+            .monaco-editor .cursors-layer > .cursor {
+                box-shadow: 0 0 2px #FFFFFF, 0 0 10px #FFFFFF !important;
+            }
+            
+            /* Enhanced selection visibility */
+            .monaco-editor .selected-text {
+                background-color: rgba(58, 112, 176, 0.5) !important;
+            }
+            
+            /* Better line highlight */
+            .monaco-editor .view-overlays .current-line {
+                background-color: rgba(255, 255, 255, 0.1) !important;
+            }
+            
+            /* Make suggestion widget more visible */
+            .monaco-editor .suggest-widget {
+                border: 1px solid #3B82F6 !important;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+            }
+            
+            .monaco-editor .suggest-widget .monaco-list-row.focused {
+                background-color: #3B82F6 !important;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Store reference to remove on cleanup
+        disposablesRef.current.push({
+            dispose: () => {
+                try {
+                    document.head.removeChild(style);
+                } catch (e) {
+                    // Style might already be removed
+                }
+            }
+        });
+
+        // Trigger initial suggestions after a short delay
+        setTimeout(() => {
+            if (canEdit && editor) {
+                editor.focus();
+            }
+        }, 500);
+    };
+
+    // Get language config with proper Monaco language IDs
+    const getLanguageConfig = () => {
+        if (!room) return { name: 'Text', monaco: 'plaintext' };
+
+        switch (room.languageId) {
+            case LanguageId.cpp:
+                return { name: 'C++', monaco: 'cpp' };
+            case LanguageId.java:
+                return { name: 'Java', monaco: 'java' };
+            case LanguageId.js:
+                return { name: 'JavaScript', monaco: 'javascript' };
+            case LanguageId.rs:
+                return { name: 'Rust', monaco: 'rust' };
+            default:
+                return { name: 'Text', monaco: 'plaintext' };
+        }
     };
 
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            // Call cleanup function from initializeEditor
             if (cleanupRef.current) {
                 cleanupRef.current();
                 cleanupRef.current = null;
             }
 
-            // Dispose all event listeners
             disposablesRef.current.forEach(d => d?.dispose?.());
             disposablesRef.current = [];
 
-            // Clean up editor instance
             if (editorRef.current) {
                 const model = editorRef.current.getModel();
                 if (model) {
@@ -92,8 +451,6 @@ export function CollaborativeEditor({}: CollaborativeEditorProps) {
 
         try {
             const decorations = getDecoratedCode();
-
-            // Apply decorations
             decorationsRef.current = editorRef.current.deltaDecorations(
                 decorationsRef.current,
                 decorations
@@ -123,76 +480,189 @@ export function CollaborativeEditor({}: CollaborativeEditorProps) {
         }
     };
 
-    // Get language config
-    const getLanguageConfig = () => {
-        if (!room) return { name: 'Text', monaco: 'plaintext' };
-
-        switch (room.languageId) {
-            case LanguageId.cpp:
-                return { name: 'C++', monaco: 'cpp' };
-            case LanguageId.java:
-                return { name: 'Java', monaco: 'java' };
-            case LanguageId.js:
-                return { name: 'JavaScript', monaco: 'javascript' };
-            case LanguageId.rs:
-                return { name: 'Rust', monaco: 'rust' };
-            default:
-                return { name: 'Text', monaco: 'plaintext' };
-        }
-    };
-
     const languageConfig = getLanguageConfig();
 
-    // Add cursor styles
+    // Add cursor styles for remote users
     useEffect(() => {
         const styles: string[] = [];
 
+        // Add enhanced remote cursor styles
+        styles.push(`
+            /* Remote cursor base styles */
+            .monaco-editor .remote-cursor {
+                position: absolute;
+                pointer-events: none;
+                z-index: 100;
+            }
+            
+            /* Remote cursor line indicator */
+            .monaco-editor .remote-cursor-line {
+                position: absolute;
+                width: 3px;
+                background: linear-gradient(to bottom, 
+                    var(--cursor-color) 0%, 
+                    var(--cursor-color) 50%, 
+                    transparent 100%);
+                box-shadow: 
+                    0 0 6px var(--cursor-color),
+                    0 0 12px var(--cursor-color),
+                    0 0 18px var(--cursor-color);
+                animation: remote-cursor-pulse 1.5s ease-in-out infinite;
+            }
+            
+            @keyframes remote-cursor-pulse {
+                0%, 100% { 
+                    opacity: 1; 
+                    transform: scaleY(1);
+                }
+                50% { 
+                    opacity: 0.6; 
+                    transform: scaleY(0.95);
+                }
+            }
+            
+            /* Remote cursor label */
+            .monaco-editor .remote-cursor-label {
+                position: absolute;
+                top: -24px;
+                left: 0;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: 600;
+                color: white;
+                white-space: nowrap;
+                pointer-events: none;
+                z-index: 101;
+                box-shadow: 
+                    0 2px 8px rgba(0, 0, 0, 0.3),
+                    0 0 12px var(--cursor-color);
+                animation: remote-cursor-label-appear 0.3s ease-out;
+                backdrop-filter: blur(4px);
+            }
+            
+            @keyframes remote-cursor-label-appear {
+                from {
+                    opacity: 0;
+                    transform: translateY(4px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            /* Remote selection */
+            .monaco-editor .remote-selection {
+                position: absolute;
+                pointer-events: none;
+                background-color: var(--selection-color);
+                opacity: 0.3;
+                border: 1px solid var(--cursor-color);
+                box-shadow: inset 0 0 4px var(--cursor-color);
+            }
+        `);
+
+        // Generate styles for each remote user
         cursors.forEach((cursorInfo, userId) => {
             const participant = participants.get(userId);
             if (!participant || userId === currentUser?.userId) return;
 
             const color = cursorInfo.colorHex;
+            const lighterColor = adjustColorBrightness(color, 20); // Make color 20% brighter
 
-            // Cursor style
             styles.push(`
+                /* Cursor for user ${userId} */
+                .cursor-${userId} {
+                    --cursor-color: ${color};
+                    --selection-color: ${color}40;
+                }
+                
                 .cursor-${userId}::after {
                     content: '';
                     position: absolute;
-                    width: 2px;
-                    height: 100%;
-                    background-color: ${color};
-                    animation: blink 1s infinite;
+                    width: 3px;
+                    height: 1.2em;
+                    background: linear-gradient(to bottom, 
+                        ${lighterColor} 0%, 
+                        ${color} 50%, 
+                        ${color}80 100%);
+                    box-shadow: 
+                        0 0 6px ${color},
+                        0 0 12px ${color},
+                        0 0 18px ${color},
+                        inset 0 0 4px rgba(255, 255, 255, 0.5);
+                    animation: cursor-${userId}-blink 1s infinite;
+                    border-radius: 1px;
+                }
+                
+                @keyframes cursor-${userId}-blink {
+                    0%, 45% { 
+                        opacity: 1; 
+                        transform: scaleX(1);
+                    }
+                    50%, 95% { 
+                        opacity: 0.3; 
+                        transform: scaleX(0.7);
+                    }
+                    100% { 
+                        opacity: 1; 
+                        transform: scaleX(1);
+                    }
                 }
                 
                 .cursor-${userId}::before {
                     content: '${participant.username}';
                     position: absolute;
-                    top: -20px;
+                    top: -24px;
                     left: 0;
-                    background-color: ${color};
+                    background: linear-gradient(135deg, ${color}F0, ${color}D0);
                     color: white;
-                    padding: 2px 6px;
-                    border-radius: 3px;
-                    font-size: 11px;
+                    padding: 4px 10px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    font-weight: 600;
                     white-space: nowrap;
                     z-index: 1000;
+                    box-shadow: 
+                        0 2px 8px rgba(0, 0, 0, 0.3),
+                        0 0 12px ${color}80,
+                        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+                    backdrop-filter: blur(4px);
+                    border: 1px solid ${color}60;
+                    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
                 }
                 
                 .selection-${userId} {
-                    background-color: ${color}33 !important;
+                    background-color: ${color}25 !important;
+                    border: 1px solid ${color}40 !important;
+                    box-shadow: 
+                        inset 0 0 8px ${color}20,
+                        0 0 4px ${color}40 !important;
+                }
+                
+                /* Highlight line where cursor is */
+                .line-${userId} {
+                    background-color: ${color}10 !important;
+                    border-left: 2px solid ${color} !important;
                 }
             `);
         });
 
-        // Typing animation
-        styles.push(`
-            @keyframes blink {
-                0%, 50% { opacity: 1; }
-                51%, 100% { opacity: 0; }
-            }
-        `);
+        // Helper function to adjust color brightness
+        function adjustColorBrightness(hex: string, percent: number): string {
+            const num = parseInt(hex.replace('#', ''), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = (num >> 16) + amt;
+            const G = (num >> 8 & 0x00FF) + amt;
+            const B = (num & 0x0000FF) + amt;
+            return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+                (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+                (B < 255 ? B < 1 ? 0 : B : 255))
+                .toString(16)
+                .slice(1);
+        }
 
-        // Apply styles
         const styleElement = document.createElement('style');
         styleElement.textContent = styles.join('\n');
         document.head.appendChild(styleElement);
@@ -277,9 +747,15 @@ export function CollaborativeEditor({}: CollaborativeEditorProps) {
                         lineNumbers: 'on',
                         wordWrap: 'on',
                         automaticLayout: true,
-                        fontFamily: "'Fira Code', monospace",
+                        fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
                         fontLigatures: true,
-                        readOnly: !canEdit
+                        readOnly: !canEdit,
+                        quickSuggestions: true,
+                        suggestOnTriggerCharacters: true,
+                        tabCompletion: 'on',
+                        cursorStyle: 'block',
+                        cursorBlinking: 'blink',
+                        cursorWidth: 3,
                     }}
                     editorDidMount={handleEditorDidMount}
                 />
@@ -293,6 +769,9 @@ export function CollaborativeEditor({}: CollaborativeEditorProps) {
                         Col {editorRef.current?.getPosition()?.column || 1}
                     </span>
                     <span>{currentCode.split('\n').length} lines</span>
+                    <span className="text-gray-500">
+                        Press <kbd className="px-1 py-0.5 bg-gray-700 rounded text-xs">Ctrl+Space</kbd> for suggestions
+                    </span>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -303,14 +782,20 @@ export function CollaborativeEditor({}: CollaborativeEditorProps) {
                         return (
                             <div
                                 key={userId}
-                                className="flex items-center gap-1 px-2 py-0.5 rounded"
-                                style={{ backgroundColor: `${cursorInfo.colorHex}20` }}
+                                className="flex items-center gap-1 px-2 py-0.5 rounded backdrop-blur-sm"
+                                style={{
+                                    backgroundColor: `${cursorInfo.colorHex}20`,
+                                    border: `1px solid ${cursorInfo.colorHex}40`
+                                }}
                             >
                                 <div
-                                    className="w-2 h-2 rounded-full"
-                                    style={{ backgroundColor: cursorInfo.colorHex }}
+                                    className="w-2 h-2 rounded-full animate-pulse"
+                                    style={{
+                                        backgroundColor: cursorInfo.colorHex,
+                                        boxShadow: `0 0 4px ${cursorInfo.colorHex}`
+                                    }}
                                 />
-                                <span className="text-gray-300">
+                                <span className="text-gray-300 font-medium">
                                     {participant.username} @ Ln {cursorInfo.position.line}
                                 </span>
                             </div>

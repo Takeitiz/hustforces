@@ -607,3 +607,226 @@
     transform: translateY(0);
 }
 
+/* Enhanced Monaco Editor Styles for Code Room */
+
+/* Better cursor visibility */
+.monaco-editor .cursor {
+    background-color: #FFFFFF !important;
+    width: 3px !important;
+    opacity: 1 !important;
+    animation: monaco-cursor-smooth-blink 1.2s ease-in-out infinite !important;
+}
+
+@keyframes monaco-cursor-smooth-blink {
+    0%, 45% { opacity: 1; transform: scaleY(1); }
+    50%, 95% { opacity: 0.3; transform: scaleY(0.8); }
+    100% { opacity: 1; transform: scaleY(1); }
+}
+
+/* Glowing cursor effect for better visibility */
+.monaco-editor .cursors-layer > .cursor {
+    box-shadow:
+            0 0 2px #FFFFFF,
+            0 0 4px #FFFFFF,
+            0 0 6px #3B82F6,
+            0 0 8px #3B82F6 !important;
+}
+
+/* Enhanced current line highlight */
+.monaco-editor .view-overlays .current-line {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-left: 3px solid #3B82F6;
+    margin-left: -3px;
+}
+
+/* Better selection visibility */
+.monaco-editor .selected-text {
+    background-color: rgba(58, 112, 176, 0.4) !important;
+    border: 1px solid rgba(58, 112, 176, 0.6);
+}
+
+/* Bracket matching */
+.monaco-editor .bracket-match {
+    background-color: rgba(0, 255, 0, 0.2) !important;
+    border: 1px solid rgba(0, 255, 0, 0.6);
+}
+
+/* Line numbers enhancement */
+.monaco-editor .line-numbers {
+    color: #858585 !important;
+    font-weight: 500;
+}
+
+.monaco-editor .line-numbers.active-line-number {
+    color: #FFFFFF !important;
+    font-weight: bold;
+}
+
+/* Minimap enhancement */
+.monaco-editor .minimap {
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+}
+
+.monaco-editor .minimap:hover {
+    opacity: 1;
+}
+
+/* Better scrollbar styling */
+.monaco-editor .scrollbar {
+    background-color: transparent !important;
+}
+
+.monaco-editor .scrollbar .slider {
+    background-color: rgba(121, 121, 121, 0.4) !important;
+    border-radius: 6px;
+}
+
+.monaco-editor .scrollbar .slider:hover {
+    background-color: rgba(121, 121, 121, 0.7) !important;
+}
+
+.monaco-editor .scrollbar .slider:active {
+    background-color: rgba(121, 121, 121, 0.8) !important;
+}
+
+/* IntelliSense popup enhancement */
+.monaco-editor .suggest-widget {
+    background-color: #252526 !important;
+    border: 1px solid #454545 !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.monaco-editor .suggest-widget .monaco-list-row.focused {
+    background-color: #094771 !important;
+}
+
+/* Parameter hints enhancement */
+.monaco-editor .parameter-hints-widget {
+    background-color: #252526 !important;
+    border: 1px solid #454545 !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Hover widget enhancement */
+.monaco-editor .monaco-hover {
+    background-color: #252526 !important;
+    border: 1px solid #454545 !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Find widget enhancement */
+.monaco-editor .find-widget {
+    background-color: #252526 !important;
+    border: 1px solid #454545 !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Remote cursor styles */
+.monaco-editor .remote-cursor {
+    position: absolute;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.monaco-editor .remote-cursor::after {
+    content: '';
+    position: absolute;
+    width: 2px;
+    height: 100%;
+    animation: remote-cursor-blink 1s infinite;
+}
+
+@keyframes remote-cursor-blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.3; }
+}
+
+.monaco-editor .remote-cursor-label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    color: white;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 11;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Remote selection styles */
+.monaco-editor .remote-selection {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0.3;
+    mix-blend-mode: screen;
+}
+
+/* Folding enhancement */
+.monaco-editor .folding {
+    background-color: transparent !important;
+}
+
+.monaco-editor .folding:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Git diff decorations */
+.monaco-editor .glyph-margin-added {
+    border-left: 3px solid #4CAF50;
+}
+
+.monaco-editor .glyph-margin-modified {
+    border-left: 3px solid #2196F3;
+}
+
+.monaco-editor .glyph-margin-deleted {
+    border-left: 3px solid #F44336;
+}
+
+/* Error squiggles enhancement */
+.monaco-editor .squiggly-error {
+    background: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%206%203'%20enable-background%3D'new%200%200%206%203'%20height%3D'3'%20width%3D'6'%3E%3Cg%20fill%3D'%23ff0000'%3E%3Cpolygon%20points%3D'5.5%2C0%202.5%2C3%201.1%2C3%204.1%2C0'%2F%3E%3Cpolygon%20points%3D'4%2C0%206%2C2%206%2C0.6%205.4%2C0'%2F%3E%3Cpolygon%20points%3D'0%2C2%201%2C3%202.4%2C3%200%2C0.6'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") repeat-x bottom left !important;
+}
+
+/* Warning squiggles enhancement */
+.monaco-editor .squiggly-warning {
+    background: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%206%203'%20enable-background%3D'new%200%200%206%203'%20height%3D'3'%20width%3D'6'%3E%3Cg%20fill%3D'%23ff9800'%3E%3Cpolygon%20points%3D'5.5%2C0%202.5%2C3%201.1%2C3%204.1%2C0'%2F%3E%3Cpolygon%20points%3D'4%2C0%206%2C2%206%2C0.6%205.4%2C0'%2F%3E%3Cpolygon%20points%3D'0%2C2%201%2C3%202.4%2C3%200%2C0.6'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") repeat-x bottom left !important;
+}
+
+/* Focus mode */
+.monaco-editor.focused {
+    outline: 2px solid #3B82F6 !important;
+    outline-offset: -2px;
+}
+
+/* Smooth transitions */
+.monaco-editor * {
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: more) {
+    .monaco-editor .cursor {
+        background-color: #FFFF00 !important;
+        width: 4px !important;
+    }
+
+    .monaco-editor .cursors-layer > .cursor {
+        box-shadow:
+                0 0 4px #FFFF00,
+                0 0 8px #FFFF00,
+                0 0 12px #FFFF00 !important;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .monaco-editor .cursor,
+    .monaco-editor .remote-cursor::after {
+        animation: none !important;
+    }
+}
