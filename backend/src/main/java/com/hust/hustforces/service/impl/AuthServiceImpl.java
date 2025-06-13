@@ -1,5 +1,6 @@
 package com.hust.hustforces.service.impl;
 
+import com.hust.hustforces.constants.ContestConstants;
 import com.hust.hustforces.enums.UserRole;
 import com.hust.hustforces.enums.UserStatus;
 import com.hust.hustforces.exception.ResourceNotFoundException;
@@ -9,7 +10,9 @@ import com.hust.hustforces.model.dto.auth.AuthResponse;
 import com.hust.hustforces.model.dto.auth.LoginRequest;
 import com.hust.hustforces.model.dto.auth.RegisterRequest;
 import com.hust.hustforces.model.entity.User;
+import com.hust.hustforces.model.entity.UserStats;
 import com.hust.hustforces.repository.UserRepository;
+import com.hust.hustforces.repository.UserStatsRepository;
 import com.hust.hustforces.security.JwtTokenProvider;
 import com.hust.hustforces.service.AuthService;
 import jakarta.transaction.Transactional;
@@ -23,6 +26,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -33,6 +38,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider tokenProvider;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
+    private final UserStatsRepository userStatsRepository;
 
     @Override
     @Transactional
@@ -59,6 +65,19 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         User savedUser = userRepository.save(user);
+
+        UserStats initialStats = UserStats.builder()
+                .userId(savedUser.getId())
+                .currentRank(ContestConstants.DEFAULT_RATING)
+                .maxRank(ContestConstants.DEFAULT_RATING)
+                .totalSubmissions(0)
+                .acceptedSubmissions(0)
+                .problemsSolved(0)
+                .contests(0)
+                .ratingChange(0)
+                .lastCalculated(LocalDateTime.now())
+                .build();
+        userStatsRepository.save(initialStats);
 
         // Generate token
         String token = tokenProvider.generateToken(savedUser.getUsername());

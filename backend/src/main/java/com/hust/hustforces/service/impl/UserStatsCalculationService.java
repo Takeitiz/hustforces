@@ -2,8 +2,10 @@ package com.hust.hustforces.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hust.hustforces.constants.ContestConstants;
 import com.hust.hustforces.enums.Difficulty;
 import com.hust.hustforces.exception.ResourceNotFoundException;
+import com.hust.hustforces.model.entity.ContestPoints;
 import com.hust.hustforces.model.entity.User;
 import com.hust.hustforces.model.entity.UserStats;
 import com.hust.hustforces.repository.SubmissionRepository;
@@ -16,9 +18,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -125,13 +126,12 @@ public class UserStatsCalculationService {
     private void updateUserStatsInternal(User user) {
         log.debug("Updating statistics for user: {}", user.getId());
 
-        // Get or create stats record
         UserStats stats = userStatsRepository.findById(user.getId())
                 .orElseGet(() -> {
                     UserStats newStats = new UserStats();
                     newStats.setUserId(user.getId());
-                    newStats.setCurrentRank(1500); // Default rating
-                    newStats.setMaxRank(1500);
+                    newStats.setCurrentRank(ContestConstants.DEFAULT_RATING);
+                    newStats.setMaxRank(ContestConstants.DEFAULT_RATING);
                     return newStats;
                 });
 
@@ -173,22 +173,42 @@ public class UserStatsCalculationService {
             stats.setSubmissionCalendarJson("{}");
         }
 
+        // Set contest count
         stats.setContests(user.getContestPoints() != null ? user.getContestPoints().size() : 0);
 
-        // Update rating if user has contest points
         if (user.getContestPoints() != null && !user.getContestPoints().isEmpty()) {
-            // Get the latest rating from contest points
-            int latestRating = user.getContestPoints().stream()
-                    .mapToInt(cp -> {
-                        // If ContestPoints doesn't have rating, calculate from rank
-                        // This is a placeholder - you should store actual rating in ContestPoints
-                        return cp.getRank() > 0 ? 3000 - (cp.getRank() * 10) : stats.getCurrentRank();
-                    })
-                    .max()
-                    .orElse(stats.getCurrentRank());
+            // Find the most recent contest participation with rating data
+            Optional<ContestPoints> latestRatedContest = user.getContestPoints().stream()
+                    .filter(cp -> cp.getRatingAfter() != null) // Only consider contests with rating data
+                    .max(Comparator.comparing(ContestPoints::getCreatedAt));
 
-            stats.setCurrentRank(latestRating);
-            stats.setMaxRank(Math.max(stats.getMaxRank(), latestRating));
+            if (latestRatedContest.isPresent()) {
+                ContestPoints latest = latestRatedContest.get();
+
+                // Update current rating from the latest contest
+                stats.setCurrentRank(latest.getRatingAfter());
+
+                // Update max rating if this is higher
+                stats.setMaxRank(Math.max(stats.getMaxRank(), latest.getRatingAfter()));
+
+                // Update rating change
+                if (latest.getRatingChange() != null) {
+                    stats.setRatingChange(latest.getRatingChange());
+                } else if (latest.getRatingBefore() != null) {
+                    // Calculate rating change if not stored
+                    stats.setRatingChange(latest.getRatingAfter() - latest.getRatingBefore());
+                }
+
+                log.debug("Updated user {} rating from contest: current={}, max={}, change={}",
+                        user.getId(), stats.getCurrentRank(), stats.getMaxRank(), stats.getRatingChange());
+            } else {
+                log.debug("User {} has participated in contests but no rating data available yet", user.getId());
+                // Keep the default rating or existing rating
+            }
+        } else {
+            log.debug("User {} has not participated in any contests, keeping default rating", user.getId());
+            // Ensure rating change is 0 for users who haven't competed
+            stats.setRatingChange(0);
         }
 
         // Update timestamp
@@ -196,9 +216,10 @@ public class UserStatsCalculationService {
 
         // Save stats
         UserStats savedStats = userStatsRepository.save(stats);
-        log.debug("Saved statistics for user: {}, problems solved: {}, acceptance rate: {}%",
+        log.debug("Saved statistics for user: {}, problems solved: {}, rating: {}, acceptance rate: {}%",
                 user.getId(),
                 savedStats.getProblemsSolved(),
+                savedStats.getCurrentRank(),
                 savedStats.getTotalSubmissions() > 0 ?
                         (savedStats.getAcceptedSubmissions() * 100.0 / savedStats.getTotalSubmissions()) : 0);
 

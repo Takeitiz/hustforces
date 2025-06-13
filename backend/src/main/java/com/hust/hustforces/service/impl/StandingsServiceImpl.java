@@ -1,5 +1,6 @@
 package com.hust.hustforces.service.impl;
 
+import com.hust.hustforces.constants.ContestConstants;
 import com.hust.hustforces.exception.ResourceNotFoundException;
 import com.hust.hustforces.model.dto.standings.*;
 import com.hust.hustforces.model.entity.User;
@@ -161,28 +162,36 @@ public class StandingsServiceImpl implements StandingsService {
     }
 
     private StandingUserDto convertToDto(UserStats stats, int rank) {
+        // Ensure we have the user object
         User user = stats.getUser();
         if (user == null) {
             user = userRepository.findById(stats.getUserId())
                     .orElseThrow(() -> new ResourceNotFoundException("User not found", "id", stats.getUserId()));
         }
 
-        double acceptanceRate = stats.getTotalSubmissions() > 0
-                ? (double) stats.getAcceptedSubmissions() / stats.getTotalSubmissions() * 100
-                : 0;
+        // Calculate acceptance rate safely
+        double acceptanceRate = 0.0;
+        if (stats.getTotalSubmissions() > 0) {
+            acceptanceRate = (double) stats.getAcceptedSubmissions() / stats.getTotalSubmissions() * 100;
+        }
+
+        // Get user badges
+        List<UserBadgeDto> badges = getUserBadges(user.getId());
+
+        LocalDateTime lastActive = stats.getLastCalculated();
 
         return StandingUserDto.builder()
                 .rank(rank)
                 .userId(String.valueOf(user.getId()))
                 .username(user.getUsername())
-                .profilePicture(null) // Add profile picture support if needed
+                .profilePicture(null)
                 .problemsSolved(stats.getProblemsSolved())
                 .contestsAttended(stats.getContests())
                 .totalSubmissions(stats.getTotalSubmissions())
-                .acceptanceRate(acceptanceRate)
+                .acceptanceRate(Math.round(acceptanceRate * 100.0) / 100.0)
                 .rating(stats.getCurrentRank())
-                .badges(getUserBadges(user.getId()))
-                .lastActive(stats.getLastCalculated())
+                .badges(badges)
+                .lastActive(lastActive)
                 .build();
     }
 
@@ -221,28 +230,39 @@ public class StandingsServiceImpl implements StandingsService {
                 .totalSubmissions(0)
                 .acceptedSubmissions(0)
                 .contests(0)
-                .currentRank(1200)
-                .maxRank(1200)
+                .currentRank(ContestConstants.DEFAULT_RATING)
+                .maxRank(ContestConstants.DEFAULT_RATING)
                 .lastCalculated(LocalDateTime.now())
                 .build();
     }
 
     private int calculateUserRank(UserStats stats, String category) {
+        // Ensure stats exist before calculating rank
+        if (stats == null || stats.getUserId() == null) {
+            log.warn("Cannot calculate rank for null stats");
+            return 0;
+        }
+
         switch (category) {
             case "problems":
                 return userStatsRepository.findUserRankByProblemsSolved(stats.getUserId());
-            default:
+            case "contests":
+                // For contests category, still use rating-based ranking
+                return userStatsRepository.findUserRankByRating(stats.getUserId());
+            default: // overall
                 return userStatsRepository.findUserRankByRating(stats.getUserId());
         }
     }
 
     private String calculateTrend(UserStats stats) {
-        if (stats.getCurrentRank() > stats.getCurrentRank()) {
-            return "up";
-        } else if (stats.getCurrentRank() < stats.getCurrentRank()) {
-            return "down";
-        } else {
+        Integer ratingChange = stats.getRatingChange();
+
+        if (ratingChange == null || ratingChange == 0) {
             return "stable";
+        } else if (ratingChange > 0) {
+            return "up";
+        } else {
+            return "down";
         }
     }
 }
