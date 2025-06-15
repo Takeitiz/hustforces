@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Trophy, TrendingUp, TrendingDown, Minus, Filter, Award, Users, Target, X } from "lucide-react";
+import { Search, Trophy, Users, X } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/Select";
-import { StandingUser, StandingFilter, StandingResponse } from "../../types/standing";
+import { StandingFilter, StandingResponse } from "../../types/standing";
 import standingsService from "../../service/standingsService";
 import { toast } from "react-toastify";
 

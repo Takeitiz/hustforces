@@ -6,7 +6,7 @@ import { StandingResponse, StandingFilter, UserRankDetails } from "../types/stan
 import mockStandingsService from "./mockStandingsService";
 
 // Toggle this to use mock data during development
-const USE_MOCK_DATA = true; // Set to false when backend is ready
+const USE_MOCK_DATA = false; // Set to false when backend is ready
 
 /**
  * Service for handling standings-related API calls

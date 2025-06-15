@@ -1,8 +1,9 @@
-import {Problem, Submission} from "../../../types/problem.ts";
+import {Problem} from "../../../types/problem.ts";
 import {useEffect, useState} from "react";
 import {toast} from "react-toastify";
 import {SubmissionTable} from "./SubmissionTable.tsx";
 import submissionService from "../../../service/submissionService.ts";
+import {SubmissionResponseDto} from "../../../types/submission.ts";
 
 /**
  * Props interface for Submissions component
@@ -18,7 +19,7 @@ interface SubmissionsProps {
  * @returns {JSX.Element}
  */
 const Submissions: React.FC<SubmissionsProps> = ({ problem }) => {
-    const [submissions, setSubmissions] = useState<Submission[]>([]);
+    const [submissions, setSubmissions] = useState<SubmissionResponseDto[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
 
     useEffect(() => {
