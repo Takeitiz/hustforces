@@ -77,8 +77,13 @@ public class AdminProblemController {
 
     @GetMapping
     public ResponseEntity<Page<AdminProblemSummaryDto>> getAllProblems(
+            @RequestParam(required = false, defaultValue = "") String search,
             @PageableDefault(size = 10, sort = "createdAt") Pageable pageable) {
-        Page<AdminProblemSummaryDto> problems = adminProblemService.getAllProblems(pageable);
+
+        log.info("Fetching problems with search: '{}', page: {}, size: {}",
+                search, pageable.getPageNumber(), pageable.getPageSize());
+
+        Page<AdminProblemSummaryDto> problems = adminProblemService.getAllProblems(search.trim(), pageable);
         return ResponseEntity.ok(problems);
     }
 

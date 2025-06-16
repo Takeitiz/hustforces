@@ -1,13 +1,14 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Link } from "react-router-dom"
-import { Search, ChevronLeft, ChevronRight, Plus, Eye, EyeOff, Trash2, Edit } from "lucide-react"
+import { ChevronLeft, ChevronRight, Plus, Eye, EyeOff, Trash2, Edit } from "lucide-react"
 import { toast } from "react-toastify"
 import adminService, { type AdminProblemDto } from "../../../service/adminService"
 import { Button } from "../../../components/ui/Button"
-import { Modal } from "../../../components/ui/Modal.tsx"
+import { Modal } from "../../../components/ui/Modal"
+import { useAdminSearch } from "../../../hooks/useAdminSearch"
+import { AdminSearchInput } from "../../../components/features/admin/AdminSearchInput"
 
 export function AdminProblemsPage() {
     const [problems, setProblems] = useState<AdminProblemDto[]>([])
@@ -17,16 +18,20 @@ export function AdminProblemsPage() {
     const [totalPages, setTotalPages] = useState(0)
     const [totalElements, setTotalElements] = useState(0)
     const [sort, setSort] = useState("createdAt,desc")
-    const [searchTerm, setSearchTerm] = useState("")
     const [visibilityUpdateLoading, setVisibilityUpdateLoading] = useState<string | null>(null)
     const [deleteModalOpen, setDeleteModalOpen] = useState(false)
     const [problemToDelete, setProblemToDelete] = useState<AdminProblemDto | null>(null)
     const [deleteLoading, setDeleteLoading] = useState(false)
 
-    const fetchProblems = async () => {
+    const fetchProblems = useCallback(async (searchTerm: string, pageNum?: number) => {
         setLoading(true)
         try {
-            const response = await adminService.getProblems(page, size, sort, searchTerm)
+            const response = await adminService.getProblems(
+                pageNum !== undefined ? pageNum : page,
+                size,
+                sort,
+                searchTerm
+            )
             setProblems(response.content)
             setTotalPages(response.totalPages)
             setTotalElements(response.totalElements)
@@ -36,17 +41,25 @@ export function AdminProblemsPage() {
         } finally {
             setLoading(false)
         }
-    }
-
-    useEffect(() => {
-        fetchProblems()
     }, [page, size, sort])
 
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault()
-        setPage(0) // Reset to first page when searching
-        fetchProblems()
-    }
+    // Search hook
+    const {
+        searchTerm,
+        isSearching,
+        handleSearchChange,
+        handleSearchSubmit,
+        clearSearch
+    } = useAdminSearch({
+        onSearch: (term) => {
+            setPage(0) // Reset to first page when searching
+            fetchProblems(term, 0)
+        }
+    })
+
+    useEffect(() => {
+        fetchProblems(searchTerm)
+    }, [page, size, sort])
 
     const handleSort = (column: string) => {
         const [currentColumn, currentDirection] = sort.split(",")
@@ -92,6 +105,11 @@ export function AdminProblemsPage() {
             toast.success("Problem deleted successfully")
             setDeleteModalOpen(false)
             setProblemToDelete(null)
+
+            // If we deleted the last item on the page and we're not on the first page, go back one page
+            if (problems.length === 1 && page > 0) {
+                setPage(page - 1)
+            }
         } catch (error) {
             console.error("Failed to delete problem:", error)
             toast.error("Failed to delete problem")
@@ -105,20 +123,20 @@ export function AdminProblemsPage() {
             case "EASY":
                 return (
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-            Easy
-          </span>
+                        Easy
+                    </span>
                 )
             case "MEDIUM":
                 return (
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-            Medium
-          </span>
+                        Medium
+                    </span>
                 )
             case "HARD":
                 return (
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-            Hard
-          </span>
+                        Hard
+                    </span>
                 )
             default:
                 return null
@@ -130,19 +148,15 @@ export function AdminProblemsPage() {
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Problem Management</h1>
                 <div className="flex items-center gap-4">
-                    <form onSubmit={handleSearch} className="relative">
-                        <input
-                            type="text"
-                            placeholder="Search problems..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                        />
-                        <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                        <button type="submit" className="sr-only">
-                            Search
-                        </button>
-                    </form>
+                    <AdminSearchInput
+                        value={searchTerm}
+                        onChange={handleSearchChange}
+                        onSubmit={handleSearchSubmit}
+                        onClear={clearSearch}
+                        placeholder="Search problems by title or slug..."
+                        isSearching={isSearching}
+                        className="w-full max-w-md"
+                    />
                     <Link to="/admin/problems/create">
                         <Button className="flex items-center gap-2">
                             <Plus className="h-5 w-5" />
@@ -152,6 +166,15 @@ export function AdminProblemsPage() {
                 </div>
             </div>
 
+            {searchTerm && (
+                <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                    Showing results for: <span className="font-medium">{searchTerm}</span>
+                    {totalElements > 0 && (
+                        <span className="ml-2">({totalElements} result{totalElements !== 1 ? 's' : ''})</span>
+                    )}
+                </div>
+            )}
+
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -159,35 +182,35 @@ export function AdminProblemsPage() {
                         <tr>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("title")}
                             >
                                 <div className="flex items-center">Title {getSortIcon("title")}</div>
                             </th>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("slug")}
                             >
                                 <div className="flex items-center">Slug {getSortIcon("slug")}</div>
                             </th>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("difficulty")}
                             >
                                 <div className="flex items-center">Difficulty {getSortIcon("difficulty")}</div>
                             </th>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("hidden")}
                             >
                                 <div className="flex items-center">Status {getSortIcon("hidden")}</div>
                             </th>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("createdAt")}
                             >
                                 <div className="flex items-center">Created At {getSortIcon("createdAt")}</div>
@@ -204,18 +227,21 @@ export function AdminProblemsPage() {
                         {loading ? (
                             <tr>
                                 <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                    Loading problems...
+                                    <div className="flex justify-center items-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                        <span className="ml-2">Loading problems...</span>
+                                    </div>
                                 </td>
                             </tr>
                         ) : problems.length === 0 ? (
                             <tr>
                                 <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                    No problems found
+                                    {searchTerm ? `No problems found matching "${searchTerm}"` : "No problems found"}
                                 </td>
                             </tr>
                         ) : (
                             problems.map((problem) => (
-                                <tr key={problem.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                <tr key={problem.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm font-medium text-gray-900 dark:text-white">{problem.title}</div>
                                     </td>
@@ -224,15 +250,15 @@ export function AdminProblemsPage() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">{getDifficultyBadge(problem.difficulty)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              problem.hidden
-                                  ? "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-                                  : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                          }`}
-                      >
-                        {problem.hidden ? "Hidden" : "Visible"}
-                      </span>
+                                        <span
+                                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                problem.hidden
+                                                    ? "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                                                    : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                                            }`}
+                                        >
+                                            {problem.hidden ? "Hidden" : "Visible"}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         {new Date(problem.createdAt).toLocaleDateString()}

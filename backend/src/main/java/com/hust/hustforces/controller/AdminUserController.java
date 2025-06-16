@@ -27,8 +27,18 @@ public class AdminUserController {
 
     @GetMapping
     public ResponseEntity<Page<UserDto>> getAllUsers(
+            @RequestParam(required = false, defaultValue = "") String search,
             @PageableDefault(size = 20, sort = "username") Pageable pageable) {
-        Page<User> users = userRepository.findAll(pageable);
+        Page<User> users;
+
+        if (search != null && !search.trim().isEmpty()) {
+            // Search by username, email, or name
+            users = userRepository.searchUsers(search.trim(), pageable);
+        } else {
+            // Get all users if no search term
+            users = userRepository.findAll(pageable);
+        }
+
         Page<UserDto> userDtos = users.map(user -> UserDto.builder()
                 .id(user.getId())
                 .username(user.getUsername())

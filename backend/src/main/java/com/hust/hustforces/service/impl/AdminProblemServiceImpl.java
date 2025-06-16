@@ -258,9 +258,16 @@ public class AdminProblemServiceImpl implements AdminProblemService {
     }
 
     @Override
-    public Page<AdminProblemSummaryDto> getAllProblems(Pageable pageable) {
-        return problemRepository.findAll(pageable)
-                .map(this::mapToAdminProblemSummary);
+    public Page<AdminProblemSummaryDto> getAllProblems(String search, Pageable pageable) {
+        Page<Problem> problems;
+
+        if (search != null && !search.isEmpty()) {
+            problems = problemRepository.searchProblemsAdmin(search, pageable);
+        } else {
+            problems = problemRepository.findAll(pageable);
+        }
+
+        return problems.map(this::mapToAdminProblemSummary);
     }
 
     private void updateProblemFiles(String slug, UpdateProblemRequest request) {

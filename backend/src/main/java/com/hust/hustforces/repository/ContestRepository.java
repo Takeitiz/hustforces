@@ -128,4 +128,9 @@ public interface ContestRepository extends JpaRepository<Contest, String> {
             "c.finalized = true " +
             "ORDER BY c.endTime DESC")
     Page<Contest> findFinalizedContests(Pageable pageable);
+
+    @Query("SELECT c FROM Contest c WHERE " +
+            "LOWER(c.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(c.description) LIKE LOWER(CONCAT('%', :search, '%'))")
+    Page<Contest> searchContestsAdmin(@Param("search") String search, Pageable pageable);
 }

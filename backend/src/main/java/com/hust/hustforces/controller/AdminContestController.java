@@ -46,8 +46,13 @@ public class AdminContestController {
 
     @GetMapping
     public ResponseEntity<Page<ContestDto>> getAllContests(
-            @PageableDefault(size = 10, sort = "startTime") Pageable pageable) {
-        Page<ContestDto> contests = contestService.getAllContestsForAdmin(pageable);
+            @RequestParam(required = false, defaultValue = "") String search,
+            @PageableDefault(size = 10, sort = "startTime,desc") Pageable pageable) {
+
+        log.info("Fetching contests with search: '{}', page: {}, size: {}",
+                search, pageable.getPageNumber(), pageable.getPageSize());
+
+        Page<ContestDto> contests = contestService.getAllContestsForAdmin(search.trim(), pageable);
         return ResponseEntity.ok(contests);
     }
 

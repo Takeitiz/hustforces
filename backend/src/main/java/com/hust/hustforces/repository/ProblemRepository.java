@@ -41,4 +41,10 @@ public interface ProblemRepository extends JpaRepository<Problem, String> {
     Page<Problem> searchProblems(@Param("search") String search,
                                  @Param("difficulty") Difficulty difficulty,
                                  Pageable pageable);
+
+    @Query("SELECT p FROM Problem p WHERE " +
+            "LOWER(p.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(p.slug) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%'))")
+    Page<Problem> searchProblemsAdmin(@Param("search") String search, Pageable pageable);
 }

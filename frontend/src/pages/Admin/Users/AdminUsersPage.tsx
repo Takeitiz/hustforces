@@ -1,11 +1,11 @@
 "use client"
-
-import type React from "react"
-import { useState, useEffect } from "react"
-import { Search, ChevronLeft, ChevronRight, Shield, Ban, CheckCircle } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { ChevronLeft, ChevronRight, Shield, Ban, CheckCircle } from "lucide-react"
 import { toast } from "react-toastify"
 import adminService, { type AdminUserDto } from "../../../service/adminService"
 import { Button } from "../../../components/ui/Button"
+import { useAdminSearch } from "../../../hooks/useAdminSearch"
+import { AdminSearchInput } from "../../../components/features/admin/AdminSearchInput"
 
 export function AdminUsersPage() {
     const [users, setUsers] = useState<AdminUserDto[]>([])
@@ -15,14 +15,18 @@ export function AdminUsersPage() {
     const [totalPages, setTotalPages] = useState(0)
     const [totalElements, setTotalElements] = useState(0)
     const [sort, setSort] = useState("username,asc")
-    const [searchTerm, setSearchTerm] = useState("")
     const [roleUpdateLoading, setRoleUpdateLoading] = useState<string | null>(null)
     const [statusUpdateLoading, setStatusUpdateLoading] = useState<string | null>(null)
 
-    const fetchUsers = async () => {
+    const fetchUsers = useCallback(async (searchTerm: string, pageNum?: number) => {
         setLoading(true)
         try {
-            const response = await adminService.getUsers(page, size, sort, searchTerm)
+            const response = await adminService.getUsers(
+                pageNum !== undefined ? pageNum : page,
+                size,
+                sort,
+                searchTerm
+            )
             console.log(response.content)
             setUsers(response.content)
             setTotalPages(response.totalPages)
@@ -33,17 +37,25 @@ export function AdminUsersPage() {
         } finally {
             setLoading(false)
         }
-    }
-
-    useEffect(() => {
-        fetchUsers()
     }, [page, size, sort])
 
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault()
-        setPage(0) // Reset to first page when searching
-        fetchUsers()
-    }
+    // Search hook
+    const {
+        searchTerm,
+        isSearching,
+        handleSearchChange,
+        handleSearchSubmit,
+        clearSearch
+    } = useAdminSearch({
+        onSearch: (term) => {
+            setPage(0) // Reset to first page when searching
+            fetchUsers(term, 0)
+        }
+    })
+
+    useEffect(() => {
+        fetchUsers(searchTerm)
+    }, [page, size, sort])
 
     const handleSort = (column: string) => {
         const [currentColumn, currentDirection] = sort.split(",")
@@ -93,20 +105,20 @@ export function AdminUsersPage() {
             case "ACTIVE":
                 return (
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-            Active
-          </span>
+                        Active
+                    </span>
                 )
             case "SUSPENDED":
                 return (
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-            Suspended
-          </span>
+                        Suspended
+                    </span>
                 )
             case "BANNED":
                 return (
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-            Banned
-          </span>
+                        Banned
+                    </span>
                 )
             default:
                 return null
@@ -117,20 +129,25 @@ export function AdminUsersPage() {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">User Management</h1>
-                <form onSubmit={handleSearch} className="relative">
-                    <input
-                        type="text"
-                        placeholder="Search users..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                    />
-                    <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                    <button type="submit" className="sr-only">
-                        Search
-                    </button>
-                </form>
+                <AdminSearchInput
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    onSubmit={handleSearchSubmit}
+                    onClear={clearSearch}
+                    placeholder="Search users by name or email..."
+                    isSearching={isSearching}
+                    className="w-full max-w-md"
+                />
             </div>
+
+            {searchTerm && (
+                <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                    Showing results for: <span className="font-medium">{searchTerm}</span>
+                    {totalElements > 0 && (
+                        <span className="ml-2">({totalElements} result{totalElements !== 1 ? 's' : ''})</span>
+                    )}
+                </div>
+            )}
 
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
@@ -139,35 +156,35 @@ export function AdminUsersPage() {
                         <tr>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("username")}
                             >
                                 <div className="flex items-center">Username {getSortIcon("username")}</div>
                             </th>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("email")}
                             >
                                 <div className="flex items-center">Email {getSortIcon("email")}</div>
                             </th>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("role")}
                             >
                                 <div className="flex items-center">Role {getSortIcon("role")}</div>
                             </th>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("status")}
                             >
                                 <div className="flex items-center">Status {getSortIcon("status")}</div>
                             </th>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("createdAt")}
                             >
                                 <div className="flex items-center">Created At {getSortIcon("createdAt")}</div>
@@ -184,18 +201,21 @@ export function AdminUsersPage() {
                         {loading ? (
                             <tr>
                                 <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                    Loading users...
+                                    <div className="flex justify-center items-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                        <span className="ml-2">Loading users...</span>
+                                    </div>
                                 </td>
                             </tr>
                         ) : users.length === 0 ? (
                             <tr>
                                 <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                    No users found
+                                    {searchTerm ? `No users found matching "${searchTerm}"` : "No users found"}
                                 </td>
                             </tr>
                         ) : (
                             users.map((user) => (
-                                <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
                                             {user.profilePicture ? (
@@ -206,9 +226,9 @@ export function AdminUsersPage() {
                                                 />
                                             ) : (
                                                 <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 mr-3 flex items-center justify-center">
-                            <span className="text-gray-500 dark:text-gray-400">
-                              {user.username.charAt(0).toUpperCase()}
-                            </span>
+                                                    <span className="text-gray-500 dark:text-gray-400">
+                                                        {user.username.charAt(0).toUpperCase()}
+                                                    </span>
                                                 </div>
                                             )}
                                             <div className="text-sm font-medium text-gray-900 dark:text-white">{user.username}</div>
@@ -218,15 +238,15 @@ export function AdminUsersPage() {
                                         {user.email}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              user.role === "ADMIN"
-                                  ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
-                                  : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                          }`}
-                      >
-                        {user.role}
-                      </span>
+                                        <span
+                                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                user.role === "ADMIN"
+                                                    ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                                                    : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                            }`}
+                                        >
+                                            {user.role}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(user.status)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">

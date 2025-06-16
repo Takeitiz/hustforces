@@ -122,15 +122,19 @@ public class ContestServiceImpl implements ContestService {
     }
 
     @Override
-    public Page<ContestDto> getAllContestsForAdmin(Pageable pageable) {
-        Page<Contest> contests = contestRepository.findAll(pageable);
+    public Page<ContestDto> getAllContestsForAdmin(String search, Pageable pageable) {
+        Page<Contest> contests;
+
+        if (search != null && !search.isEmpty()) {
+            // Search in title and description
+            contests = contestRepository.searchContestsAdmin(search, pageable);
+        } else {
+            // Get all contests (including hidden ones for admin)
+            contests = contestRepository.findAll(pageable);
+        }
 
         return contests.map(contest -> {
-            List<ContestProblemInfoDto> problemInfoDtos =
-                    contestRepository.findByIdWithProblems(contest.getId())
-                            .map(this::mapContestProblems)
-                            .orElse(Collections.emptyList());
-
+            List<ContestProblemInfoDto> problemInfoDtos = getContestProblems(contest.getId());
             return contestMapper.toContestDto(contest, problemInfoDtos);
         });
     }

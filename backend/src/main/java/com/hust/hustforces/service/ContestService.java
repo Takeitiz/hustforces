@@ -27,7 +27,7 @@ public interface ContestService {
 
     Page<ContestDto> searchContests(String query, Pageable pageable);
 
-    Page<ContestDto> getAllContestsForAdmin(Pageable pageable);
+    Page<ContestDto> getAllContestsForAdmin(String search, Pageable pageable);
 
     // Contest participation
     ContestRegistrationDto registerForContest(String contestId, String userId);

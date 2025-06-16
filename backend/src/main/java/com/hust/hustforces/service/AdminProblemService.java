@@ -12,7 +12,7 @@ public interface AdminProblemService {
     public FileUploadResponseDto uploadProblemStructure(String slug, MultipartFile file);
     public TestCaseUploadResponseDto uploadTestCase(String slug, MultipartFile inputFile, MultipartFile outputFile, int index);
     public BoilerplateGenerationResponseDto generateBoilerplate(String slug);
-    public Page<AdminProblemSummaryDto> getAllProblems(Pageable pageable);
+    Page<AdminProblemSummaryDto> getAllProblems(String search, Pageable pageable);
     public AdminProblemDetailDto getProblemBySlug(String slug);
     public void deleteProblem(String slug);
     public AdminProblemResponseDto toggleProblemVisibility(String slug, boolean hidden);

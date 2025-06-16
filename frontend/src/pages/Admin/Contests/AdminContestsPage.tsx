@@ -1,13 +1,14 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Link } from "react-router-dom"
-import { Search, ChevronLeft, ChevronRight, Plus, Eye, EyeOff, Trash2, Edit } from "lucide-react"
+import { ChevronLeft, ChevronRight, Plus, Eye, EyeOff, Trash2, Edit } from "lucide-react"
 import { toast } from "react-toastify"
 import adminService, { type AdminContestDto } from "../../../service/adminService"
 import { Button } from "../../../components/ui/Button"
-import { Modal } from "../../../components/ui/Modal.tsx"
+import { Modal } from "../../../components/ui/Modal"
+import { useAdminSearch } from "../../../hooks/useAdminSearch"
+import { AdminSearchInput } from "../../../components/features/admin/AdminSearchInput"
 
 export function AdminContestsPage() {
     const [contests, setContests] = useState<AdminContestDto[]>([])
@@ -17,16 +18,20 @@ export function AdminContestsPage() {
     const [totalPages, setTotalPages] = useState(0)
     const [totalElements, setTotalElements] = useState(0)
     const [sort, setSort] = useState("startTime,desc")
-    const [searchTerm, setSearchTerm] = useState("")
     const [visibilityUpdateLoading, setVisibilityUpdateLoading] = useState<string | null>(null)
     const [deleteModalOpen, setDeleteModalOpen] = useState(false)
     const [contestToDelete, setContestToDelete] = useState<AdminContestDto | null>(null)
     const [deleteLoading, setDeleteLoading] = useState(false)
 
-    const fetchContests = async () => {
+    const fetchContests = useCallback(async (searchTerm: string, pageNum?: number) => {
         setLoading(true)
         try {
-            const response = await adminService.getContests(page, size, sort, searchTerm)
+            const response = await adminService.getContests(
+                pageNum !== undefined ? pageNum : page,
+                size,
+                sort,
+                searchTerm
+            )
             setContests(response.content)
             setTotalPages(response.totalPages)
             setTotalElements(response.totalElements)
@@ -36,17 +41,25 @@ export function AdminContestsPage() {
         } finally {
             setLoading(false)
         }
-    }
-
-    useEffect(() => {
-        fetchContests()
     }, [page, size, sort])
 
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault()
-        setPage(0) // Reset to first page when searching
-        fetchContests()
-    }
+    // Search hook
+    const {
+        searchTerm,
+        isSearching,
+        handleSearchChange,
+        handleSearchSubmit,
+        clearSearch
+    } = useAdminSearch({
+        onSearch: (term) => {
+            setPage(0) // Reset to first page when searching
+            fetchContests(term, 0)
+        }
+    })
+
+    useEffect(() => {
+        fetchContests(searchTerm)
+    }, [page, size, sort])
 
     const handleSort = (column: string) => {
         const [currentColumn, currentDirection] = sort.split(",")
@@ -99,6 +112,11 @@ export function AdminContestsPage() {
             toast.success("Contest deleted successfully")
             setDeleteModalOpen(false)
             setContestToDelete(null)
+
+            // If we deleted the last item on the page and we're not on the first page, go back one page
+            if (contests.length === 1 && page > 0) {
+                setPage(page - 1)
+            }
         } catch (error) {
             console.error("Failed to delete contest:", error)
             toast.error("Failed to delete contest")
@@ -112,20 +130,20 @@ export function AdminContestsPage() {
             case "UPCOMING":
                 return (
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-            Upcoming
-          </span>
+                        Upcoming
+                    </span>
                 )
             case "ACTIVE":
                 return (
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-            Active
-          </span>
+                        Active
+                    </span>
                 )
             case "ENDED":
                 return (
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-            Ended
-          </span>
+                        Ended
+                    </span>
                 )
             default:
                 return null
@@ -137,19 +155,15 @@ export function AdminContestsPage() {
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Contest Management</h1>
                 <div className="flex items-center gap-4">
-                    <form onSubmit={handleSearch} className="relative">
-                        <input
-                            type="text"
-                            placeholder="Search contests..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                        />
-                        <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                        <button type="submit" className="sr-only">
-                            Search
-                        </button>
-                    </form>
+                    <AdminSearchInput
+                        value={searchTerm}
+                        onChange={handleSearchChange}
+                        onSubmit={handleSearchSubmit}
+                        onClear={clearSearch}
+                        placeholder="Search contests by title or description..."
+                        isSearching={isSearching}
+                        className="w-full max-w-md"
+                    />
                     <Link to="/admin/contests/create">
                         <Button className="flex items-center gap-2">
                             <Plus className="h-5 w-5" />
@@ -159,6 +173,15 @@ export function AdminContestsPage() {
                 </div>
             </div>
 
+            {searchTerm && (
+                <div className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+                    Showing results for: <span className="font-medium">{searchTerm}</span>
+                    {totalElements > 0 && (
+                        <span className="ml-2">({totalElements} result{totalElements !== 1 ? 's' : ''})</span>
+                    )}
+                </div>
+            )}
+
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -166,28 +189,28 @@ export function AdminContestsPage() {
                         <tr>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("title")}
                             >
                                 <div className="flex items-center">Title {getSortIcon("title")}</div>
                             </th>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("startTime")}
                             >
                                 <div className="flex items-center">Start Time {getSortIcon("startTime")}</div>
                             </th>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("endTime")}
                             >
                                 <div className="flex items-center">End Time {getSortIcon("endTime")}</div>
                             </th>
                             <th
                                 scope="col"
-                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer"
+                                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 onClick={() => handleSort("status")}
                             >
                                 <div className="flex items-center">Status {getSortIcon("status")}</div>
@@ -210,20 +233,30 @@ export function AdminContestsPage() {
                         {loading ? (
                             <tr>
                                 <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                    Loading contests...
+                                    <div className="flex justify-center items-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                        <span className="ml-2">Loading contests...</span>
+                                    </div>
                                 </td>
                             </tr>
                         ) : contests.length === 0 ? (
                             <tr>
                                 <td colSpan={6} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                    No contests found
+                                    {searchTerm ? `No contests found matching "${searchTerm}"` : "No contests found"}
                                 </td>
                             </tr>
                         ) : (
                             contests.map((contest) => (
-                                <tr key={contest.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                <tr key={contest.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm font-medium text-gray-900 dark:text-white">{contest.title}</div>
+                                        <div className="flex flex-col">
+                                            <div className="text-sm font-medium text-gray-900 dark:text-white">{contest.title}</div>
+                                            {contest.hidden && (
+                                                <span className="mt-1 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 w-fit">
+                                                    Hidden
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         {new Date(contest.startTime).toLocaleString()}
