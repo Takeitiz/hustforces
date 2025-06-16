@@ -33,6 +33,9 @@ public class AdminUserController {
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
+                .role(user.getRole())
+                .status(user.getStatus())
+                .createdAt(user.getCreatedAt())
                 .build());
         return ResponseEntity.ok(userDtos);
     }

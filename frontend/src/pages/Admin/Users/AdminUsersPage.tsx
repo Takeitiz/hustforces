@@ -23,6 +23,7 @@ export function AdminUsersPage() {
         setLoading(true)
         try {
             const response = await adminService.getUsers(page, size, sort, searchTerm)
+            console.log(response.content)
             setUsers(response.content)
             setTotalPages(response.totalPages)
             setTotalElements(response.totalElements)
