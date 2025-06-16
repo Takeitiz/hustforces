@@ -31,7 +31,7 @@ public class CreateContestRequest {
     @Future(message = "End time must be in the future")
     private LocalDateTime endTime;
 
-    private boolean isHidden = true;
+    private boolean isHidden = false;
 
     private boolean leaderboard = true;
 

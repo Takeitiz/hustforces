@@ -47,7 +47,7 @@ public class AdminContestController {
     @GetMapping
     public ResponseEntity<Page<ContestDto>> getAllContests(
             @PageableDefault(size = 10, sort = "startTime") Pageable pageable) {
-        Page<ContestDto> contests = contestService.getAllContests(pageable);
+        Page<ContestDto> contests = contestService.getAllContestsForAdmin(pageable);
         return ResponseEntity.ok(contests);
     }
 

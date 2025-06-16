@@ -121,6 +121,20 @@ public class ContestServiceImpl implements ContestService {
         });
     }
 
+    @Override
+    public Page<ContestDto> getAllContestsForAdmin(Pageable pageable) {
+        Page<Contest> contests = contestRepository.findAll(pageable);
+
+        return contests.map(contest -> {
+            List<ContestProblemInfoDto> problemInfoDtos =
+                    contestRepository.findByIdWithProblems(contest.getId())
+                            .map(this::mapContestProblems)
+                            .orElse(Collections.emptyList());
+
+            return contestMapper.toContestDto(contest, problemInfoDtos);
+        });
+    }
+
     /**
      * Get list of active contests
      */
@@ -462,8 +476,14 @@ public class ContestServiceImpl implements ContestService {
         contest.setDescription(request.getDescription());
         contest.setStartTime(request.getStartTime());
         contest.setEndTime(request.getEndTime());
-        contest.setHidden(request.isHidden());
-        contest.setLeaderboard(request.isLeaderboard());
+
+        if (request.getIsHidden() != null) {
+            contest.setHidden(request.getIsHidden());
+        }
+
+        if (request.getLeaderboard() != null) {
+            contest.setLeaderboard(request.getLeaderboard());
+        }
     }
 
     /**

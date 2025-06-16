@@ -8,7 +8,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.util.List;
 
 @Data
@@ -27,9 +26,9 @@ public class UpdateContestRequest {
     @NotNull(message = "End time is required")
     private LocalDateTime endTime;
 
-    private boolean isHidden;
+    private Boolean isHidden;
 
-    private boolean leaderboard;
+    private Boolean leaderboard;
 
     private List<ContestProblemDto> problems;
 }
