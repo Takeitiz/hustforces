@@ -40,122 +40,125 @@ const ContestProblemAppBar: React.FC<{
 
     return (
         <div className="fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-            <div className="flex items-center justify-between h-16 px-4">
-                {/* Left Section - Back to Contest and Logo */}
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => navigate(`/contests/${contest.id}`)}
-                        className="flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-                    >
-                        <ChevronLeft className="w-5 h-5" />
-                        <span className="text-sm font-medium">Contest</span>
-                    </button>
-                    <div className="h-8 w-px bg-gray-300 dark:bg-gray-600" />
-                    <Logo size="small" />
+            <div className="h-20">
+                {/* Top Row - Contest Name */}
+                <div className="h-8 border-b border-gray-100 dark:border-gray-800 flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+                    <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                        <Trophy className="w-3 h-3 text-indigo-500" />
+                        <span className="font-medium">{contest.title}</span>
+                        <span className="text-gray-400 dark:text-gray-500">•</span>
+                        <span>Problem {currentProblemIndex + 1} of {contest.problems.length}</span>
+                    </div>
                 </div>
 
-                {/* Center Section - Contest Info, Problem Navigation, and Submit */}
-                <div className="flex items-center gap-6">
-                    <div className="text-center">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Trophy className="w-4 h-4 text-indigo-500" />
-                            <h2 className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                {contest.title}
-                            </h2>
-                        </div>
-                        <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            {String.fromCharCode(65 + currentProblemIndex)}. {problem.title}
-                        </h1>
-                        <div className="flex items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                problem.difficulty === "EASY" ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
-                                    problem.difficulty === "MEDIUM" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
-                                        "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                            }`}>
-                                {problem.difficulty}
-                            </span>
-                            <div className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                <span>{problem.timeLimit || 1}s</span>
-                            </div>
-                        </div>
+                {/* Bottom Row - Main Navigation */}
+                <div className="h-12 grid grid-cols-3 items-center px-4">
+                    {/* Left Section - Back to Contest and Logo */}
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => navigate(`/contests/${contest.id}`)}
+                            className="flex items-center gap-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                            <span className="text-sm font-medium">Contest</span>
+                        </button>
+                        <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+                        <Logo size="small" />
                     </div>
 
-                    {/* Problem Navigation */}
-                    <div className="flex items-center gap-2">
+                    {/* Center Section - Problem Info, Navigation, and Submit */}
+                    <div className="flex items-center justify-center gap-3">
+                        {/* Previous Problem */}
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={() => onNavigateProblem(currentProblemIndex - 1)}
                             disabled={!hasPreviousProblem}
-                            className="flex items-center gap-1"
+                            className="p-1.5"
+                            aria-label="Previous problem"
                         >
                             <ChevronLeft className="w-4 h-4" />
-                            Previous
                         </Button>
 
-                        <div className="flex items-center gap-1 px-2">
-                            <ListOrdered className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                                {currentProblemIndex + 1} / {contest.problems.length}
-                            </span>
+                        {/* Problem Info */}
+                        <div className="text-center px-4">
+                            <h1 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {String.fromCharCode(65 + currentProblemIndex)}. {problem.title}
+                            </h1>
+                            <div className="flex items-center justify-center gap-3 mt-0.5">
+                                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                                    problem.difficulty === "EASY" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                                        problem.difficulty === "MEDIUM" ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                                            "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                }`}>
+                                    {problem.difficulty}
+                                </span>
+                                <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                                    <Clock className="w-3 h-3" />
+                                    <span>{problem.timeLimit || 1}s</span>
+                                </div>
+                            </div>
                         </div>
 
+                        {/* Next Problem */}
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={() => onNavigateProblem(currentProblemIndex + 1)}
                             disabled={!hasNextProblem}
-                            className="flex items-center gap-1"
+                            className="p-1.5"
+                            aria-label="Next problem"
                         >
-                            Next
                             <ChevronRight className="w-4 h-4" />
                         </Button>
+
+                        {/* Submit Button */}
+                        <div className="ml-4">
+                            <Button
+                                onClick={onSubmit}
+                                disabled={submitting}
+                                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-4 py-1.5 text-sm flex items-center gap-2"
+                            >
+                                <PlayCircle className="w-4 h-4" />
+                                {submitting ? "Submitting..." : "Submit"}
+                            </Button>
+                        </div>
                     </div>
 
-                    <Button
-                        onClick={onSubmit}
-                        disabled={submitting}
-                        className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-2 flex items-center gap-2"
-                    >
-                        <PlayCircle className="w-4 h-4" />
-                        {submitting ? "Submitting..." : "Submit"}
-                    </Button>
-                </div>
+                    {/* Right Section - Problem List */}
+                    <div className="flex items-center justify-end">
+                        <div className="relative group">
+                            <button className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                                <ListOrdered className="w-4 h-4" />
+                                <span className="text-sm">Problems</span>
+                            </button>
 
-                {/* Right Section - Problem List Dropdown */}
-                <div className="flex items-center gap-4">
-                    <div className="relative group">
-                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                            <ListOrdered className="w-4 h-4" />
-                            <span className="text-sm">Problems</span>
-                        </button>
-
-                        {/* Dropdown */}
-                        <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                            <div className="p-2 max-h-64 overflow-y-auto">
-                                {contest.problems.map((p, index) => (
-                                    <button
-                                        key={p.id}
-                                        onClick={() => onNavigateProblem(index)}
-                                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                                            index === currentProblemIndex
-                                                ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                                                : "hover:bg-gray-100 dark:hover:bg-gray-700"
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <span className="font-medium">
-                                                {String.fromCharCode(65 + index)}. {p.title}
-                                            </span>
-                                            {p.solved > 0 && (
-                                                <span className="text-xs text-gray-500">
-                                                    {p.solved} solved
+                            {/* Dropdown */}
+                            <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                <div className="p-2 max-h-64 overflow-y-auto">
+                                    {contest.problems.map((p, index) => (
+                                        <button
+                                            key={p.id}
+                                            onClick={() => onNavigateProblem(index)}
+                                            className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                                                index === currentProblemIndex
+                                                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                                                    : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-medium">
+                                                    {String.fromCharCode(65 + index)}. {p.title}
                                                 </span>
-                                            )}
-                                        </div>
-                                    </button>
-                                ))}
+                                                {p.solved > 0 && (
+                                                    <span className="text-xs text-gray-500">
+                                                        {p.solved} solved
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -164,6 +167,7 @@ const ContestProblemAppBar: React.FC<{
         </div>
     );
 };
+
 
 export function ContestProblemPage() {
     const { contestId, problemIndex } = useParams<{ contestId: string; problemIndex: string }>();
