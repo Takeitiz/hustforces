@@ -47,6 +47,21 @@ export interface TestCase {
     explanation?: string
 }
 
+export interface TestCaseUpdateDto {
+    id?: string  // Optional for new test cases
+    input: string
+    output: string
+}
+
+export interface ProblemUpdateDto {
+    title: string
+    description: string
+    structure: string
+    difficulty: "EASY" | "MEDIUM" | "HARD"
+    testcases: TestCaseUpdateDto[]
+    hidden: boolean
+}
+
 export interface ProblemDetailDto {
     id: string
     title: string
@@ -74,7 +89,7 @@ export interface AdminContestDto {
     endTime: string
     hidden: boolean
     leaderboard: boolean
-    problems: { id: string; title: string; index: number }[]
+    problems: { id: string; problemId: string; title: string; index: number }[]
     status: "UPCOMING" | "ACTIVE" | "ENDED"
     createdAt: string
     updatedAt: string
@@ -97,6 +112,31 @@ export interface PageResponse<T> {
     totalElements: number
     size: number
     number: number
+}
+
+// Dashboard DTOs
+interface AdminDashboardStatsDto {
+    userCount: number
+    problemCount: number
+    contestCount: number
+    solutionCount: number
+    recentUsers: AdminDashboardUserDto[]
+    recentProblems: AdminDashboardProblemDto[]
+}
+
+interface AdminDashboardUserDto {
+    id: string
+    username: string
+    email: string
+    role: string
+    createdAt: string
+}
+
+interface AdminDashboardProblemDto {
+    id: string
+    title: string
+    difficulty: string
+    createdAt: string
 }
 
 // Test case pagination response
@@ -209,6 +249,16 @@ const adminService = {
         }
     },
 
+    updateProblem: async (slug: string, data: ProblemUpdateDto): Promise<ProblemDetailDto> => {
+        try {
+            const response = await apiClient.put<ProblemDetailDto>(`/admin/problems/${slug}`, data)
+            return response.data
+        } catch (error) {
+            console.error("Failed to update problem:", error)
+            throw error
+        }
+    },
+
     updateProblemVisibility: async (slug: string, hidden: boolean): Promise<AdminProblemDto> => {
         try {
             const response = await apiClient.put<AdminProblemDto>(`/admin/problems/${slug}/visibility?hidden=${hidden}`)
@@ -308,18 +358,6 @@ const adminService = {
         }
     },
 
-    finalizeContest: async (id: string): Promise<{ status: "success" | "error"; message: string }> => {
-        try {
-            const response = await apiClient.post<{ status: "success" | "error"; message: string }>(
-                `/admin/contests/${id}/finalize`
-            )
-            return response.data
-        } catch (error) {
-            console.error("Failed to finalize contest:", error)
-            throw error
-        }
-    },
-
     // Import functionality
     importProblem: async (slug: string): Promise<string> => {
         try {
@@ -362,16 +400,9 @@ const adminService = {
     },
 
     // Dashboard statistics
-    getDashboardStats: async (): Promise<{
-        userCount: number
-        problemCount: number
-        contestCount: number
-        solutionCount: number
-        recentUsers: AdminUserDto[]
-        recentProblems: AdminProblemDto[]
-    }> => {
+    getDashboardStats: async (): Promise<AdminDashboardStatsDto> => {
         try {
-            const response = await apiClient.get("/admin/dashboard/stats")
+            const response = await apiClient.get<AdminDashboardStatsDto>("/admin/dashboard/stats")
             return response.data
         } catch (error) {
             console.error("Failed to fetch dashboard stats:", error)

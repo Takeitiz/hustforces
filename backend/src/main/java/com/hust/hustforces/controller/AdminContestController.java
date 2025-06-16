@@ -1,10 +1,17 @@
 package com.hust.hustforces.controller;
 
+import com.hust.hustforces.exception.ResourceNotFoundException;
+import com.hust.hustforces.mapper.ContestMapper;
 import com.hust.hustforces.model.dto.contest.ContestDto;
+import com.hust.hustforces.model.dto.contest.ContestProblemInfoDto;
 import com.hust.hustforces.model.dto.contest.CreateContestRequest;
 import com.hust.hustforces.model.dto.contest.UpdateContestRequest;
+import com.hust.hustforces.model.entity.Contest;
+import com.hust.hustforces.model.entity.Problem;
+import com.hust.hustforces.repository.ContestProblemRepository;
+import com.hust.hustforces.repository.ContestRepository;
+import com.hust.hustforces.repository.ProblemRepository;
 import com.hust.hustforces.service.ContestService;
-import com.hust.hustforces.service.LeaderboardService;
 import com.hust.hustforces.service.impl.ContestFinalizationService;
 import com.hust.hustforces.utils.CurrentUserUtil;
 import jakarta.validation.Valid;
@@ -19,7 +26,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin/contests")
@@ -28,15 +37,47 @@ import java.util.Map;
 @Slf4j
 public class AdminContestController {
     private final ContestService contestService;
-    private final LeaderboardService leaderboardService;
     private final CurrentUserUtil currentUserUtil;
     private final ContestFinalizationService finalizationService;
+    private final ContestRepository contestRepository;
+    private final ContestProblemRepository contestProblemRepository;
+    private final ProblemRepository problemRepository;
+    private final ContestMapper contestMapper;
 
     @GetMapping
     public ResponseEntity<Page<ContestDto>> getAllContests(
             @PageableDefault(size = 10, sort = "startTime") Pageable pageable) {
         Page<ContestDto> contests = contestService.getAllContests(pageable);
         return ResponseEntity.ok(contests);
+    }
+
+    @GetMapping("/{contestId}")
+    public ResponseEntity<ContestDto> getContest(@PathVariable String contestId) {
+        log.info("Admin fetching contest with id: {}", contestId);
+
+        Contest contest = contestRepository.findById(contestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contest", "id", contestId));
+
+        List<ContestProblemInfoDto> problemInfoDtos = contestProblemRepository
+                .findByContestIdOrderByIndex(contestId)
+                .stream()
+                .map(cp -> {
+                    Problem problem = problemRepository.findById(cp.getProblemId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Problem", "id", cp.getProblemId()));
+
+                    return ContestProblemInfoDto.builder()
+                            .id(cp.getId())
+                            .problemId(problem.getId())
+                            .title(problem.getTitle())
+                            .index(cp.getIndex())
+                            .solved(cp.getSolved())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        ContestDto contestDto = contestMapper.toContestDto(contest, problemInfoDtos);
+
+        return ResponseEntity.ok(contestDto);
     }
 
     @PostMapping
@@ -86,20 +127,6 @@ public class AdminContestController {
     @PostMapping("/{contestId}/updateLeaderboard")
     public ResponseEntity<Void> updateLeaderboard(@PathVariable String contestId) {
         contestService.updateLeaderboard(contestId);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/{contestId}/leaderboard/initialize")
-    public ResponseEntity<Void> initializeLeaderboard(@PathVariable String contestId) {
-        log.info("Initializing leaderboard for contest: {}", contestId);
-        leaderboardService.initializeLeaderboard(contestId);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/{contestId}/leaderboard/rebuild")
-    public ResponseEntity<Void> rebuildLeaderboard(@PathVariable String contestId) {
-        log.info("Rebuilding leaderboard for contest: {}", contestId);
-        leaderboardService.rebuildLeaderboard(contestId);
         return ResponseEntity.ok().build();
     }
 

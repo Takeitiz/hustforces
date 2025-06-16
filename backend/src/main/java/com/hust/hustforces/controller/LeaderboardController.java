@@ -72,22 +72,6 @@ public class LeaderboardController {
         return ResponseEntity.ok(statuses);
     }
 
-    @PostMapping("/contest/{contestId}/initialize")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> initializeLeaderboard(@PathVariable String contestId) {
-        log.info("Initializing leaderboard for contest: {}", contestId);
-        leaderboardService.initializeLeaderboard(contestId);
-        return ResponseEntity.ok().build();
-    }
-
-    @PostMapping("/contest/{contestId}/rebuild")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> rebuildLeaderboard(@PathVariable String contestId) {
-        log.info("Rebuilding leaderboard for contest: {}", contestId);
-        leaderboardService.rebuildLeaderboard(contestId);
-        return ResponseEntity.ok().build();
-    }
-
     // WebSocket methods to subscribe to leaderboard updates
     @MessageMapping("/contest/{contestId}/subscribe")
     public void subscribeToContestLeaderboard(@DestinationVariable String contestId) {

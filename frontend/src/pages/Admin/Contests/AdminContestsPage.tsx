@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
-import { Search, ChevronLeft, ChevronRight, Plus, Eye, EyeOff, Trash2, Edit, RefreshCw } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, Plus, Eye, EyeOff, Trash2, Edit } from "lucide-react"
 import { toast } from "react-toastify"
 import adminService, { type AdminContestDto } from "../../../service/adminService"
 import { Button } from "../../../components/ui/Button"
@@ -19,7 +19,6 @@ export function AdminContestsPage() {
     const [sort, setSort] = useState("startTime,desc")
     const [searchTerm, setSearchTerm] = useState("")
     const [visibilityUpdateLoading, setVisibilityUpdateLoading] = useState<string | null>(null)
-    const [finalizeLoading, setFinalizeLoading] = useState<string | null>(null)
     const [deleteModalOpen, setDeleteModalOpen] = useState(false)
     const [contestToDelete, setContestToDelete] = useState<AdminContestDto | null>(null)
     const [deleteLoading, setDeleteLoading] = useState(false)
@@ -81,24 +80,6 @@ export function AdminContestsPage() {
             toast.error("Failed to update contest visibility")
         } finally {
             setVisibilityUpdateLoading(null)
-        }
-    }
-
-    const handleFinalizeContest = async (contest: AdminContestDto) => {
-        setFinalizeLoading(contest.id)
-        try {
-            const result = await adminService.finalizeContest(contest.id)
-            if (result.status === "success") {
-                toast.success(result.message)
-                fetchContests() // Refresh the list
-            } else {
-                toast.error(result.message)
-            }
-        } catch (error) {
-            console.error("Failed to finalize contest:", error)
-            toast.error("Failed to finalize contest")
-        } finally {
-            setFinalizeLoading(null)
         }
     }
 
@@ -275,21 +256,6 @@ export function AdminContestsPage() {
                                                 {contest.hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                                                 <span className="sr-only">{contest.hidden ? "Make visible" : "Hide"}</span>
                                             </Button>
-                                            {contest.status === "ENDED" && (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleFinalizeContest(contest)}
-                                                    disabled={finalizeLoading === contest.id}
-                                                    className="text-purple-600 dark:text-purple-400"
-                                                    title="Finalize Contest"
-                                                >
-                                                    <RefreshCw
-                                                        className={`h-4 w-4 ${finalizeLoading === contest.id ? "animate-spin" : ""}`}
-                                                    />
-                                                    <span className="sr-only">Finalize Contest</span>
-                                                </Button>
-                                            )}
                                             <Button
                                                 variant="outline"
                                                 size="sm"

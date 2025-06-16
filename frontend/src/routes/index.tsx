@@ -30,6 +30,7 @@ import { ProblemsPage } from "../pages/Problem/ProblemsPage.tsx"
 import {UserSubmissionsPage} from "../pages/Profile/UserSubmissionsPage.tsx";
 import {ContestProblemPage} from "../pages/Contest/ContestProblemPage.tsx";
 import {StandingsPage} from "../pages/Standings/StandingsPage.tsx";
+import {EditContestPage} from "../pages/Admin/Contests/EditContestPage.tsx";
 
 const router = createBrowserRouter([
     {
@@ -149,6 +150,10 @@ const router = createBrowserRouter([
                     {
                         path: "contests/create",
                         element: <CreateContestPage />,
+                    },
+                    {
+                        path: "contests/:id",
+                        element: <EditContestPage />,
                     },
                     {
                         path: "import",
